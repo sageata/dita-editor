@@ -1,0 +1,765 @@
+/* DITA Editor editor-surface chrome. Neutral document presentation lives in
+ * content-theme.css; this file contains only editing layout, interaction, and
+ * accessibility overrides that are never serialized to DITA source. */
+
+/* Clear the fixed command bar so the first editable block remains reachable. */
+body.ditaeditor-canvas main {
+  padding-top: 72px;
+}
+
+/* ── Persistent top command bar (built by canvas.js as a body sibling; render-only chrome). Frame A of
+ *    the DITA Toolbar design: labelled clusters of flat icon buttons. Layout (position/top/z-index/flex)
+ *    is set inline for stale-stylesheet safety; this layers the theming. ── */
+body.ditaeditor-canvas .cmd-bar {
+  display: flex;
+  align-items: flex-start;
+  min-height: 36px;
+  padding: 8px 14px;
+  background: #fafafa;
+  border-bottom: 1px solid #ebebeb;
+  font-family: var(--dc-font-family, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+}
+body.ditaeditor-canvas .cmd-bar .cmd-group-label {
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #a3a3a3;
+}
+/* Flat ghost icon button (the design's 34x32 #5f5f5f tool). Hover/disabled need real selectors, so they
+ * live here; load-bearing sizing/colour is inline in makeBarBtn as stale-stylesheet insurance. */
+body.ditaeditor-canvas .tb-iconbtn {
+  transition: background 0.12s ease, color 0.12s ease;
+}
+body.ditaeditor-canvas .tb-iconbtn:hover:not([aria-disabled="true"]) {
+  background: #ededed;
+  color: #2b2b2b;
+}
+body.ditaeditor-canvas .cmd-bar .cmd-status {
+  margin-left: auto;
+  font: 11px/1.5 var(--dc-font-family, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  color: #5a6b78;
+  white-space: nowrap;
+}
+/* Keyboard focus ring on the bar's buttons matches the rest of the chrome (button:focus-visible above). */
+
+/* ── Context menu (Frame D of the design): a rounded card with grouped sections. The menu DOM is built by
+ *    canvas.js (createMenu) with load-bearing inline layout; these rules add the hover/affordance states
+ *    that require real selectors (:hover) and the destructive-action tint. ── */
+body.ditaeditor-canvas .tb-menuitem {
+  transition: background 0.1s ease, color 0.1s ease;
+}
+body.ditaeditor-canvas .tb-menuitem:hover:not([aria-disabled="true"]),
+body.ditaeditor-canvas .tb-menuitem:focus-visible:not([aria-disabled="true"]) {
+  background: #f1f1f1;
+}
+/* Delete/destructive items (canvas.js adds .tb-menuitem-del) tint red on hover, matching the design. */
+body.ditaeditor-canvas .tb-menuitem-del:hover:not([aria-disabled="true"]),
+body.ditaeditor-canvas .tb-menuitem-del:focus-visible:not([aria-disabled="true"]) {
+  background: #f8efed;
+  color: #a8463d;
+}
+
+/* ── Properties sidebar (Frame A left bar; built by canvas.js as a body sibling). Editable attribute
+ *    fields get a hover/focus affordance here (real selectors); load-bearing layout is inline. ── */
+body.ditaeditor-canvas .prop-panel .prop-field {
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+body.ditaeditor-canvas .prop-panel .prop-field:hover {
+  background: #fff;
+  border-color: #e3e3e3;
+}
+body.ditaeditor-canvas .prop-panel .prop-field:focus,
+body.ditaeditor-canvas .prop-panel .prop-field:focus-visible {
+  outline: none;
+  background: #fff;
+  border-color: #b6b9bd;
+  box-shadow: 0 0 0 3px rgba(110, 110, 110, 0.13);
+}
+body.ditaeditor-canvas .prop-panel .prop-field::placeholder {
+  color: #c4c4c4;
+}
+body.ditaeditor-canvas .prop-toggle-btn,
+body.ditaeditor-canvas .prop-show-button {
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+body.ditaeditor-canvas .prop-toggle-btn:hover,
+body.ditaeditor-canvas .prop-toggle-btn:focus-visible,
+body.ditaeditor-canvas .prop-show-button:hover,
+body.ditaeditor-canvas .prop-show-button:focus-visible {
+  outline: none;
+  background: #ededed;
+  border-color: #e1e1e1;
+  color: #2b2b2b;
+}
+body.ditaeditor-canvas .prop-clear-all {
+  border-radius: 6px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+body.ditaeditor-canvas .prop-clear-all:hover:not(:disabled),
+body.ditaeditor-canvas .prop-clear-all:focus-visible:not(:disabled) {
+  outline: none;
+  background: #ededed;
+  color: #2b2b2b;
+}
+body.ditaeditor-canvas .prop-resize-handle {
+  transition: background 0.12s ease;
+}
+body.ditaeditor-canvas .prop-resize-handle:hover,
+body.ditaeditor-canvas .prop-resize-handle:focus-visible {
+  outline: none;
+  background: linear-gradient(to right, transparent 0 3px, #b6b9bd 3px 4px, transparent 4px);
+}
+body.ditaeditor-canvas.prop-resizing,
+body.ditaeditor-canvas.prop-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.ditaeditor-canvas .taxonomy-field {
+  border-bottom: 1px solid #efefef;
+  padding: 10px 0;
+}
+body.ditaeditor-canvas .taxonomy-field-head {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+body.ditaeditor-canvas .taxonomy-label {
+  color: #525252;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+body.ditaeditor-canvas .taxonomy-warning {
+  color: #8a5a00;
+  font-size: 10.5px;
+  line-height: 1.25;
+  text-align: right;
+}
+body.ditaeditor-canvas .taxonomy-input {
+  background: #fff;
+  border: 1px solid #dedede;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: #363636;
+  font: 12px var(--dc-font-family, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  min-height: 28px;
+  padding: 4px 7px;
+  width: 100%;
+}
+body.ditaeditor-canvas .taxonomy-input:focus,
+body.ditaeditor-canvas .taxonomy-input:focus-visible {
+  border-color: #525252;
+  box-shadow: 0 0 0 3px rgba(110, 110, 110, 0.13);
+  outline: none;
+}
+body.ditaeditor-canvas .taxonomy-field.is-missing .taxonomy-input,
+body.ditaeditor-canvas .taxonomy-field.is-missing .taxonomy-chip {
+  border-color: #c7922a;
+}
+body.ditaeditor-canvas .taxonomy-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+body.ditaeditor-canvas .taxonomy-chip {
+  align-items: center;
+  background: #f3f3f3;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+  color: #363636;
+  cursor: pointer;
+  display: inline-flex;
+  font: 11.5px var(--dc-font-family, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  line-height: 1.2;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 4px 7px;
+  text-align: left;
+}
+body.ditaeditor-canvas .taxonomy-chip:hover {
+  background: #e8e8e8;
+}
+body.ditaeditor-canvas .taxonomy-empty,
+body.ditaeditor-canvas .taxonomy-no-options {
+  color: #8a8a8a;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+body.ditaeditor-canvas .taxonomy-combo {
+  position: relative;
+}
+body.ditaeditor-canvas .taxonomy-options {
+  background: #fff;
+  border: 1px solid #dedede;
+  border-radius: 6px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.09);
+  box-sizing: border-box;
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+  max-height: 190px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 4px;
+  position: absolute;
+  scrollbar-color: #c8ccd1 transparent;
+  scrollbar-width: thin;
+  width: 100%;
+  z-index: 80;
+}
+body.ditaeditor-canvas .taxonomy-options::-webkit-scrollbar {
+  width: 8px;
+}
+body.ditaeditor-canvas .taxonomy-options::-webkit-scrollbar-track {
+  background: transparent;
+}
+body.ditaeditor-canvas .taxonomy-options::-webkit-scrollbar-thumb {
+  background: #c8ccd1;
+  border: 2px solid #fff;
+  border-radius: 999px;
+}
+body.ditaeditor-canvas .taxonomy-options::-webkit-scrollbar-thumb:hover {
+  background: #aeb4bb;
+}
+body.ditaeditor-canvas .prop-panel-scroll {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+body.ditaeditor-canvas .prop-panel-scroll:hover {
+  scrollbar-color: #d2d5da transparent;
+}
+body.ditaeditor-canvas .prop-panel-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+body.ditaeditor-canvas .prop-panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+body.ditaeditor-canvas .prop-panel-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+body.ditaeditor-canvas .prop-panel-scroll:hover::-webkit-scrollbar-thumb {
+  background: #cfd2d8;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+body.ditaeditor-canvas .prop-panel-scroll::-webkit-scrollbar-thumb:hover {
+  background: #b6bac1;
+  background-clip: padding-box;
+}
+body.ditaeditor-canvas .style-panel {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+body.ditaeditor-canvas .style-panel:hover {
+  scrollbar-color: #d2d5da transparent;
+}
+body.ditaeditor-canvas .style-panel::-webkit-scrollbar {
+  width: 8px;
+}
+body.ditaeditor-canvas .style-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+body.ditaeditor-canvas .style-panel::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+body.ditaeditor-canvas .style-panel:hover::-webkit-scrollbar-thumb {
+  background: #cfd2d8;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+body.ditaeditor-canvas .style-panel::-webkit-scrollbar-thumb:hover {
+  background: #b6bac1;
+  background-clip: padding-box;
+}
+body.ditaeditor-canvas .taxonomy-options:empty {
+  display: none;
+}
+body.ditaeditor-canvas .taxonomy-option {
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: #363636;
+  cursor: pointer;
+  font: 11.5px var(--dc-font-family, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  min-height: 24px;
+  overflow-wrap: anywhere;
+  padding: 4px 6px;
+  text-align: left;
+}
+body.ditaeditor-canvas .taxonomy-option:hover,
+body.ditaeditor-canvas .taxonomy-option:focus,
+body.ditaeditor-canvas .taxonomy-option:focus-visible {
+  background: #eeeeee;
+  outline: none;
+}
+
+/* ── Styles sidebar (right bar; CSS-backed author styles). The workspace CSS file is the source
+ *    of truth; this is only editor chrome for editing/applying those definitions. ── */
+body.ditaeditor-canvas .style-panel .style-field {
+  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+body.ditaeditor-canvas .style-panel .style-field:hover {
+  border-color: #d9d9d9;
+}
+body.ditaeditor-canvas .style-panel .style-field:focus,
+body.ditaeditor-canvas .style-panel .style-field:focus-visible {
+  outline: none;
+  border-color: #b6b9bd;
+  box-shadow: 0 0 0 3px rgba(110, 110, 110, 0.13);
+}
+body.ditaeditor-canvas .style-panel button,
+body.ditaeditor-canvas .style-show-button,
+body.ditaeditor-canvas .style-toggle-btn {
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+body.ditaeditor-canvas .style-panel button:hover:not(:disabled),
+body.ditaeditor-canvas .style-panel button:focus-visible:not(:disabled),
+body.ditaeditor-canvas .style-show-button:hover,
+body.ditaeditor-canvas .style-show-button:focus-visible,
+body.ditaeditor-canvas .style-toggle-btn:hover,
+body.ditaeditor-canvas .style-toggle-btn:focus-visible {
+  outline: none;
+  background: #ededed;
+  border-color: #dcdcdc;
+  color: #2b2b2b;
+}
+body.ditaeditor-canvas .style-panel button:disabled:not(.style-apply),
+body.ditaeditor-canvas .style-panel button[aria-disabled="true"]:not(.style-apply) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+body.ditaeditor-canvas .style-panel .style-preview:hover,
+body.ditaeditor-canvas .style-panel .style-preview:focus-visible {
+  outline: none;
+}
+body.ditaeditor-canvas .style-resize-handle {
+  transition: background 0.12s ease;
+}
+body.ditaeditor-canvas .style-resize-handle:hover,
+body.ditaeditor-canvas .style-resize-handle:focus-visible {
+  outline: none;
+  background: linear-gradient(to right, transparent 0 3px, #b6b9bd 3px 4px, transparent 4px);
+}
+body.ditaeditor-canvas.style-resizing,
+body.ditaeditor-canvas.style-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+/* ── Table column resize. Handles are body-level overlays positioned by canvas-table-resize.js, so they
+ *    never become table children and never disturb CALS table layout while moving. The webview mutates
+ *    existing <col> widths during drag and posts one source edit on pointer-up, avoiding rerender flicker. ── */
+body.ditaeditor-canvas table[data-table-has-colwidths="true"],
+body.ditaeditor-canvas table.dc-table-resizing {
+  table-layout: fixed;
+}
+/* Handles stay draggable but INVISIBLE at rest (user request: invisible, not useless).
+ * On hover, canvas-table-resize.js paints a short stripe segment LOCAL to the cursor
+ * (inline background + mask) — never the full-table-height line. The
+ * dc-table-guides-debug layer class (localStorage 'ditaeditor.visual.tableGuides' =
+ * 'true' + reload) restores the always-visible full guides for debugging. */
+body.ditaeditor-canvas .dc-table-col-resize-handle {
+  cursor: col-resize;
+  background: transparent;
+  border-radius: 2px;
+}
+body.ditaeditor-canvas .dc-table-guides-debug .dc-table-col-resize-handle {
+  background: linear-gradient(to right, transparent 0 6px, rgba(22, 49, 60, 0.52) 6px 10px, transparent 10px);
+  opacity: 1;
+}
+body.ditaeditor-canvas.dc-table-column-resizing,
+body.ditaeditor-canvas.dc-table-column-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+body.ditaeditor-canvas.dc-table-column-resizing .dc-table-col-resize-handle {
+  opacity: 0;
+}
+
+/* Intersection "+" row/column inserters (canvas-table-insert-plus.js): the button
+ * and guide line are inline-styled like the ruler chips; the layer just needs to
+ * vanish while a column-width drag is in flight so the two gestures never fight. */
+body.ditaeditor-canvas.dc-table-column-resizing .dc-table-insert-plus-layer {
+  display: none;
+}
+body.ditaeditor-canvas .dc-table-insert-plus:focus-visible {
+  outline: 2px solid #0b6bcb;
+  outline-offset: 1px;
+}
+
+/* A configured workspace may add page chrome; suppress it on the editing surface. */
+body.ditaeditor-canvas::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* ── Editing affordances: focus + caret ── */
+
+/* A clear, consistent focus ring for every editable target (whole cells, run-spans, p, li,
+ * title, cmd). [contenteditable]:focus covers them all; outline-offset:-2px keeps it inside
+ * the element so .body{overflow-x:auto} can't clip it. Same blue as the merge highlight. */
+body.ditaeditor-canvas [contenteditable]:focus,
+body.ditaeditor-canvas [contenteditable]:focus-visible {
+  outline: 2px solid #4a90d9;
+  outline-offset: -2px;
+  border-radius: 2px;
+}
+
+/* Strong, visible caret. */
+body.ditaeditor-canvas [contenteditable] {
+  caret-color: var(--dc-color-accent-strong, #1d4ed8);
+}
+
+/* Keyboard focus ring on toolbar/banner buttons (mouse clicks stay ring-free). */
+body.ditaeditor-canvas button:focus-visible {
+  outline: 2px solid #4a90d9;
+  outline-offset: 1px;
+}
+
+/* ── Empty-state caret anchors. Empty editable elements render a lone <br data-empty-caret>
+ *    so the browser has a real caret position. The renderer still stamps
+ *    data-empty-placeholder, but the visible "Empty paragraph/cell/…" ::before labels were
+ *    removed by user request (too noisy across sparse corpus tables). ── */
+body.ditaeditor-canvas br[data-empty-caret] {
+  display: block;
+}
+
+/* ── Image ergonomics: never collapse a row; make a broken/empty image obviously broken. ── */
+
+/* Keep a broken image addressable instead of letting it collapse to zero size. */
+body.ditaeditor-canvas img.image {
+  min-width: 28px;
+  min-height: 28px;
+}
+
+/* A genuinely broken image (load error) is handled in canvas.js: it neutralises the failed
+ * <img> and inserts an inline-styled high-contrast `.broken-image-label` pill. The styling is
+ * INLINE (in the client) rather than here on purpose — the dark header cell forces white text
+ * on its content, and only an inline style reliably beats that inheritance and any stale-cached
+ * stylesheet. So there is deliberately no `.broken-image-label` rule in this file. */
+
+/* Empty href -> an explicit, unmistakable placeholder box (an image awaiting a source). The render
+ * gives such an image alt="Empty image"; the color + italic here match the "Empty paragraph/cell"
+ * text placeholders so the UA-rendered alt text reads consistently with them (P1-3 empty-state
+ * parity). forced-colors keeps the box visible via border-color: CanvasText (see end of file). */
+body.ditaeditor-canvas img.image[src=""],
+body.ditaeditor-canvas img.image:not([src]) {
+  display: inline-block;
+  min-width: 120px;
+  min-height: 80px;
+  border: 1px dashed var(--dc-color-text-muted, #4b5563);
+  background: repeating-linear-gradient(45deg, #0000, #0000 6px, #8881 6px, #8881 12px);
+  color: var(--dc-color-text-muted, #4b5563);
+  font-style: italic;
+}
+
+/* ── Hover toolbar buttons: cursor + disabled state (the disabled invalid-action affordance).
+ *    cursor lives here (not inline in makeBtn) so :disabled can override it. ── */
+body.ditaeditor-canvas .tb-btn {
+  cursor: pointer;
+}
+body.ditaeditor-canvas .tb-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Element selection (render-only; painted by canvas.js, never serialized). Blocks AND table
+ *    cells get a tint + an INSET ring via box-shadow — deliberately NOT outline, so the focus
+ *    outline (above) stays the only `outline` and a focused-and-selected cell shows BOTH the
+ *    focus ring and the selection ring instead of collapsing into one (P0-2). The tint is the
+ *    primary, always-visible selected signal; the inset ring is the contrast boost (forced-colors
+ *    drops both — restored as a system-coloured outline at the bottom of this file).
+ *    `.selecting` suppresses native text selection mid-drag so the rectangle reads cleanly. ── */
+body.ditaeditor-canvas .is-selected {
+  background: rgba(74, 144, 217, 0.18);
+  box-shadow: inset 0 0 0 2px #4a90d9;
+  border-radius: 2px;
+}
+body.ditaeditor-canvas td.is-selected,
+body.ditaeditor-canvas th.is-selected {
+  background: rgba(74, 144, 217, 0.20);
+  box-shadow: inset 0 0 0 2px #4a90d9;
+}
+/* Editable prose should never look like it has an authored gray background. Keep the selection
+ * ring for block selection, but reserve the fill for non-text objects and table cells. */
+body.ditaeditor-canvas [contenteditable].is-selected:not(td):not(th) {
+  background: transparent;
+}
+/* A loaded <img> paints over an inset box-shadow, so the .is-selected ring above is invisible on
+ * images (W3's IMG-1 runtime watch-point). Give a selected image an OUTLINE instead — images never
+ * receive :focus, so this can't collide with the focus ring. forced-colors re-asserts it with
+ * Highlight at the end of this file. */
+body.ditaeditor-canvas img.is-selected {
+  outline: 2px solid #4a90d9;
+  outline-offset: 1px;
+}
+body.ditaeditor-canvas.selecting,
+body.ditaeditor-canvas.selecting * {
+  user-select: none;
+}
+
+/* ── Non-editable keyboard nav landing (#NAV). When an arrow key lands on a NON-editable element that
+ *    is NOT a selection unit (a figure / table reached by arrow-escape), canvas.js focuses it and sets
+ *    .is-nav-focus. Selection-unit landings (p/li/image) use .is-selected instead; this is the
+ *    figure/table fallback so an arrow-escape target is always visibly indicated. Outset ring so it
+ *    reads on a bordered table/figure; same brand blue as focus/selection. ── */
+body.ditaeditor-canvas .is-nav-focus {
+  outline: 2px solid #4a90d9;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ── Current element (canvas.js sets aria-current="true" on the active element; it persists when
+ *    focus moves to the toolbar/chrome). Give "current" its OWN cue — a subtle DASHED ring in a
+ *    different colour from the solid focus outline and the selection ring — but only when it is
+ *    not already shown as focused or selected, so focus / current / selected stay three distinct,
+ *    non-colliding states (P0-2). ── */
+body.ditaeditor-canvas [aria-current]:not(:focus):not(.is-selected) {
+  outline: 1px dashed var(--dc-color-text, #1f2937);
+  outline-offset: -2px;
+  border-radius: 2px;
+}
+
+/* ── Insert anchor (P1-2b). The render side marks every "insert after" target with data-struct-id +
+ *    data-struct-kind (p/li/row + the table/fig added in P1-2b); canvas.js (W3, not yet wired) toggles
+ *    .is-insert-anchor on the element a pending insert will FOLLOW. Cue the gap BELOW it with a
+ *    accent inset bottom bar — a distinct shape from the selection ring, focus
+ *    outline and dark dashed current ring, so the four states stay separable (P0-2). The accent has
+ *    approximately 5.2:1 (#2563eb on white) contrast. Inert until W3 wires the class; render-only,
+ *    never serialized. ── */
+body.ditaeditor-canvas .is-insert-anchor {
+  box-shadow: inset 0 -3px 0 0 var(--dc-color-accent, #2563eb);
+}
+
+/* ── End-of-document insertion. This trailing button is render-only chrome appended by
+ *    canvas-end-insert.js. It creates a generous click target for adding a fresh paragraph
+ *    after the final document block without opening the context menu. No visible explanatory
+ *    copy is used; the icon/line are affordance only, and the host insert core still validates
+ *    the write before any DITA source changes. ── */
+body.ditaeditor-canvas .dc-end-insert {
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 1px dashed transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dc-color-text, #1f2937);
+  cursor: text;
+  position: relative;
+}
+body.ditaeditor-canvas .dc-end-insert::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid rgb(31 41 55 / 22%);
+  opacity: 0.55;
+}
+body.ditaeditor-canvas .dc-end-insert::after {
+  content: "+";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgb(31 41 55 / 24%);
+  border-radius: 50%;
+  background: #fff;
+  color: rgb(31 41 55 / 72%);
+  font: 18px/20px var(--dc-font-family, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  text-align: center;
+}
+body.ditaeditor-canvas .dc-end-insert:hover,
+body.ditaeditor-canvas .dc-end-insert:focus-visible {
+  outline: none;
+  border-color: rgb(37 99 235 / 42%);
+  background: rgb(37 99 235 / 4%);
+}
+body.ditaeditor-canvas .dc-end-insert:hover::before,
+body.ditaeditor-canvas .dc-end-insert:focus-visible::before {
+  border-top-color: var(--dc-color-accent, #2563eb);
+  opacity: 0.85;
+}
+body.ditaeditor-canvas .dc-end-insert:hover::after,
+body.ditaeditor-canvas .dc-end-insert:focus-visible::after {
+  border-color: var(--dc-color-accent, #2563eb);
+  color: var(--dc-color-accent, #2563eb);
+}
+
+/* ── Parse-error fallback: make the host's <pre> error legible, not a raw monospace dump. ── */
+body.ditaeditor-canvas pre.dita-parse-error {
+  margin: 24px;
+  padding: 16px;
+  border-left: 4px solid #b00020;
+  background: #fdecee;
+  color: #5c0011;
+  white-space: pre-wrap;
+  border-radius: 4px;
+}
+
+/* ── Forced-colors / Windows High Contrast adaptation (P0-1). In this mode the UA drops
+ *    box-shadow and rgba backgrounds, so the selection ring + tint would vanish entirely, and
+ *    author colours are replaced by the system palette. Restore each state with system colours
+ *    and outlines (which ARE honoured), keeping focus, current and selected distinguishable.
+ *    The canvas keeps its own light surface, so prose contrast is unaffected — these rules only
+ *    rescue the editor chrome. No backgrounds/text are forced (that risks illegible cell text). ── */
+@media (forced-colors: active) {
+  /* selection: box-shadow is dropped → re-assert via a system-coloured outline */
+  body.ditaeditor-canvas .is-selected,
+  body.ditaeditor-canvas td.is-selected,
+  body.ditaeditor-canvas th.is-selected,
+  body.ditaeditor-canvas img.is-selected {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  /* nav-focus ring re-asserted with the system Highlight (the author blue is dropped) */
+  body.ditaeditor-canvas .is-nav-focus {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+  /* current stays distinct from the (focus/selection) outlines */
+  body.ditaeditor-canvas [aria-current]:not(:focus):not(.is-selected) {
+    outline-color: CanvasText;
+  }
+  /* the empty-image gradient is dropped → keep the box visible via its border */
+  body.ditaeditor-canvas img.image[src=""],
+  body.ditaeditor-canvas img.image:not([src]) {
+    border-color: CanvasText;
+  }
+  /* the parse-error tint is dropped → keep it legible via system colours */
+  body.ditaeditor-canvas pre.dita-parse-error {
+    color: CanvasText;
+    border-color: CanvasText;
+  }
+  /* The host save/parse error banner (the ONLY [role="alert"] in the canvas — canvas.js:452) is
+   * bounded only by a solid background + a box-shadow; forced-colors flattens the background to
+   * Canvas and drops the shadow, leaving a borderless Canvas-on-Canvas bar that blends into the
+   * page. Re-bound it with a system-coloured inset outline so the alert stays a visible, distinct
+   * region (its text legibility is already guaranteed by the UA forcing it to CanvasText). Every
+   * other chrome surface — toolbar, toolbar buttons, the count/debug chips — keeps a 1px border
+   * the UA recolours, so only the borderless banner needs this. */
+  body.ditaeditor-canvas [role="alert"] {
+    outline: 2px solid CanvasText;
+    outline-offset: -2px;
+  }
+  /* insert-anchor: the accent bottom bar (box-shadow) is dropped → re-assert the "insert below" cue
+   * with a system-coloured bottom border; the bottom-only shape keeps it distinct from the
+   * all-around selection (Highlight) and current (CanvasText) outlines. */
+  body.ditaeditor-canvas .is-insert-anchor {
+    border-bottom: 3px solid CanvasText;
+  }
+}
+
+/* ── Reduced motion (P1-4). Honour the OS "reduce motion" setting: collapse every transition and
+ *    animation in the canvas to near-instant and disable smooth scrolling. This also neutralises
+ *    transitions supplied by a configured workspace stylesheet.
+ *    The blanket reset also covers any transition/animation added later (the PRD's "current and
+ *    future"). 0.01ms (not `none`) keeps any transition/animation END event firing for JS that
+ *    might one day rely on it. Scoped to the canvas so it never leaks past the editor. ── */
+@media (prefers-reduced-motion: reduce) {
+  body.ditaeditor-canvas,
+  body.ditaeditor-canvas *,
+  body.ditaeditor-canvas *::before,
+  body.ditaeditor-canvas *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Print (P2-2). Printing the canvas should output CONTENT, not the editing chrome: drop the
+ *    hover toolbar, the selection / focus / current cues and the empty-state hint text (all
+ *    authoring-only), let wide tables flow instead of being clipped by the editor's horizontal
+ *    scroll box, and keep table rows and figures from splitting across pages. Content already
+ *    prints dark-on-white (the canvas is a light surface). No print trigger exists in the editor
+ *    UI today — this is a sane default for any future print/export path. ── */
+@media print {
+  body.ditaeditor-canvas .tb-btn { display: none !important; }
+  body.ditaeditor-canvas .cmd-bar { display: none !important; }
+  body.ditaeditor-canvas .prop-panel { display: none !important; }
+  body.ditaeditor-canvas .prop-resize-handle { display: none !important; }
+  body.ditaeditor-canvas .prop-show-button { display: none !important; }
+  body.ditaeditor-canvas main {
+    padding-top: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    min-width: 0 !important;
+    max-width: 1040px !important;
+  }
+  body.ditaeditor-canvas .is-selected,
+  body.ditaeditor-canvas img.is-selected,
+  body.ditaeditor-canvas .is-nav-focus,
+  body.ditaeditor-canvas .is-insert-anchor {
+    background: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  body.ditaeditor-canvas [contenteditable]:focus,
+  body.ditaeditor-canvas [contenteditable]:focus-visible,
+  body.ditaeditor-canvas [aria-current]:not(:focus):not(.is-selected) {
+    outline: none !important;
+  }
+  body.ditaeditor-canvas .body { overflow: visible !important; }
+}
+
+/* ── Wave-1 view chrome: forced-colors floor ─────────────────────────────────
+ * The shortcut-help dialog is inline-styled chrome; Windows High Contrast
+ * strips its background, so re-assert a visible boundary the same way the
+ * error banner does ([role="alert"] outline). */
+@media (forced-colors: active) {
+  body.ditaeditor-canvas [data-ditaeditor-shortcut-help] {
+    outline: 2px solid CanvasText;
+  }
+}
+
+/* ── UI-3 sticky table headers: REMOVED. The sticky offset resolved against the
+ * wrong containing box in this stack, so every resizable table's thead painted
+ * 72-80px below its natural slot AT ALL TIMES (empty band at the table top,
+ * header covering the first body rows) — measured broken at zoom 1 and 0.9,
+ * scrolled and unscrolled. A pinned-header feature needs a different mechanism
+ * (e.g. a cloned overlay header), not position:sticky here. ── */
+
+/* ── UI-3 row/column hover cross-highlight ────────────────────────────────────
+ * background-image layers the tint over the zebra/header background-color
+ * without replacing it. Column marks (.dc-col-hover) come from
+ * canvas-table-hover.js; the row tint is pure CSS. The intersection cell gets
+ * the stronger tint. */
+body.ditaeditor-canvas table[data-table-resizable="true"] tbody tr:hover > td,
+body.ditaeditor-canvas table[data-table-resizable="true"] tbody tr:hover > th,
+body.ditaeditor-canvas table[data-table-resizable="true"] td.dc-col-hover,
+body.ditaeditor-canvas table[data-table-resizable="true"] th.dc-col-hover {
+  background-image: linear-gradient(rgba(36, 56, 68, 0.05), rgba(36, 56, 68, 0.05));
+}
+body.ditaeditor-canvas table[data-table-resizable="true"] tbody tr:hover > td.dc-col-hover,
+body.ditaeditor-canvas table[data-table-resizable="true"] tbody tr:hover > th.dc-col-hover {
+  background-image: linear-gradient(rgba(36, 56, 68, 0.09), rgba(36, 56, 68, 0.09));
+}
+
+
+/* ── UX-7 inline lint marks ── */
+body.ditaeditor-canvas .dc-lint {
+  text-decoration: underline dotted 1.5px #b8860b;
+  text-underline-offset: 3px;
+}
+
+/* ── Wave-4 chrome: forced-colors floor (find/replace bar, drag drop-line) ── */
+@media (forced-colors: active) {
+  body.ditaeditor-canvas [data-ditaeditor-find-replace] {
+    outline: 2px solid CanvasText;
+  }
+}

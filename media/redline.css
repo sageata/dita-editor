@@ -1,0 +1,283 @@
+/* Track-changes surface stylesheet. Loaded only by the Review Changes panel,
+ * after document styles and instead of editor.css. Rules are namespaced .redline-* so
+ * nothing here can leak into the canvas or published preview.
+ *
+ * Presentation follows Word's track-changes idiom for non-technical authors:
+ * insertions green, deletions red struck-through, formatting-only changes a
+ * single amber-flagged block (never a stacked duplicate for a pure restyle).
+ */
+
+/* ── Banner: what is being compared, and how many changes ── */
+
+.redline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 24px;
+  padding: 10px 16px;
+  background: var(--dc-color-accent-strong, #1d4ed8);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.redline-banner .redline-banner-count {
+  margin-left: auto;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.redline-banner .redline-banner-note {
+  opacity: 0.85;
+}
+
+/* One-click switch to the native side-by-side git diff. */
+.redline-banner .redline-banner-btn {
+  margin-left: auto;
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.redline-banner .redline-banner-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* The count hugs the button once one is present. */
+.redline-banner .redline-banner-btn + .redline-banner-count {
+  margin-left: 0;
+}
+
+/* ── Whole-block insertions / deletions ── */
+
+.redline-block {
+  border-left: 4px solid transparent;
+  padding: 4px 8px 4px 12px;
+  margin: 4px 0;
+  border-radius: 2px;
+}
+
+.redline-block-ins {
+  border-left-color: #137333;
+  background: #e6f4ea;
+}
+
+.redline-block-del {
+  border-left-color: #c5221f;
+  background: #fce8e6;
+}
+
+/* Strike deleted content wherever it nests (paragraphs, list items, cells) —
+ * but never the images themselves, which just dim. */
+.redline-block-del {
+  text-decoration: line-through;
+  text-decoration-color: #c5221f;
+  text-decoration-thickness: 1px;
+}
+
+.redline-block-del img {
+  opacity: 0.45;
+}
+
+/* ── Formatting-only change: one live-styled block with an amber flag ── */
+
+.redline-block-fmt {
+  border-left-color: #b06000;
+  background: #fef7e0;
+}
+
+.redline-fmt-label {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #b06000;
+}
+
+/* ── Word-level merged modified block: the inline del/ins spans below carry
+ * the color; the block itself only gets a subtle blue-tinted marker. ── */
+
+.redline-block-mod {
+  border-left-color: #a8c7e7;
+}
+
+/* ── Moved blocks: content renders ONCE at its destination; the origin is a
+ * slim dashed marker. Blue family, distinct from ins/del/fmt. ── */
+
+.redline-block-moved {
+  border-left-color: #1a56b0;
+  background: #e8f0fe;
+}
+
+.redline-block-moved-from {
+  border-left-color: #1a56b0;
+  border-left-style: dashed;
+  background: #e8f0fe;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.redline-move-label {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a56b0;
+}
+
+.redline-block-moved-from .redline-move-label {
+  margin: 0;
+}
+
+/* ── Merged table: ONE table with per-row / per-cell marks (never a stacked
+ * whole-table duplicate). The markers ride @outputclass through the real table
+ * renderer, so CALS structure, column widths and header wiring stay intact. ── */
+
+tr.redline-row-ins > td,
+tr.redline-row-ins > th {
+  background: #e6f4ea;
+}
+
+tr.redline-row-del > td,
+tr.redline-row-del > th {
+  background: #fce8e6;
+  text-decoration: line-through;
+  text-decoration-color: #c5221f;
+  text-decoration-thickness: 1px;
+}
+
+tr.redline-row-del img {
+  opacity: 0.45;
+}
+
+/* Modified cell: old content stacked (struck) above new INSIDE the same cell.
+ * The wrappers are emitted as spans by the render core's default case, so they
+ * must be re-blocked here. */
+.redline-cell-del,
+.redline-cell-ins {
+  display: block;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.redline-cell-del {
+  background: #fce8e6;
+  text-decoration: line-through;
+  text-decoration-color: #c5221f;
+  text-decoration-thickness: 1px;
+}
+
+.redline-cell-del img {
+  opacity: 0.45;
+}
+
+.redline-cell-ins {
+  background: #e6f4ea;
+}
+
+/* Attribute-only cell change inside an otherwise-modified table: new state,
+ * amber-flagged like block-level formatChanged. */
+td.redline-entry-fmt,
+th.redline-entry-fmt {
+  background: #fef7e0;
+}
+
+/* Attribute-only row change inside an otherwise-modified table. */
+tr.redline-row-fmt > td,
+tr.redline-row-fmt > th {
+  background: #fef7e0;
+}
+
+/* ── Inline word-level spans (emitted by the word diff inside .redline-block-mod) ── */
+
+ins.redline {
+  background: #e6f4ea;
+  color: #137333;
+  text-decoration: underline;
+  text-decoration-color: #137333;
+}
+
+del.redline {
+  background: #fce8e6;
+  color: #c5221f;
+  text-decoration: line-through;
+  text-decoration-color: #c5221f;
+}
+
+/* High Contrast mode can discard every semantic background above. Preserve
+ * change meaning with system-colored structural cues instead of forcing colors. */
+@media (forced-colors: active) {
+  .redline-block-ins {
+    outline: 2px solid Highlight;
+  }
+
+  .redline-block-del {
+    outline: 3px double CanvasText;
+    text-decoration: line-through double CanvasText;
+  }
+
+  .redline-block-fmt {
+    outline: 2px dotted CanvasText;
+  }
+
+  .redline-block-mod {
+    outline: 2px solid LinkText;
+  }
+
+  .redline-block-moved,
+  .redline-block-moved-from {
+    outline: 2px dashed LinkText;
+  }
+
+  .redline-fmt-label {
+    color: CanvasText;
+    text-decoration: underline dotted CanvasText;
+  }
+
+  .redline-move-label {
+    color: LinkText;
+    text-decoration: underline dashed LinkText;
+  }
+
+  tr.redline-row-ins > td,
+  tr.redline-row-ins > th,
+  .redline-cell-ins {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  tr.redline-row-del > td,
+  tr.redline-row-del > th,
+  .redline-cell-del {
+    outline: 3px double CanvasText;
+    outline-offset: -3px;
+    text-decoration: line-through double CanvasText;
+  }
+
+  td.redline-entry-fmt,
+  th.redline-entry-fmt,
+  tr.redline-row-fmt > td,
+  tr.redline-row-fmt > th {
+    outline: 2px dotted CanvasText;
+    outline-offset: -2px;
+  }
+
+  ins.redline {
+    color: LinkText;
+    text-decoration: underline double LinkText;
+  }
+
+  del.redline {
+    color: CanvasText;
+    text-decoration: line-through double CanvasText;
+  }
+}

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="mixed-image-table">
+  <title>Illustrated marker table</title>
+  <body>
+    <p>Fictional entries combine plain text &amp; a local diagram.</p>
+    <table>
+      <title>Marker display — sample</title>
+      <tgroup cols="3">
+        <colspec colname="c1" colnum="1"/>
+        <colspec colname="c2" colnum="2"/>
+        <colspec colname="c3" colnum="3"/>
+        <thead>
+          <row>
+            <entry>Item</entry>
+            <entry>Preview</entry>
+            <entry>State</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>Connected markers <image href="../media/images/example-diagram.svg"><alt>Square connected to circle</alt></image></entry>
+            <entry>Geometric sample</entry>
+            <entry>Ready</entry>
+          </row>
+          <row>
+            <entry>Plain marker</entry>
+            <entry>No image</entry>
+            <entry>Draft</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  </body>
+</topic>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="image-figure">
+  <title>Geometric sample</title>
+  <body>
+    <p>The diagram shows two fictional markers joined by a line.</p>
+    <fig>
+      <title>Square and circle connection</title>
+      <image href="images/example-diagram.svg" placement="break">
+        <alt>Outlined square connected to a blue circle</alt>
+      </image>
+    </fig>
+  </body>
+</topic>

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "verifiedAt": "2026-07-11",
+  "source": "controller-verified-owner-scoped-check",
+  "repository": {
+    "availability": "verified-available-owner-scope",
+    "method": "owner-scoped-github-graphql",
+    "viewer": "sageata",
+    "owner": "sageata",
+    "name": "dita-editor",
+    "result": "null-with-not-found"
+  },
+  "marketplace": {
+    "availability": "verified-available-owner-scope",
+    "method": "owner-authenticated-publisher-inventory",
+    "publisherName": "Paul Razvan Sarbu",
+    "publisherId": "paul-razvan-sarbu",
+    "inventory": "empty",
+    "extensionId": "paul-razvan-sarbu.dita-editor"
+  }
+}

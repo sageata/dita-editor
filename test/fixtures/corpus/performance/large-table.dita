@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="large-table">
+  <title>Bounded marker matrix</title>
+  <body>
+    <table>
+      <title>Eight by eight fictional observation matrix</title>
+      <tgroup cols="8">
+        <colspec colname="c1" colnum="1"/>
+        <colspec colname="c2" colnum="2"/>
+        <colspec colname="c3" colnum="3"/>
+        <colspec colname="c4" colnum="4"/>
+        <colspec colname="c5" colnum="5"/>
+        <colspec colname="c6" colnum="6"/>
+        <colspec colname="c7" colnum="7"/>
+        <colspec colname="c8" colnum="8"/>
+        <thead>
+          <row>
+            <entry>Marker</entry>
+            <entry>Shape</entry>
+            <entry>Color</entry>
+            <entry>Position</entry>
+            <entry>Direction</entry>
+            <entry>Pattern</entry>
+            <entry>Outline</entry>
+            <entry>State</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>M01</entry>
+            <entry>Square</entry>
+            <entry>Blue</entry>
+            <entry>Upper left</entry>
+            <entry>North</entry>
+            <entry>Solid</entry>
+            <entry>Single</entry>
+            <entry>Ready</entry>
+          </row>
+          <row>
+            <entry>M02</entry>
+            <entry>Circle</entry>
+            <entry>Amber</entry>
+            <entry>Upper center</entry>
+            <entry>East</entry>
+            <entry>Dotted</entry>
+            <entry>Double</entry>
+            <entry>Ready</entry>
+          </row>
+          <row>
+            <entry>M03</entry>
+            <entry>Triangle</entry>
+            <entry>Green</entry>
+            <entry>Upper right</entry>
+            <entry>South</entry>
+            <entry>Striped</entry>
+            <entry>Single</entry>
+            <entry>Draft</entry>
+          </row>
+          <row>
+            <entry>M04</entry>
+            <entry>Hexagon</entry>
+            <entry>Gray</entry>
+            <entry>Middle left</entry>
+            <entry>West</entry>
+            <entry>Solid</entry>
+            <entry>Triple</entry>
+            <entry>Ready</entry>
+          </row>
+          <row>
+            <entry>M05</entry>
+            <entry>Diamond</entry>
+            <entry>Violet</entry>
+            <entry>Middle center</entry>
+            <entry>North</entry>
+            <entry>Checked</entry>
+            <entry>Double</entry>
+            <entry>Paused</entry>
+          </row>
+          <row>
+            <entry>M06</entry>
+            <entry>Rectangle</entry>
+            <entry>Teal</entry>
+            <entry>Middle right</entry>
+            <entry>East</entry>
+            <entry>Dotted</entry>
+            <entry>Single</entry>
+            <entry>Ready</entry>
+          </row>
+          <row>
+            <entry>M07</entry>
+            <entry>Oval</entry>
+            <entry>Orange</entry>
+            <entry>Lower left</entry>
+            <entry>South</entry>
+            <entry>Striped</entry>
+            <entry>Double</entry>
+            <entry>Draft</entry>
+          </row>
+          <row>
+            <entry>M08</entry>
+            <entry>Star</entry>
+            <entry>Silver</entry>
+            <entry>Lower right</entry>
+            <entry>West</entry>
+            <entry>Checked</entry>
+            <entry>Triple</entry>
+            <entry>Ready</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  </body>
+</topic>

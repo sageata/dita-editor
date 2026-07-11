@@ -1,0 +1,38 @@
+name: Bug report
+description: Report a reproducible DITA Editor problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include private documents, credentials, or vulnerability details. Use private vulnerability reporting for security issues.
+  - type: input
+    id: version
+    attributes:
+      label: Extension and VS Code versions
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Desktop OS
+      options: [Windows, macOS, Linux]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Use a minimal synthetic DITA sample where possible.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs

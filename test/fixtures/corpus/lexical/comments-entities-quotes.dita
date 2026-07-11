@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id='comments-entities-quotes' outputclass="lexical-sample">
+  <title>Lexical preservation</title>
+    <body>
+        <p>Shapes &amp; lines remain together &#x2014; even with &quot;quoted&quot; words.</p>
+        <!-- lexical preservation marker -->
+        <p id='alternate-quote'>Apostrophes &apos; and numeric entities &#35; stay byte-exact.</p>
+    </body>
+</topic>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="lists-notes-code-lines">
+  <title>Workshop checklist</title>
+  <body>
+    <ul>
+      <li>Prepare the fictional workbench.</li>
+      <li>Check the sequence.
+        <ol>
+          <li>Place the blue tile.</li>
+          <li>Place the amber tile.</li>
+        </ol>
+      </li>
+    </ul>
+    <note type="tip"><p>Keep the sample pieces inside the marked square.</p></note>
+    <codeblock>const tile = 'blue';
+place(tile);</codeblock>
+    <lines>North marker
+Center marker
+South marker</lines>
+  </body>
+</topic>

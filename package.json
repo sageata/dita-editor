@@ -1,0 +1,267 @@
+{
+  "name": "dita-editor",
+  "displayName": "DITA Editor",
+  "description": "A local-first visual editor for DITA topics in Visual Studio Code.",
+  "version": "0.1.0",
+  "preview": true,
+  "publisher": "paul-razvan-sarbu",
+  "icon": "media/icon.png",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sageata/dita-editor.git"
+  },
+  "homepage": "https://github.com/sageata/dita-editor#readme",
+  "bugs": {
+    "url": "https://github.com/sageata/dita-editor/issues"
+  },
+  "pricing": "Free",
+  "packageManager": "bun@1.1.42",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "DITA",
+    "XML",
+    "WYSIWYG",
+    "documentation",
+    "structured-authoring"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "ditaeditor.visual",
+        "displayName": "DITA Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.dita"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "ditaeditor.openVisual",
+        "title": "Open Visual Editor",
+        "category": "DITA Editor",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "ditaeditor.viewSource",
+        "title": "View/Edit Source",
+        "category": "DITA Editor",
+        "icon": "$(code)"
+      },
+      {
+        "command": "ditaeditor.useVisualByDefault",
+        "title": "Open DITA in Visual Editor by Default",
+        "category": "DITA Editor"
+      },
+      {
+        "command": "ditaeditor.useSourceByDefault",
+        "title": "Open DITA in Source Editor by Default",
+        "category": "DITA Editor"
+      },
+      {
+        "command": "ditaeditor.formatDita",
+        "title": "Format DITA Source",
+        "category": "DITA Editor"
+      },
+      {
+        "command": "ditaeditor.lintDita",
+        "title": "Lint DITA Source",
+        "category": "DITA Editor"
+      },
+      {
+        "command": "ditaeditor.compareRevision",
+        "title": "Review Changes (Track Changes)",
+        "category": "DITA Editor",
+        "icon": "$(git-compare)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "ditaeditor.openVisual",
+          "when": "resourceExtname == .dita"
+        },
+        {
+          "command": "ditaeditor.viewSource",
+          "when": "activeCustomEditorId == ditaeditor.visual"
+        },
+        {
+          "command": "ditaeditor.useVisualByDefault"
+        },
+        {
+          "command": "ditaeditor.useSourceByDefault"
+        },
+        {
+          "command": "ditaeditor.formatDita",
+          "when": "resourceExtname == .dita"
+        },
+        {
+          "command": "ditaeditor.lintDita",
+          "when": "resourceExtname == .dita"
+        },
+        {
+          "command": "ditaeditor.compareRevision",
+          "when": "resourceExtname == .dita"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "ditaeditor.openVisual",
+          "when": "resourceExtname == .dita && activeCustomEditorId != ditaeditor.visual",
+          "group": "navigation"
+        },
+        {
+          "command": "ditaeditor.viewSource",
+          "when": "activeCustomEditorId == ditaeditor.visual",
+          "group": "navigation"
+        },
+        {
+          "command": "ditaeditor.compareRevision",
+          "when": "resourceExtname == .dita || activeCustomEditorId == ditaeditor.visual",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "ditaeditor.openVisual",
+          "when": "resourceExtname == .dita",
+          "group": "navigation"
+        },
+        {
+          "command": "ditaeditor.compareRevision",
+          "when": "resourceExtname == .dita",
+          "group": "navigation"
+        }
+      ],
+      "scm/resourceState/context": [
+        {
+          "command": "ditaeditor.compareRevision",
+          "when": "scmProvider == git && resourceExtname == .dita",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "DITA Editor",
+      "properties": {
+        "ditaeditor.redline.openFromScm": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open the rendered Review Changes (Track Changes) view when clicking a changed .dita file in Source Control, instead of the raw XML diff."
+        },
+        "ditaeditor.visual.contentStylesheets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "resource"
+        },
+        "ditaeditor.visual.managedAuthorStylesheet": {
+          "type": "string",
+          "default": "css/ditaeditor-author-styles.css",
+          "scope": "resource"
+        },
+        "ditaeditor.visual.taxonomyFile": {
+          "type": "string",
+          "default": "",
+          "scope": "resource"
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "ditaeditor.gettingStarted",
+        "title": "Get Started with DITA Editor",
+        "description": "Edit DITA topics visually, navigate by keyboard, and jump back to the XML source anytime.",
+        "steps": [
+          {
+            "id": "open",
+            "title": "Open the visual editor",
+            "description": "Open any `.dita` file, then run **DITA Editor: Open Visual Editor** from the editor toolbar or the Command Palette.\n[Open Visual Editor](command:ditaeditor.openVisual)",
+            "media": {
+              "markdown": "media/walkthrough/open.md"
+            },
+            "completionEvents": [
+              "onCommand:ditaeditor.openVisual"
+            ]
+          },
+          {
+            "id": "navigate",
+            "title": "Navigate with the keyboard",
+            "description": "Move between blocks and table cells with the Arrow keys; Home and End jump to the row or document edges. Navigation never changes the file.",
+            "media": {
+              "markdown": "media/walkthrough/navigate.md"
+            }
+          },
+          {
+            "id": "source",
+            "title": "View or edit the source",
+            "description": "Switch back to the raw DITA XML at any time with **DITA Editor: View/Edit Source**. Visual edits are written as minimal diffs, so the file round-trips byte-for-byte.\n[View/Edit Source](command:ditaeditor.viewSource)",
+            "media": {
+              "markdown": "media/walkthrough/source.md"
+            },
+            "completionEvents": [
+              "onCommand:ditaeditor.viewSource"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "restrictedConfigurations": [
+        "ditaeditor.visual.contentStylesheets",
+        "ditaeditor.visual.managedAuthorStylesheet",
+        "ditaeditor.visual.taxonomyFile"
+      ]
+    }
+  },
+  "scripts": {
+    "test": "bun test",
+    "test:real-webview": "DITAEDITOR_REAL_VSCODE_E2E=1 bun test test/real-webview.e2e.test.ts",
+    "smoke:vsix": "bun scripts/run-vsix-smoke.mjs",
+    "smoke:coexistence": "bun scripts/run-coexistence-smoke.mjs",
+    "smoke:private": "bun scripts/run-private-consumer-smoke.mjs",
+    "resolve:vscode-versions": "bun scripts/resolve-vscode-versions.mjs",
+    "compare:extension-manifests": "node scripts/compare-extension-manifests.mjs",
+    "typecheck": "tsc --noEmit",
+    "build": "node esbuild.mjs",
+    "build:production": "node esbuild.mjs --production",
+    "prepare:artifacts": "bun -e \"require('node:fs').mkdirSync('artifacts',{recursive:true})\"",
+    "package:vsix": "bun run typecheck && bun run build:production && bun run prepare:artifacts && vsce package --no-dependencies --out artifacts/dita-editor-0.1.0.vsix",
+    "verify:metadata": "node scripts/verify-public-metadata.mjs",
+    "scan:public-export": "node scripts/verify-public-metadata.mjs --scan-only",
+    "scan:public": "node scripts/scan-public-content.mjs",
+    "inspect:vsix": "node scripts/inspect-vsix.mjs",
+    "watch": "node esbuild.mjs --watch"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.14",
+    "@types/vscode": "1.90.0",
+    "@types/yauzl": "3.4.0",
+    "@vscode/test-electron": "3.0.0",
+    "@vscode/vsce": "3.9.2",
+    "esbuild": "0.24.2",
+    "typescript": "5.9.3",
+    "yauzl": "3.4.0"
+  },
+  "vsce": {
+    "dependencies": false
+  }
+}

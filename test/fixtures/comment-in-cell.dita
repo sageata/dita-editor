@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="qa_comment_in_cell">
+  <title>Comment In Cell</title>
+  <body>
+    <table>
+      <tgroup cols="2">
+        <colspec colname="c1" colnum="1"/>
+        <colspec colname="c2" colnum="2"/>
+        <tbody>
+          <row>
+            <entry>Economy<!-- TODO confirm --></entry>
+            <entry>Standard</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  </body>
+</topic>

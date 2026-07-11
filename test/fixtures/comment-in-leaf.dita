@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="qa_comment_in_leaf">
+  <title>Comment In Leaf</title>
+  <body>
+    <p>Edit this paragraph freely.</p>
+    <p>Seat pitch<!-- verify with eng -->: 31in</p>
+  </body>
+</topic>

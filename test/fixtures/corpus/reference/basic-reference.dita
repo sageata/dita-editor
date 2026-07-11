@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<reference id="basic-reference">
+  <title>Marker reference</title>
+  <shortdesc>Neutral values used by the fictional signal-garden example.</shortdesc>
+  <refbody>
+    <section>
+      <title>Available shapes</title>
+      <p>Square, circle, triangle, and connecting line.</p>
+    </section>
+    <section>
+      <title>Sample colors</title>
+      <p>Blue, amber, green, and gray.</p>
+    </section>
+  </refbody>
+</reference>

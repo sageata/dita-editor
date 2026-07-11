@@ -1,0 +1,11 @@
+node_modules/
+dist/
+artifacts/
+test-artifacts/
+.vscode-test/
+coverage/
+*.tsbuildinfo
+*.vsix
+*.log
+.DS_Store
+.anti-hall-progress.md

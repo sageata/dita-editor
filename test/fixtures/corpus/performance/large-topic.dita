@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="large-topic">
+  <title>Bounded fictional field guide</title>
+  <body>
+    <section id="zone-01">
+      <title>Zone one</title>
+      <p>The first sample zone uses a blue square beside a neutral gray marker.</p>
+      <p>Observers record the position, spacing, orientation, and visible outline.</p>
+      <p>Every sentence is original fictional material written for parser checks.</p>
+      <p>The sequence stays deterministic so source-size comparisons remain useful.</p>
+      <ul>
+        <li>Confirm the square is visible.</li>
+        <li>Record the marker spacing.</li>
+      </ul>
+    </section>
+    <section id="zone-02">
+      <title>Zone two</title>
+      <p>The second sample zone pairs an amber circle with a narrow green line.</p>
+      <p>Observers read the labels from left to right and note the simple pattern.</p>
+      <p>No sample names a real product, person, location, or organization.</p>
+      <p>The content deliberately exercises repeated editable block structures.</p>
+      <ul>
+        <li>Confirm the circle is centered.</li>
+        <li>Record the line direction.</li>
+      </ul>
+    </section>
+    <section id="zone-03">
+      <title>Zone three</title>
+      <p>The third sample zone places two triangles above a short baseline.</p>
+      <p>One triangle points upward while the other points toward the right edge.</p>
+      <p>Each observation remains short enough for a reviewer to understand quickly.</p>
+      <p>The repeated shape provides a bounded workload for render-state builders.</p>
+      <ul>
+        <li>Count both triangles.</li>
+        <li>Compare their directions.</li>
+      </ul>
+    </section>
+    <section id="zone-04">
+      <title>Zone four</title>
+      <p>The fourth sample zone contains a dashed path around three small circles.</p>
+      <p>Each circle uses a different neutral shade and a distinct fictional label.</p>
+      <p>The path begins at the upper corner and ends near the lower boundary.</p>
+      <p>This section adds predictable depth without creating an oversized fixture.</p>
+      <ul>
+        <li>Trace the dashed path.</li>
+        <li>Read the circle labels.</li>
+      </ul>
+    </section>
+    <section id="zone-05">
+      <title>Zone five</title>
+      <p>The fifth sample zone arranges four rectangles in a compact two-by-two grid.</p>
+      <p>Alternating outlines make adjacent markers easy to distinguish in the sample.</p>
+      <p>A short caption describes the grid without relying on private terminology.</p>
+      <p>The source stays stable and reviewable across repeated performance profiles.</p>
+      <ul>
+        <li>Inspect the upper row.</li>
+        <li>Inspect the lower row.</li>
+      </ul>
+    </section>
+    <section id="zone-06">
+      <title>Zone six</title>
+      <p>The sixth sample zone shows a curved path between a square and a triangle.</p>
+      <p>Small tick marks divide the path into five evenly described segments.</p>
+      <p>Nothing in the scenario represents an operational or commercial process.</p>
+      <p>The prose exists only to create a realistic but neutral editing workload.</p>
+      <ul>
+        <li>Count the path segments.</li>
+        <li>Identify both end shapes.</li>
+      </ul>
+    </section>
+    <section id="zone-07">
+      <title>Zone seven</title>
+      <p>The seventh sample zone repeats a circle, line, circle pattern three times.</p>
+      <p>Consistent spacing makes the repeated pattern suitable for visual comparison.</p>
+      <p>Simple vocabulary keeps the fixture understandable to any contributor.</p>
+      <p>The section count is fixed so element bounds catch accidental weakening.</p>
+      <ul>
+        <li>Find the first pattern.</li>
+        <li>Verify the final pattern.</li>
+      </ul>
+    </section>
+    <section id="zone-08">
+      <title>Zone eight</title>
+      <p>The eighth sample zone closes the guide with one outlined hexagon.</p>
+      <p>A centered dot and two crossing lines complete the final fictional marker.</p>
+      <p>Reviewers can inspect the entire fixture without generated or copied content.</p>
+      <p>The final block keeps parse, render, and state payload measurements bounded.</p>
+      <ul>
+        <li>Locate the centered dot.</li>
+        <li>Confirm both crossing lines.</li>
+      </ul>
+    </section>
+  </body>
+</topic>

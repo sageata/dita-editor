@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="mixed-inline">
+  <title>Mixed inline signals</title>
+  <shortdesc>A fictional topic for portable editor checks.</shortdesc>
+  <body>
+    <p>The <b>bold beacon</b>, <i>italic dial</i>, and <u>underlined label</u> sit beside <line-through>retired wording</line-through>.</p>
+    <p>Read H<sub>2</sub>O at 10<sup>2</sup> units, type <codeph>orbit --safe</codeph>, and follow the <xref href="../concept/basic-concept.dita">linked concept</xref>.</p>
+    <p>A neutral <ph outputclass="sample-token">phrase token</ph> completes the inline matrix.</p>
+  </body>
+</topic>

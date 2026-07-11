@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="180" viewBox="0 0 480 180" role="img" aria-labelledby="title description">
+  <title id="title">Connected geometric markers</title>
+  <desc id="description">An outlined square and a blue circle connected by a gray line.</desc>
+  <rect x="48" y="50" width="80" height="80" rx="8" fill="#f7f8fa" stroke="#44546a" stroke-width="6"/>
+  <line x1="128" y1="90" x2="338" y2="90" stroke="#7b8794" stroke-width="6"/>
+  <circle cx="378" cy="90" r="40" fill="#2f6fed" stroke="#1f3f75" stroke-width="6"/>
+</svg>

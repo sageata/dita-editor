@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="basic-concept">
+  <title>Signal gardens</title>
+  <shortdesc>A signal garden is a fictional arrangement of colored markers.</shortdesc>
+  <conbody>
+    <p>Each marker represents one stage in a repeatable demonstration.</p>
+    <p>The arrangement is descriptive and has no connection to a real organization.</p>
+  </conbody>
+</concept>

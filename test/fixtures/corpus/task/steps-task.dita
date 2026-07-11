@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="steps-task">
+  <title>Arrange sample markers</title>
+  <shortdesc>Follow these fictional steps to create a small geometric pattern.</shortdesc>
+  <taskbody>
+    <steps>
+      <step>
+        <cmd>Place the square on the left.</cmd>
+        <info>Use the outlined square from the sample set.</info>
+      </step>
+      <step>
+        <cmd>Place the circle on the right.</cmd>
+        <info>Leave one marker-width between the shapes.</info>
+      </step>
+      <step>
+        <cmd>Draw a line between the shapes.</cmd>
+      </step>
+    </steps>
+  </taskbody>
+</task>

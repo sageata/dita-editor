@@ -1,0 +1,24 @@
+# Sources and tooling — dist/ is the bundle shipped at runtime
+src/**
+test/**
+test-artifacts/**
+docs/**
+scripts/**
+esbuild.mjs
+tsconfig.json
+bun.lockb
+bun.lock
+.node-version
+.gitattributes
+AGENTS.md
+.github/**
+SECURITY.md
+SUPPORT.md
+.anti-hall-progress.md
+.claude/**
+.gitignore
+.vscodeignore
+artifacts/**
+coverage/**
+**/*.map
+node_modules/
