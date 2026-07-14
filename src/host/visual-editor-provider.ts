@@ -18,7 +18,7 @@ import {
 import { buildCanvasHtml } from '../webview/canvas-html';
 import { applyElementAttribute, applyElementAttributeToIds, applyTgroupAttributes } from './attribute-actions';
 import { authorizeAttributeMessage, type AuthorizedAttributeAction } from './attribute-authorization';
-import { pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt } from './image-actions';
+import { pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt, promptAndApplyImageWidth } from './image-actions';
 import {
   editInlineText,
   formatInlineBlocks,
@@ -1515,6 +1515,13 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
           .catch((err) => {
             console.error('dita-editor: image alt edit failed', err);
             postError('The image alt text could not be changed. See the developer console for details.');
+          });
+      } else if (msg.type === 'resizeImage') {
+        queue = queue
+          .then(() => promptAndApplyImageWidth(imageActionContext(), id))
+          .catch((err) => {
+            console.error('dita-editor: image resize failed', err);
+            postError('The image could not be resized. See the developer console for details.');
           });
       }
     });

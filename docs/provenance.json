@@ -419,13 +419,13 @@
   },
   {
     "path": "media/canvas-image-bar.js",
-    "sha256": "fc4dea82a59132030e0b7953bf6d85c2e495068687e19ddd1afbb8f264bc8403",
+    "sha256": "9c6d679705b8d85170a6a5313e148388b8cc08c97dac8752db050809b1077179",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {
@@ -958,13 +958,13 @@
   },
   {
     "path": "src/commands/attr-validity.ts",
-    "sha256": "17e7bff0fd972e110441e11557050307d286823e0855f8c6e4f439884716be77",
+    "sha256": "d2ad7efe687798aa1b3e65880fe527f9392ece0cf0a0aa9e1870c510bf80f886",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {
@@ -1431,13 +1431,13 @@
   },
   {
     "path": "src/host/image-actions.ts",
-    "sha256": "1445a6076e2a1d3a7f46a5440c3090fcc6900460ab9f92c7a714b2f2e88abac5",
+    "sha256": "a11d9ae9ec8f2ab7a85d7d63a21600b27d91f2adea76dc83c6ea313f6e8af3de",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {
@@ -1673,13 +1673,13 @@
   },
   {
     "path": "src/host/visual-editor-provider.ts",
-    "sha256": "ab8689a709f6280348ce6ee9042a7649ef258c719d6aa01f71725925ab3aaa6b",
+    "sha256": "343629102a18f936cfdbfa7b685f9ee43c016128ce6cce4c58fde7946371ff6d",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {
@@ -1728,7 +1728,7 @@
   },
   {
     "path": "src/render/to-html.ts",
-    "sha256": "d10c0f18162110c72077b6d1a462e595de5a35500b2af5f0d53820715f7b8fdb",
+    "sha256": "67d37fbb87653e50b1172f8794311ca22e4f810dc319d49ccf75e478c472abe4",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -2080,13 +2080,13 @@
   },
   {
     "path": "test/canvas-image-bar.test.ts",
-    "sha256": "9045041baf886042b54af46259b27efe4a8bc95c2a2f96a9f44fc0dbdfb00c12",
+    "sha256": "28ffcc9363f80b16930d4b25c59d20dd229010c6328e9266cfcf6658bec81003",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {
@@ -2663,13 +2663,13 @@
   },
   {
     "path": "test/image-actions.test.ts",
-    "sha256": "2892c339ea3ee5de4ba01ee98c04abc6b4a9eb161b7033be255a9fde4a6348cf",
+    "sha256": "68075b763f4f2222015ba71fcd6fc6596e682cb3fbb91fe6b8a96d411eb32115",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {
@@ -2707,13 +2707,13 @@
   },
   {
     "path": "test/image-selection-contract.test.ts",
-    "sha256": "43db2b650106f16a75298d8b7b81361cf8394a90c70146110338d2b2f53ed692",
+    "sha256": "02a3635d52dfed7ae3718ae2b99d316340db505307333fa91717b1ef1112a2ec",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {

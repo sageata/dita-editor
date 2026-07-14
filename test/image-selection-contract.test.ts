@@ -58,3 +58,26 @@ describe('the image id is editable-render-only (no document bytes, no read-only 
     for (const tag of imgTags) expect(tag).not.toContain('data-struct-id');
   });
 });
+
+describe('image dimensions render from authored DITA attributes', () => {
+  test('width is applied as an inline display width in editable and read-only renders', () => {
+    const source = '<topic id="t"><body><image href="diagram.svg" width="12.5cm"/></body></topic>';
+
+    expect(renderEditable(parse(source))).toContain('style="width:12.5cm;height:auto"');
+    expect(renderDocument(parse(source))).toContain('style="width:12.5cm;height:auto"');
+  });
+
+  test('unitless DITA dimensions render as pixels', () => {
+    const source = '<topic id="t"><body><image href="diagram.svg" width="320"/></body></topic>';
+
+    expect(renderEditable(parse(source))).toContain('style="width:320px;height:auto"');
+  });
+
+  test('height-only and width-plus-height dimensions are honored', () => {
+    const heightOnly = '<topic id="t"><body><image href="diagram.svg" height="100px"/></body></topic>';
+    const both = '<topic id="t"><body><image href="diagram.svg" width="200px" height="100px"/></body></topic>';
+
+    expect(renderEditable(parse(heightOnly))).toContain('style="width:auto;height:100px"');
+    expect(renderEditable(parse(both))).toContain('style="width:200px;height:100px"');
+  });
+});

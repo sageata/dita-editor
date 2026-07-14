@@ -22,10 +22,12 @@
       'background:#fff;border:1px solid #bbb;border-radius:6px;padding:2px 4px;box-shadow:0 1px 4px rgba(0,0,0,0.18);';
     const changeImgBtn = makeBtn('⇄', 'Change image');
     const editAltBtn = makeBtn('Alt', 'Edit image alt text');
+    const resizeBtn = makeBtn('↔', 'Resize image');
     changeImgBtn.tabIndex = -1;
     editAltBtn.tabIndex = -1;
-    imgBar.append(changeImgBtn, editAltBtn);
-    const buttons = [changeImgBtn, editAltBtn];
+    resizeBtn.tabIndex = -1;
+    imgBar.append(changeImgBtn, editAltBtn, resizeBtn);
+    const buttons = [changeImgBtn, editAltBtn, resizeBtn];
     document.body.appendChild(imgBar);
     let imgBarTargetId = null;
     let rovingIdx = 0;
@@ -45,6 +47,7 @@
     function activateButton(btn) {
       if (btn === changeImgBtn && imgBarTargetId) vscode.postMessage({ type: 'pickImage', id: imgBarTargetId });
       if (btn === editAltBtn && imgBarTargetId) vscode.postMessage({ type: 'editImageAlt', id: imgBarTargetId });
+      if (btn === resizeBtn && imgBarTargetId) vscode.postMessage({ type: 'resizeImage', id: imgBarTargetId });
     }
 
     function hide() {
@@ -95,6 +98,9 @@
     });
     editAltBtn.addEventListener('click', () => {
       activateButton(editAltBtn);
+    });
+    resizeBtn.addEventListener('click', () => {
+      activateButton(resizeBtn);
     });
     imgBar.addEventListener('keydown', (e) => {
       const currentIdx = buttons.indexOf(document.activeElement);

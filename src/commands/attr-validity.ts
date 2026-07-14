@@ -33,3 +33,15 @@ export function attrValueError(name: string, value: string): string | null {
   }
   return null;
 }
+
+const DITA_IMAGE_DIMENSION = /^(?:\d+(?:\.\d+)?|\.\d+)(?:cm|em|in|mm|pc|pt|px)?$/;
+
+/** DITA image @width/@height: a positive decimal length with an optional supported unit. */
+export function imageDimensionError(value: string): string | null {
+  const trimmed = value.trim();
+  if (trimmed === '') return null;
+  if (!DITA_IMAGE_DIMENSION.test(trimmed) || Number.parseFloat(trimmed) <= 0) {
+    return 'Image width must be a positive number, optionally followed by cm, em, in, mm, pc, pt, or px.';
+  }
+  return null;
+}

@@ -22,6 +22,7 @@
 
 import type { CstNode, Document, ElementNode } from '../cst/types';
 import { isElement } from '../cst/types';
+import { imageDimensionError } from '../commands/attr-validity';
 import { childrenNamed, firstChildNamed } from '../cst/query';
 import {
   editableElementIds,
@@ -147,6 +148,12 @@ function escapeAttrValue(value: string): string {
 
 function escapeRawAttrValue(value: string): string {
   return value.replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+
+function ditaImageDimensionCss(value: string | undefined): string | null {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed || imageDimensionError(trimmed)) return null;
+  return /[A-Za-z]$/.test(trimmed) ? trimmed : `${trimmed}px`;
 }
 
 export function escapeTextValue(value: string): string {
@@ -500,6 +507,8 @@ class HtmlRenderer {
 
   private image(el: ElementNode): string {
     const href = attr(el, 'href') ?? '';
+    const width = ditaImageDimensionCss(attr(el, 'width'));
+    const height = ditaImageDimensionCss(attr(el, 'height'));
     const authoredAlt = firstChildNamed(el, 'alt');
     // alt: authored DITA <alt> wins. Without it, a non-empty href falls back to the file's
     // basename (so a broken/missing image has a label), and an empty href becomes "Empty image"
@@ -511,7 +520,10 @@ class HtmlRenderer {
     // supplies the id, so canvas can re-resolve/restore an image selection after a rerender.
     // Render-only; image() bypasses structAttr otherwise, so without this an image has no id.
     const data = this.editIds ? ` data-dita="image" data-href="${escapeRawAttrValue(href)}"${atomAttrData(el)}` : '';
-    return `<img${this.classAttr(el, 'image')} src="${escapeAttrValue(src)}" alt="${alt}"${data}${this.structAttr(el)}${this.selectionAttr('image')}>`;
+    const size = width || height
+      ? ` style="width:${escapeAttrValue(width ?? 'auto')};height:${escapeAttrValue(height ?? 'auto')}"`
+      : '';
+    return `<img${this.classAttr(el, 'image')} src="${escapeAttrValue(src)}" alt="${alt}"${size}${data}${this.structAttr(el)}${this.selectionAttr('image')}>`;
   }
 
   private table(el: ElementNode): string {

@@ -44,12 +44,14 @@ function installImageBar() {
   const toolbar = doc.body.children[1];
   const changeButton = toolbar.children[0];
   const altButton = toolbar.children[1];
+  const resizeButton = toolbar.children[2];
   return {
     bar,
     doc,
     toolbar,
     changeButton,
     altButton,
+    resizeButton,
     posted: () => posted,
     announcements: () => announcements,
     selectImage: () => {
@@ -70,7 +72,7 @@ interface ImageBar {
 
 describe('canvas-image-bar', () => {
   test('shows a selected image toolbar with one roving tab stop', () => {
-    const { bar, doc, toolbar, changeButton, altButton, announcements, selectImage } = installImageBar();
+    const { bar, doc, toolbar, changeButton, altButton, resizeButton, announcements, selectImage } = installImageBar();
     selectImage();
 
     bar.update();
@@ -80,8 +82,20 @@ describe('canvas-image-bar', () => {
     expect(toolbar.style.display).toBe('flex');
     expect(changeButton.tabIndex).toBe(0);
     expect(altButton.tabIndex).toBe(-1);
+    expect(resizeButton.tabIndex).toBe(-1);
     expect(doc.activeElement).toBe(changeButton);
     expect(announcements()).toEqual(['Change image']);
+  });
+
+  test('posts the selected image id when Resize image is activated', () => {
+    const { bar, toolbar, resizeButton, posted, selectImage } = installImageBar();
+    selectImage();
+    bar.update();
+    resizeButton.dispatch('click', {});
+
+    expect(toolbar.getAttribute('aria-label')).toBe('Image editing controls');
+    expect(resizeButton.getAttribute('aria-label')).toBe('Resize image');
+    expect(posted()).toEqual([{ type: 'resizeImage', id: 'i1' }]);
   });
 
   test('roves and activates image controls from the keyboard', () => {
@@ -118,7 +132,7 @@ describe('canvas-image-bar', () => {
   });
 
   test('hides and removes tab stops when the image selection clears', () => {
-    const { bar, toolbar, changeButton, altButton, selectImage, clearSelection } = installImageBar();
+    const { bar, toolbar, changeButton, altButton, resizeButton, selectImage, clearSelection } = installImageBar();
     selectImage();
     bar.update();
     clearSelection();
@@ -129,5 +143,6 @@ describe('canvas-image-bar', () => {
     expect(toolbar.style.display).toBe('none');
     expect(changeButton.tabIndex).toBe(-1);
     expect(altButton.tabIndex).toBe(-1);
+    expect(resizeButton.tabIndex).toBe(-1);
   });
 });
