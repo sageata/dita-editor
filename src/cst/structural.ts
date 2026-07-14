@@ -11,7 +11,7 @@ import { assignElementIds, findElementById } from './element-ids';
 import { mergeRight, mergeDown, mergeLeft, mergeUp, splitCell } from './table-merge';
 import { computeGrid, gridCellFor, isGridValid } from './table-grid';
 import { joinTextBlocks, pasteBlocksIntoTextBlock, splitTextBlock } from './text-block-structural';
-import { listAttrsForStyle, listNameForStyle, listStyle, nextNestedListStyle, type ListStyle } from './list-style';
+import { listAttrsForStyle, listNameForStyle, listStyle, nextNestedListStyle } from './list-style';
 import {
   appendChild,
   insertAfter,
@@ -951,14 +951,6 @@ function indentOf(el: ElementNode): string {
   return '';
 }
 
-/** A <li>'s trailing child list of the given style, or null. A list item's own
- *  sublist is its last element child; we only merge into one of the same marker style. */
-function trailingSublist(li: ElementNode, style: ListStyle): ElementNode | null {
-  const kids = childElements(li);
-  const last = kids[kids.length - 1];
-  return last && (last.name === 'ul' || last.name === 'ol') && listStyle(last) === style ? last : null;
-}
-
 function clonedAttrs(el: ElementNode): Array<{ name: string; value: string; quote?: '"' | "'" }> {
   return el.attrs.map((attr) => ({ name: attr.name, value: attr.value, quote: attr.quote }));
 }
@@ -977,17 +969,21 @@ function indentItem(li: ElementNode): ElementNode {
     throw new Error('Cannot indent the first item — there is no item above to nest it under.');
   }
   const prevLi = items[pos - 1];
-  const nestedStyle = nextNestedListStyle(listStyle(list));
+  const prevKids = childElements(prevLi);
+  const trailing = prevKids[prevKids.length - 1];
+  const existingSublist = trailing && (trailing.name === 'ul' || trailing.name === 'ol') ? trailing : null;
+  const nestedStyle = existingSublist ? listStyle(existingSublist) : nextNestedListStyle(listStyle(list));
   const nestedKind = listNameForStyle(nestedStyle);
-  const existing = trailingSublist(prevLi, nestedStyle);
+  const existing = existingSublist;
   removeWithLeadingWs(li); // detach from the current list (+ its leading whitespace)
 
   if (existing) {
-    // Merge into prevLi's existing sublist of the same marker style: append as its last item.
+    // Preserve prevLi's authored trailing sublist style and append as its last item.
     const subItems = childrenNamed(existing, 'li');
     insertAfter(subItems[subItems.length - 1], li);
   } else {
-    // Create a fresh nested list one marker level deeper: bullet -> alpha -> numbered.
+    // Create a fresh nested list one marker level deeper. Bullets stay bullets;
+    // alphabetic lists nest as numbered, and numbered lists nest as bullets.
     const inner = indentOf(prevLi) + '  ';
     const nested = makeElement(nestedKind, listAttrsForStyle(nestedStyle), [
       makeRawText('\n' + inner + '  '),

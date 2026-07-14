@@ -1211,7 +1211,7 @@
   },
   {
     "path": "src/cst/list-style.ts",
-    "sha256": "73a3f869e0bc5a861ca36f4a8c29bb31d193e6b5a3a8c62e2482a3df8ddbaf13",
+    "sha256": "0457922e28cad315991a60210aab0654c49ba7c5a4116abd093e0ca6a5ac38fb",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1266,7 +1266,7 @@
   },
   {
     "path": "src/cst/structural.ts",
-    "sha256": "9654fd5c4845318117672a83ea457d5322c53a27a21a82be8cfe88ffa316c7ed",
+    "sha256": "ba4d606ad4c576f5e96e74ca6a71cfd50e94c302523678221cae55ebee05d2ab",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -2828,7 +2828,7 @@
   },
   {
     "path": "test/list-indent-outdent.test.ts",
-    "sha256": "4a208d03231d78712d6f89a03c763829e64232b03b55349cbe478d1a9c54cd89",
+    "sha256": "6cad1688e94e0d0cc7b1003a27d1a9f4728d0d5df094823c730d757d35927639",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3180,7 +3180,7 @@
   },
   {
     "path": "test/render.test.ts",
-    "sha256": "1d7b13ec870069347aaf1995a9ca42420310062f20ff35d2498d9719aec414b9",
+    "sha256": "79ca69118f687fb90441dc8d34d4a508e9d3b5e66d8d9fdd13e11fdef3af4f86",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",

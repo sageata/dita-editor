@@ -28,11 +28,11 @@ describe('block + inline element class contract', () => {
   test('generic topic body, lists', () => {
     const src =
       '<topic id="t"><title>T</title><body>' +
-      '<ul><li>one</li><li>two</li></ul>' +
+      '<ul><li>one<ul><li>nested bullet</li></ul></li><li>two</li></ul>' +
       '<ol><li>a</li></ol><ol outputclass="lower-alpha"><li>b</li></ol></body></topic>';
     const html = render(src);
     expect(html).toContain('<div class="body">');
-    expect(html).toContain('<ul class="ul"><li class="li">one</li><li class="li">two</li></ul>');
+    expect(html).toContain('<ul class="ul"><li class="li">one<ul class="ul"><li class="li">nested bullet</li></ul></li><li class="li">two</li></ul>');
     expect(html).toContain('<ol class="ol"><li class="li">a</li></ol>');
     expect(html).toContain('<ol class="ol lower-alpha"><li class="li">b</li></ol>');
   });
