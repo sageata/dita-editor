@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { describe, expect, test } from 'bun:test';
 import { TestDocument, TestElement, keyEvent } from './canvas-test-dom';
 
-function installImageBar() {
+function installImageBar(insideTable = false) {
   const source = readFileSync(new URL('../media/canvas-image-bar.js', import.meta.url), 'utf8');
   expect(source).not.toContain('acquireVsCodeApi');
 
@@ -14,7 +14,14 @@ function installImageBar() {
   const doc = new TestDocument();
   const image = doc.createElement('img');
   image.setAttribute('data-struct-id', 'i1');
-  doc.main.appendChild(image);
+  if (insideTable) {
+    const cell = doc.createElement('td');
+    cell.setAttribute('data-cell-id', 'entry1');
+    doc.main.appendChild(cell);
+    cell.appendChild(image);
+  } else {
+    doc.main.appendChild(image);
+  }
   const posted: unknown[] = [];
   const announcements: string[] = [];
   const windowListeners = new Map<string, Array<(event: Record<string, unknown>) => void>>();
@@ -47,6 +54,7 @@ function installImageBar() {
     },
     getSelection: () => selection,
     resolveMember: (_main: TestElement, unit: string, id: string) => (unit === 'image' && id === 'i1' ? image : null),
+    getStructVersion: () => 7,
     announceNav: (message: string) => {
       announcements.push(message);
     },
@@ -56,6 +64,12 @@ function installImageBar() {
   const changeButton = toolbar.children[0];
   const altButton = toolbar.children[1];
   const resizeButton = toolbar.children[2];
+  const alignLeftButton = toolbar.children[3];
+  const alignCenterButton = toolbar.children[4];
+  const alignRightButton = toolbar.children[5];
+  const alignTopButton = toolbar.children[6];
+  const alignMiddleButton = toolbar.children[7];
+  const alignBottomButton = toolbar.children[8];
   const resizeHandle = doc.body.children[2];
   return {
     bar,
@@ -64,6 +78,12 @@ function installImageBar() {
     changeButton,
     altButton,
     resizeButton,
+    alignLeftButton,
+    alignCenterButton,
+    alignRightButton,
+    alignTopButton,
+    alignMiddleButton,
+    alignBottomButton,
     resizeHandle,
     posted: () => posted,
     announcements: () => announcements,
@@ -112,6 +132,46 @@ describe('canvas-image-bar', () => {
     expect(toolbar.getAttribute('aria-label')).toBe('Image editing controls');
     expect(resizeButton.getAttribute('aria-label')).toBe('Resize image');
     expect(posted()).toEqual([{ type: 'resizeImage', id: 'i1' }]);
+  });
+
+  test('offers horizontal alignment for any image and targets the image outside tables', () => {
+    const { bar, alignLeftButton, alignCenterButton, alignRightButton, posted, selectImage } = installImageBar();
+    selectImage();
+    bar.update();
+
+    expect(alignLeftButton.getAttribute('aria-label')).toBe('Align image left');
+    expect(alignCenterButton.getAttribute('aria-label')).toBe('Align image center');
+    expect(alignRightButton.getAttribute('aria-label')).toBe('Align image right');
+    expect(alignCenterButton.textContent).toBe('C');
+    alignCenterButton.dispatch('click', {});
+
+    expect(posted()).toEqual([{ type: 'setImageAlign', id: 'i1', align: 'center' }]);
+  });
+
+  test('targets the enclosing entry for table image horizontal and vertical alignment', () => {
+    const fixture = installImageBar(true);
+    fixture.selectImage();
+    fixture.bar.update();
+
+    expect(fixture.alignTopButton.style.display).not.toBe('none');
+    expect(fixture.alignMiddleButton.getAttribute('aria-label')).toBe('Align image vertically middle');
+    fixture.alignRightButton.dispatch('click', {});
+    fixture.alignMiddleButton.dispatch('click', {});
+
+    expect(fixture.posted()).toEqual([
+      { type: 'setImageAlign', id: 'i1', align: 'right' },
+      { type: 'setCalsAttr', id: 'entry1', attrName: 'valign', attrValue: 'middle', baseStructVersion: 7 },
+    ]);
+  });
+
+  test('hides vertical alignment controls outside tables', () => {
+    const { bar, alignTopButton, alignMiddleButton, alignBottomButton, selectImage } = installImageBar();
+    selectImage();
+    bar.update();
+
+    expect(alignTopButton.style.display).toBe('none');
+    expect(alignMiddleButton.style.display).toBe('none');
+    expect(alignBottomButton.style.display).toBe('none');
   });
 
   test('shows a drag handle and persists the dragged pixel width', () => {

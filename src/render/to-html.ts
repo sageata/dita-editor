@@ -68,6 +68,7 @@ interface TablePresentation {
 
 const SEP_VALUES = new Set(['0', '1']);
 const ALIGN_VALUES = new Set(['left', 'right', 'center', 'justify']);
+const IMAGE_ALIGN_VALUES = new Set(['left', 'center', 'right']);
 const VALIGN_VALUES = new Set(['top', 'middle', 'bottom']);
 
 /** The value when it is a member of the closed CALS set, else undefined (an
@@ -509,6 +510,8 @@ class HtmlRenderer {
     const href = attr(el, 'href') ?? '';
     const width = ditaImageDimensionCss(attr(el, 'width'));
     const height = ditaImageDimensionCss(attr(el, 'height'));
+    const placement = attr(el, 'placement');
+    const align = placement === 'break' ? presEnum(attr(el, 'align'), IMAGE_ALIGN_VALUES) : undefined;
     const authoredAlt = firstChildNamed(el, 'alt');
     // alt: authored DITA <alt> wins. Without it, a non-empty href falls back to the file's
     // basename (so a broken/missing image has a label), and an empty href becomes "Empty image"
@@ -520,9 +523,15 @@ class HtmlRenderer {
     // supplies the id, so canvas can re-resolve/restore an image selection after a rerender.
     // Render-only; image() bypasses structAttr otherwise, so without this an image has no id.
     const data = this.editIds ? ` data-dita="image" data-href="${escapeRawAttrValue(href)}"${atomAttrData(el)}` : '';
-    const size = width || height
-      ? ` style="width:${escapeAttrValue(width ?? 'auto')};height:${escapeAttrValue(height ?? 'auto')}"`
-      : '';
+    const imageStyles: string[] = [];
+    if (align) {
+      imageStyles.push('display:block');
+      if (align === 'left') imageStyles.push('margin-right:auto');
+      if (align === 'center') imageStyles.push('margin-left:auto', 'margin-right:auto');
+      if (align === 'right') imageStyles.push('margin-left:auto');
+    }
+    if (width || height) imageStyles.push(`width:${escapeAttrValue(width ?? 'auto')}`, `height:${escapeAttrValue(height ?? 'auto')}`);
+    const size = imageStyles.length ? ` style="${imageStyles.join(';')}"` : '';
     return `<img${this.classAttr(el, 'image')} src="${escapeAttrValue(src)}" alt="${alt}"${size}${data}${this.structAttr(el)}${this.selectionAttr('image')}>`;
   }
 

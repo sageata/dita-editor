@@ -256,6 +256,44 @@ export async function applyImageWidth(
   }
 }
 
+export async function applyImageAlignment(
+  ctx: ImageActionContext,
+  structId: string,
+  requestedAlign: string,
+): Promise<void> {
+  if (!['left', 'center', 'right'].includes(requestedAlign)) {
+    ctx.announce('Image alignment must be left, center, or right.');
+    return;
+  }
+  const source = ctx.document.getText();
+  let doc: Document;
+  try {
+    doc = parse(source);
+  } catch {
+    ctx.pushBody(null, null);
+    return;
+  }
+  const el = findElementById(doc, structId);
+  if (!el || el.name !== 'image') {
+    ctx.pushBody(null, null);
+    return;
+  }
+  const currentAlign = el.attrs.find((attr) => attr.name === 'align')?.value ?? '';
+  const currentPlacement = el.attrs.find((attr) => attr.name === 'placement')?.value ?? '';
+  if (currentAlign === requestedAlign && currentPlacement === 'break') {
+    ctx.announce(`Image already aligned ${requestedAlign}.`);
+    return;
+  }
+  setAttr(el, 'placement', 'break', source);
+  setAttr(el, 'align', requestedAlign, source);
+  const ok = await ctx.applyMinimal(serialize(doc));
+  if (ok) {
+    ctx.clearDiagnostics();
+    ctx.pushBody(null, null);
+    ctx.announce(`Image aligned ${requestedAlign}.`);
+  }
+}
+
 export async function promptAndApplyImageWidth(ctx: ImageActionContext, structId: string): Promise<void> {
   const source = ctx.document.getText();
   let doc: Document;

@@ -504,6 +504,7 @@
     makeBtn: canvasControls.makeBtn,
     getSelection: getCanvasSelection,
     resolveMember: resolveMember,
+    getStructVersion: () => structVersion,
   });
   const hideImageBar = imageBar.hide;
 

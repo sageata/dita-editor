@@ -500,6 +500,37 @@ async function runRealWebviewSmoke(): Promise<void> {
       })()`, webviewContextId);
     }, 20_000);
 
+    console.log('[real-webview-e2e] aligning the table image right and vertically middle');
+    await evaluate(webview, `(() => {
+      const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
+      if (!image) throw new Error('No rendered image found');
+      image.click();
+      const button = document.querySelector('[aria-label="Align image right"]');
+      if (!button) throw new Error('Horizontal image alignment control is not visible');
+      button.click();
+    })()`, webviewContextId);
+    await waitFor('table image rerendered right-aligned', async () => {
+      return evaluate(webview!, `(() => {
+        const image = document.querySelector('td img[data-struct-kind="image"]');
+        if (!image) return null;
+        const authoredAttrs = decodeURIComponent(image.getAttribute('data-attrs') || '');
+        return authoredAttrs.includes('"name":"placement","value":"break"') && authoredAttrs.includes('"name":"align","value":"right"')
+          ? { style: image.getAttribute('style'), authoredAttrs }
+          : null;
+      })()`, webviewContextId);
+    }, 20_000);
+    await evaluate(webview, `(() => {
+      const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
+      if (!image) throw new Error('No rendered image found after horizontal alignment');
+      image.click();
+      const button = document.querySelector('[aria-label="Align image vertically middle"]');
+      if (!button || getComputedStyle(button).display === 'none') throw new Error('Vertical image alignment control is not visible');
+      button.click();
+    })()`, webviewContextId);
+    await waitFor('table image cell rerendered vertically middle', async () => {
+      return evaluate(webview!, `document.querySelector('td[data-valign="middle"] img[data-struct-kind="image"]') ? true : null`, webviewContextId);
+    }, 20_000);
+
     console.log('[real-webview-e2e] selecting and drag-resizing the real rendered image');
     const resizeResult = await evaluate(webview, `(() => {
       const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
@@ -554,14 +585,14 @@ async function runRealWebviewSmoke(): Promise<void> {
     }, 20_000);
     await waitFor('saved file bytes contain nested image width', async () => {
       const source = await readFile(project.fixture, 'utf8');
-      return /<image href="diagram\.svg" width="\d+px"\/>/.test(source) ? source : null;
+      return /<entry valign="middle"><image href="diagram\.svg" placement="break" align="right" width="\d+px"\/><\/entry>/.test(source) ? source : null;
     }, 20_000);
 
     const saved = await readFile(project.fixture, 'utf8');
     expect(saved).toContain('<entry><ol outputclass="lower-alpha">');
     expect(saved).toContain('<li>Alpha beta gamma</li>');
     expect(saved).not.toContain('<entry>Alpha beta gamma</entry>');
-    expect(saved).toMatch(/<image href="diagram\.svg" width="\d+px"\/>/);
+    expect(saved).toMatch(/<entry valign="middle"><image href="diagram\.svg" placement="break" align="right" width="\d+px"\/><\/entry>/);
   } finally {
     console.log('[real-webview-e2e] cleanup');
     if (proc) await quitCode(proc, browser);

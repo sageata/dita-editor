@@ -12,6 +12,7 @@
     const makeBtn = options.makeBtn;
     const getSelection = options.getSelection;
     const resolveMember = options.resolveMember;
+    const getStructVersion = options.getStructVersion || (() => 0);
     const announceNav = options.announceNav || noop;
 
     const imgBar = document.createElement('div');
@@ -23,11 +24,17 @@
     const changeImgBtn = makeBtn('⇄', 'Change image');
     const editAltBtn = makeBtn('Alt', 'Edit image alt text');
     const resizeBtn = makeBtn('↔', 'Resize image');
-    changeImgBtn.tabIndex = -1;
-    editAltBtn.tabIndex = -1;
-    resizeBtn.tabIndex = -1;
-    imgBar.append(changeImgBtn, editAltBtn, resizeBtn);
-    const buttons = [changeImgBtn, editAltBtn, resizeBtn];
+    const alignLeftBtn = makeBtn('L', 'Align image left');
+    const alignCenterBtn = makeBtn('C', 'Align image center');
+    const alignRightBtn = makeBtn('R', 'Align image right');
+    const alignTopBtn = makeBtn('T', 'Align image vertically top');
+    const alignMiddleBtn = makeBtn('M', 'Align image vertically middle');
+    const alignBottomBtn = makeBtn('B', 'Align image vertically bottom');
+    const buttons = [changeImgBtn, editAltBtn, resizeBtn, alignLeftBtn, alignCenterBtn, alignRightBtn, alignTopBtn, alignMiddleBtn, alignBottomBtn];
+    const verticalButtons = [alignTopBtn, alignMiddleBtn, alignBottomBtn];
+    for (const btn of buttons) btn.tabIndex = -1;
+    for (const btn of verticalButtons) btn.style.display = 'none';
+    imgBar.append(...buttons);
     document.body.appendChild(imgBar);
     const resizeHandle = document.createElement('div');
     resizeHandle.setAttribute('role', 'separator');
@@ -41,13 +48,20 @@
     document.body.appendChild(resizeHandle);
     let imgBarTargetId = null;
     let imgBarTarget = null;
+    let imgBarCellId = null;
     let rovingIdx = 0;
     let drag = null;
 
+    function navigableButtons() {
+      return buttons.filter((btn) => btn.style.display !== 'none');
+    }
+
     function setRoving(idx) {
-      rovingIdx = Math.max(0, Math.min(idx, buttons.length - 1));
-      for (let i = 0; i < buttons.length; i++) buttons[i].tabIndex = i === rovingIdx ? 0 : -1;
-      return buttons[rovingIdx];
+      const available = navigableButtons();
+      rovingIdx = Math.max(0, Math.min(idx, available.length - 1));
+      for (const btn of buttons) btn.tabIndex = -1;
+      available[rovingIdx].tabIndex = 0;
+      return available[rovingIdx];
     }
 
     function focusRoving(idx) {
@@ -60,6 +74,12 @@
       if (btn === changeImgBtn && imgBarTargetId) vscode.postMessage({ type: 'pickImage', id: imgBarTargetId });
       if (btn === editAltBtn && imgBarTargetId) vscode.postMessage({ type: 'editImageAlt', id: imgBarTargetId });
       if (btn === resizeBtn && imgBarTargetId) vscode.postMessage({ type: 'resizeImage', id: imgBarTargetId });
+      const horizontal = btn === alignLeftBtn ? 'left' : btn === alignCenterBtn ? 'center' : btn === alignRightBtn ? 'right' : null;
+      if (horizontal && imgBarTargetId) {
+        vscode.postMessage({ type: 'setImageAlign', id: imgBarTargetId, align: horizontal });
+      }
+      const vertical = btn === alignTopBtn ? 'top' : btn === alignMiddleBtn ? 'middle' : btn === alignBottomBtn ? 'bottom' : null;
+      if (vertical && imgBarCellId) vscode.postMessage({ type: 'setCalsAttr', id: imgBarCellId, attrName: 'valign', attrValue: vertical, baseStructVersion: getStructVersion() });
     }
 
     function hide() {
@@ -68,6 +88,7 @@
       for (const btn of buttons) btn.tabIndex = -1;
       imgBarTargetId = null;
       imgBarTarget = null;
+      imgBarCellId = null;
       drag = null;
     }
 
@@ -99,9 +120,12 @@
       }
       imgBarTargetId = selection.id;
       imgBarTarget = img;
+      const cell = img.closest('td[data-cell-id], th[data-cell-id]');
+      imgBarCellId = cell ? cell.getAttribute('data-cell-id') : null;
+      for (const btn of verticalButtons) btn.style.display = imgBarCellId ? '' : 'none';
       imgBar.style.display = 'flex';
       resizeHandle.style.display = 'block';
-      const activeIdx = buttons.indexOf(document.activeElement);
+      const activeIdx = navigableButtons().indexOf(document.activeElement);
       setRoving(activeIdx >= 0 ? activeIdx : 0);
       const geom = window.DitaEditorCanvasGeom;
       const rect = geom ? geom.visualRect(img) : img.getBoundingClientRect();
@@ -133,6 +157,9 @@
     resizeBtn.addEventListener('click', () => {
       activateButton(resizeBtn);
     });
+    for (const btn of [alignLeftBtn, alignCenterBtn, alignRightBtn, alignTopBtn, alignMiddleBtn, alignBottomBtn]) {
+      btn.addEventListener('click', () => activateButton(btn));
+    }
     resizeHandle.addEventListener('mousedown', (event) => {
       if (event.button !== 0 || !imgBarTarget || !imgBarTargetId) return;
       event.preventDefault();
@@ -168,11 +195,12 @@
       announceNav('Image width ' + completed.width + ' pixels.');
     });
     imgBar.addEventListener('keydown', (e) => {
-      const currentIdx = buttons.indexOf(document.activeElement);
+      const available = navigableButtons();
+      const currentIdx = available.indexOf(document.activeElement);
       if (e.key === 'ArrowRight') {
         e.preventDefault();
         e.stopPropagation();
-        focusRoving(currentIdx < 0 ? 0 : Math.min(buttons.length - 1, currentIdx + 1));
+        focusRoving(currentIdx < 0 ? 0 : Math.min(available.length - 1, currentIdx + 1));
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         e.stopPropagation();
@@ -184,9 +212,9 @@
       } else if (e.key === 'End') {
         e.preventDefault();
         e.stopPropagation();
-        focusRoving(buttons.length - 1);
+        focusRoving(available.length - 1);
       } else if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
-        const btn = currentIdx >= 0 ? buttons[currentIdx] : null;
+        const btn = currentIdx >= 0 ? available[currentIdx] : null;
         if (!btn) return;
         e.preventDefault();
         e.stopPropagation();

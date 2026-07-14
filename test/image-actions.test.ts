@@ -67,7 +67,7 @@ mock.module('vscode', () => ({
   },
 }));
 
-const { applyImageWidth, pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt, promptAndApplyImageWidth } = await import('../src/host/image-actions');
+const { applyImageAlignment, applyImageWidth, pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt, promptAndApplyImageWidth } = await import('../src/host/image-actions');
 
 function imageId(source = SRC): string {
   const doc = parse(source);
@@ -136,6 +136,15 @@ beforeEach(() => {
 });
 
 describe('image host actions', () => {
+  test('applies DITA horizontal alignment and break placement to an image', async () => {
+    const fixture = makeCtx();
+
+    await applyImageAlignment(fixture.ctx, imageId(), 'center');
+
+    expect(fixture.applied[0]).toContain('<image href="images/img_005.jpeg" placement="break" align="center"/>');
+    expect(fixture.announced).toEqual(['Image aligned center.']);
+  });
+
   test('picks a real image href for insertion before mutating the document', async () => {
     const fixture = makeCtx();
 

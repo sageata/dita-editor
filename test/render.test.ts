@@ -131,6 +131,12 @@ describe('CALS table -> HTML', () => {
     expect(html).toContain('<td class="entry">B</td>'); // untouched neighbour stays clean
   });
 
+  test('break image @align renders visibly in the editor', () => {
+    const html = render('<topic><body><image href="diagram.svg" placement="break" align="center"/></body></topic>');
+
+    expect(html).toContain('style="display:block;margin-left:auto;margin-right:auto"');
+  });
+
   test('colspec @align inherits to its column; entry-level wins (CALS precedence)', () => {
     const html = render(
       '<table><tgroup cols="2">' +

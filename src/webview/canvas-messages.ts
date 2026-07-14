@@ -90,6 +90,8 @@ export interface CanvasMessage {
   widths?: number[];
   /** setImageWidth: validated DITA width produced by the selected-image drag handle. */
   width?: string;
+  /** setImageAlign: DITA horizontal image alignment. */
+  align?: string;
   styles?: unknown;
   sourceHash?: string;
   targetToken?: string;
