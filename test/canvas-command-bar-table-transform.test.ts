@@ -57,6 +57,218 @@ function buttonByAction(doc: TestDocument, action: string): TestElement {
 }
 
 describe('canvas-command-bar Structure transform clicks', () => {
+  test('clicking Structure buttons on direct note prose transforms it instead of appending blocks', () => {
+    const doc = new TestDocument();
+    const note = new TestElement('div', doc, {
+      'data-struct-id': 'n1',
+      'data-struct-kind': 'note',
+      'data-edit-id': 'n1',
+      contenteditable: 'true',
+    });
+    note.append(new TestText('Direct note'));
+    doc.main.appendChild(note);
+    doc.activeElement = note;
+
+    const inserts: unknown[] = [];
+    const transforms: Array<{ transform: string; id: string | null }> = [];
+    const win = {
+      CSS: { escape: (value: string) => value },
+      getSelection: () => ({
+        rangeCount: 1,
+        isCollapsed: true,
+        anchorNode: note,
+        getRangeAt: () => ({ startContainer: note, startOffset: 1, endContainer: note, endOffset: 1 }),
+      }),
+    } as Record<string, unknown>;
+    loadCommandBar(win, doc);
+
+    (
+      win.DitaEditorCanvasCommandBar as {
+        installCommandBar(opts: Record<string, unknown>): { refresh(): void };
+      }
+    ).installCommandBar({
+      document: doc,
+      window: win,
+      vscode: { postMessage: (message: unknown) => inserts.push(message) },
+      fontFamily: 'sans-serif',
+      controls: controls(doc),
+      menuIcons: icons(['paragraph', 'section', 'ul', 'ol', 'lines', 'note', 'codeblock', 'table']),
+      barIcons: icons(['undo', 'redo', 'find', 'code', 'clearFormat', 'image', 'xref', 'conref']),
+      getSelection: () => null,
+      getStructVersion: () => 5,
+      structTarget: (node: TestElement) => node.closest('[data-struct-id]'),
+      caretOffset: () => 3,
+      columnAnchorId: () => null,
+      availFor: () => ({ enabled: true }),
+      applyAvail: (btn: TestElement, _id: string, _op: string, label: string) => controls(doc).setBtnEnabled(btn, true, label),
+      insertAvailFor: () => ({ enabled: true }),
+      transformAvailFor: () => ({ status: 'ok' }),
+      postStructural: () => undefined,
+      withStructuralSuccess: (_op: string, _kind: string, extra: Record<string, unknown>) => extra,
+      postTransform: (transform: string, id: string | null) => transforms.push({ transform, id }),
+      announceNav: () => undefined,
+    });
+
+    const paragraph = buttonByAction(doc, 'Paragraph');
+    const unordered = buttonByAction(doc, 'Bulleted list');
+    const table = buttonByAction(doc, 'Table');
+    expect(paragraph.getAttribute('aria-disabled')).toBeNull();
+    expect(unordered.getAttribute('aria-disabled')).toBeNull();
+    expect(table.getAttribute('aria-disabled')).toBe('true');
+
+    paragraph.click();
+    unordered.click();
+    table.click();
+
+    expect(transforms).toEqual([
+      { transform: 'noteContentToParagraph', id: 'n1' },
+      { transform: 'noteContentToUnorderedList', id: 'n1' },
+    ]);
+    expect(inserts).toEqual([]);
+  });
+
+  test('a mixed note transforms the clicked text run in place, not the note tail', () => {
+    const doc = new TestDocument();
+    const note = new TestElement('div', doc, {
+      'data-struct-id': 'n1',
+      'data-struct-kind': 'note',
+    });
+    const run = new TestElement('span', doc, {
+      'data-edit-id': 'n1:t0',
+      'data-edit-run': 'true',
+      contenteditable: 'true',
+    });
+    run.append(new TestText('Direct note'));
+    note.appendChild(run);
+    const list = new TestElement('ul', doc, {
+      'data-struct-id': 'u1',
+      'data-struct-kind': 'ul',
+    });
+    note.appendChild(list);
+    doc.main.appendChild(note);
+    doc.activeElement = run;
+
+    const inserts: unknown[] = [];
+    const transforms: Array<{ transform: string; id: string | null }> = [];
+    const win = {
+      CSS: { escape: (value: string) => value },
+      getSelection: () => ({
+        rangeCount: 1,
+        isCollapsed: true,
+        anchorNode: run,
+        getRangeAt: () => ({ startContainer: run, startOffset: 1, endContainer: run, endOffset: 1 }),
+      }),
+    } as Record<string, unknown>;
+    loadCommandBar(win, doc);
+
+    (
+      win.DitaEditorCanvasCommandBar as {
+        installCommandBar(opts: Record<string, unknown>): { refresh(): void };
+      }
+    ).installCommandBar({
+      document: doc,
+      window: win,
+      vscode: { postMessage: (message: unknown) => inserts.push(message) },
+      fontFamily: 'sans-serif',
+      controls: controls(doc),
+      menuIcons: icons(['paragraph', 'section', 'ul', 'ol', 'lines', 'note', 'codeblock', 'table']),
+      barIcons: icons(['undo', 'redo', 'find', 'code', 'clearFormat', 'image', 'xref', 'conref']),
+      getSelection: () => null,
+      getStructVersion: () => 5,
+      structTarget: (node: TestElement) => node.closest('[data-struct-id]'),
+      caretOffset: () => 3,
+      columnAnchorId: () => null,
+      availFor: () => ({ enabled: true }),
+      applyAvail: (btn: TestElement, _id: string, _op: string, label: string) => controls(doc).setBtnEnabled(btn, true, label),
+      insertAvailFor: () => ({ enabled: true }),
+      transformAvailFor: () => ({ status: 'ok' }),
+      postStructural: () => undefined,
+      withStructuralSuccess: (_op: string, _kind: string, extra: Record<string, unknown>) => extra,
+      postTransform: (transform: string, id: string | null) => transforms.push({ transform, id }),
+      announceNav: () => undefined,
+    });
+
+    buttonByAction(doc, 'Paragraph').click();
+    buttonByAction(doc, 'Bulleted list').click();
+
+    expect(transforms).toEqual([
+      { transform: 'noteContentToParagraph', id: 'n1:t0' },
+      { transform: 'noteContentToUnorderedList', id: 'n1:t0' },
+    ]);
+    expect(inserts).toEqual([]);
+  });
+
+  test('a paragraph inside a note transforms at the end caret instead of appending empty siblings', () => {
+    const doc = new TestDocument();
+    const note = new TestElement('div', doc, {
+      'data-struct-id': 'n1',
+      'data-struct-kind': 'note',
+    });
+    const paragraph = new TestElement('p', doc, {
+      'data-struct-id': 'p1',
+      'data-struct-kind': 'p',
+      'data-edit-id': 'p1',
+      contenteditable: 'true',
+    });
+    paragraph.append(new TestText('Existing note paragraph'));
+    note.appendChild(paragraph);
+    doc.main.appendChild(note);
+    doc.activeElement = paragraph;
+
+    const inserts: unknown[] = [];
+    const transforms: Array<{ transform: string; id: string | null }> = [];
+    const win = {
+      CSS: { escape: (value: string) => value },
+      getSelection: () => ({
+        rangeCount: 1,
+        isCollapsed: true,
+        anchorNode: paragraph,
+        getRangeAt: () => ({ startContainer: paragraph, startOffset: 1, endContainer: paragraph, endOffset: 1 }),
+      }),
+    } as Record<string, unknown>;
+    loadCommandBar(win, doc);
+
+    (
+      win.DitaEditorCanvasCommandBar as {
+        installCommandBar(opts: Record<string, unknown>): { refresh(): void };
+      }
+    ).installCommandBar({
+      document: doc,
+      window: win,
+      vscode: { postMessage: (message: unknown) => inserts.push(message) },
+      fontFamily: 'sans-serif',
+      controls: controls(doc),
+      menuIcons: icons(['paragraph', 'section', 'ul', 'ol', 'lines', 'note', 'codeblock', 'table']),
+      barIcons: icons(['undo', 'redo', 'find', 'code', 'clearFormat', 'image', 'xref', 'conref']),
+      getSelection: () => null,
+      getStructVersion: () => 5,
+      structTarget: (node: TestElement) => node.closest('[data-struct-id]'),
+      caretOffset: () => paragraph.textContent.length,
+      columnAnchorId: () => null,
+      availFor: () => ({ enabled: true }),
+      applyAvail: (btn: TestElement, _id: string, _op: string, label: string) => controls(doc).setBtnEnabled(btn, true, label),
+      insertAvailFor: () => ({ enabled: true }),
+      transformAvailFor: () => ({ status: 'ok' }),
+      postStructural: () => undefined,
+      withStructuralSuccess: (_op: string, _kind: string, extra: Record<string, unknown>) => extra,
+      postTransform: (transform: string, id: string | null) => transforms.push({ transform, id }),
+      announceNav: () => undefined,
+    });
+
+    const paragraphButton = buttonByAction(doc, 'Paragraph');
+    const listButton = buttonByAction(doc, 'Bulleted list');
+    expect(paragraphButton.getAttribute('aria-disabled')).toBe('true');
+    expect(paragraphButton.getAttribute('aria-label')).toBe('Already a paragraph');
+    expect(listButton.getAttribute('aria-disabled')).toBeNull();
+    expect(listButton.getAttribute('aria-label')).toBe('Convert to bulleted list');
+
+    paragraphButton.click();
+    listButton.click();
+
+    expect(transforms).toEqual([{ transform: 'paragraphToUnorderedList', id: 'p1' }]);
+    expect(inserts).toEqual([]);
+  });
+
   test('clicking Structure buttons in a direct <entry> posts entry transforms', () => {
     const doc = new TestDocument();
     const row = new TestElement('tr', doc, {

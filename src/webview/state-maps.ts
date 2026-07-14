@@ -39,6 +39,14 @@ const TRANSFORMS_BY_KIND: Record<string, TransformType[]> = {
     'linesToNote',
     'linesToCodeblock',
   ],
+  note: [
+    'noteContentToParagraph',
+    'noteContentToUnorderedList',
+    'noteContentToOrderedList',
+    'noteContentToAlphabeticList',
+    'noteContentToLines',
+    'noteContentToCodeblock',
+  ],
 };
 
 export function buildNavMap(doc: Document): NavMap {
@@ -58,6 +66,9 @@ export function buildCmdMap(doc: Document): AvailabilityMap {
 }
 
 export function resolveTransformFocus(transform: TransformType, focusedId: string, idx: DocIndex): FocusState {
+  if (transform.startsWith('noteContentTo')) {
+    return { id: focusedId.split(':t', 1)[0] };
+  }
   if (
     transform === 'entryToParagraph' ||
     transform === 'entryToUnorderedList' ||
@@ -132,6 +143,8 @@ export function buildInsertMap(doc: Document): InsertMap {
       entry.after = availAt({ mode: 'after', refId: id });
       if (el.name === 'li') entry.into = availAt({ mode: 'into', containerId: id });
     } else if (el.name === 'entry') {
+      entry.into = availAt({ mode: 'into', containerId: id });
+    } else if (el.name === 'note') {
       entry.into = availAt({ mode: 'into', containerId: id });
     } else if (el.name === 'table' || el.name === 'fig') {
       entry.after = availAt({ mode: 'after', refId: id });

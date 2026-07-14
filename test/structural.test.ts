@@ -143,6 +143,16 @@ describe('structural: list items', () => {
     expect(findElements(parse(res.source), 'li').length).toBe(1);
     expect(serialize(parse(res.source))).toBe(res.source);
   });
+
+  test('deleteItem removes the list when clearing its sole item inside mixed note content', () => {
+    const src = '<body><note>Keep this warning<ul><li/></ul></note></body>';
+    const res = applyStructuralEdit(src, 'deleteItem', firstId(src, 'li'));
+
+    expect(res.source).toBe('<body><note>Keep this warning</note></body>');
+    expect(findElements(parse(res.source), 'ul')).toHaveLength(0);
+    expect(findElements(parse(res.source), 'li')).toHaveLength(0);
+    expect(serialize(parse(res.source))).toBe(res.source);
+  });
 });
 
 describe('structural: paragraphs', () => {

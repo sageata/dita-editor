@@ -59,6 +59,12 @@ const TRANSFORM_SUCCESS: Record<TransformType, string> = {
   entryToLines: 'Cell content converted to lines.',
   entryToNote: 'Cell content converted to note.',
   entryToCodeblock: 'Cell content converted to code block.',
+  noteContentToParagraph: 'Note content converted to paragraph.',
+  noteContentToUnorderedList: 'Note content converted to bulleted list.',
+  noteContentToOrderedList: 'Note content converted to numbered list.',
+  noteContentToAlphabeticList: 'Note content converted to alphabetic list.',
+  noteContentToLines: 'Note content converted to lines.',
+  noteContentToCodeblock: 'Note content converted to code block.',
   paragraphToItem: 'Paragraph converted to list item.',
   itemToParagraph: 'List item converted to paragraph.',
 };
@@ -101,6 +107,17 @@ export function transformIntentSpec(intent: TransformIntent, sourceFocusId?: str
     case 'entryToNote':
     case 'entryToCodeblock':
       return { transform: intent.transform, entryId: intent.entryId, wrapperKind: intent.wrapperKind, listStyle: intent.listStyle };
+    case 'noteContentToParagraph':
+    case 'noteContentToUnorderedList':
+    case 'noteContentToOrderedList':
+    case 'noteContentToAlphabeticList':
+    case 'noteContentToLines':
+    case 'noteContentToCodeblock':
+      return {
+        transform: intent.transform,
+        noteContentId: sourceFocusId ?? intent.noteId,
+        listStyle: intent.listStyle,
+      };
     case 'itemToParagraph':
       return { transform: 'itemToParagraph', itemId: intent.itemId, mode: intent.mode };
   }
@@ -158,6 +175,13 @@ function multiTransformSuccess(transform: TransformType, count: number): string 
     case 'paragraphToItem':
     case 'itemToParagraph':
       return `${count} selected elements transformed.`;
+    case 'noteContentToParagraph':
+    case 'noteContentToUnorderedList':
+    case 'noteContentToOrderedList':
+    case 'noteContentToAlphabeticList':
+    case 'noteContentToLines':
+    case 'noteContentToCodeblock':
+      return `${count} note content runs transformed.`;
   }
 }
 

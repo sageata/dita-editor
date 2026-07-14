@@ -44,9 +44,71 @@ describe('buildInsertMap', () => {
     expect(map[entryId]?.before).toBeUndefined();
     expect(map[entryId]?.after).toBeUndefined();
   });
+
+  test('publishes every supported block insertion inside a note without invalid nesting', () => {
+    const doc = parse('<body><note type="note">Direct note</note></body>');
+    const map = buildInsertMap(doc);
+    const noteId = idOf(doc, 'note', 'Direct note');
+
+    for (const kind of [
+      'paragraph',
+      'lines',
+      'unorderedList',
+      'alphabeticList',
+      'orderedList',
+      'table',
+      'codeblock',
+    ] as const) {
+      expect(avail(map, noteId, 'into', kind)).toEqual({ kind, enabled: true });
+    }
+    expect(avail(map, noteId, 'into', 'note')).toMatchObject({
+      enabled: false,
+      reason: 'Cannot insert a note into <note>',
+    });
+    expect(avail(map, noteId, 'into', 'section')).toMatchObject({ enabled: false });
+    expect(avail(map, noteId, 'into', 'listItem')).toMatchObject({ enabled: false });
+  });
+
+  test('publishes in-place transforms for direct note prose', () => {
+    const doc = parse('<body><note>Direct note</note></body>');
+    const map = buildTransformMap(doc);
+    const noteId = idOf(doc, 'note', 'Direct note');
+
+    for (const transform of [
+      'noteContentToParagraph',
+      'noteContentToUnorderedList',
+      'noteContentToOrderedList',
+      'noteContentToAlphabeticList',
+      'noteContentToLines',
+      'noteContentToCodeblock',
+    ] as const) {
+      expect(map[noteId]?.[transform]).toEqual({ status: 'ok' });
+    }
+  });
 });
 
 describe('buildTransformMap', () => {
+  test('publishes list-item to paragraph conversion inside a note', () => {
+    const doc = parse('<body><note><ul><li><b>Business</b> A350</li></ul></note></body>');
+    const map = buildTransformMap(doc);
+    const itemId = idOf(doc, 'li', 'A350');
+
+    expect(map[itemId]?.itemToParagraph).toEqual({ status: 'ok' });
+  });
+
+  test('publishes legal paragraph conversions inside a note without allowing nested notes or sections', () => {
+    const doc = parse('<body><note><p>Business A350 specific</p></note></body>');
+    const map = buildTransformMap(doc);
+    const paragraphId = idOf(doc, 'p', 'Business A350');
+
+    expect(map[paragraphId]?.paragraphToUnorderedList).toEqual({ status: 'ok' });
+    expect(map[paragraphId]?.paragraphToOrderedList).toEqual({ status: 'ok' });
+    expect(map[paragraphId]?.paragraphToAlphabeticList).toEqual({ status: 'ok' });
+    expect(map[paragraphId]?.paragraphToCodeblock).toEqual({ status: 'ok' });
+    expect(map[paragraphId]?.paragraphToSection).toMatchObject({ status: 'invalid' });
+    expect(map[paragraphId]?.paragraphToNote).toMatchObject({ status: 'invalid' });
+  });
+
   test('publishes line-block conversions for focused lines in prose and table cells', () => {
     const doc = parse(
       '<body><lines>one\ntwo</lines><table><tgroup cols="1"><tbody><row><entry><lines>cell</lines></entry></row></tbody></tgroup></table></body>',

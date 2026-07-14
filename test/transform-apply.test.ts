@@ -269,6 +269,87 @@ describe('paragraphToList (p -> one-item ul/ol)', () => {
   </ul>
 </conbody>`);
   });
+
+  test('paragraphToUnorderedList is allowed inside a note and preserves inline content', () => {
+    const src = '<body><note><p><b>Business</b> A350 specific</p></note></body>';
+    const pId = idOf(src, 'p', 'A350 specific');
+
+    const r = applyTransform(src, { transform: 'paragraphToUnorderedList', paragraphId: pId, listKind: 'ul' });
+
+    expect(r.source).toBe(`<body><note><ul>
+  <li><b>Business</b> A350 specific</li>
+</ul></note></body>`);
+  });
+});
+
+describe('noteContentToBlock (direct/mixed note prose -> block in place)', () => {
+  test('supports every text-structure choice without appending a second block', () => {
+    const cases = [
+      ['noteContentToParagraph', '<p>Text</p>'],
+      ['noteContentToUnorderedList', '<ul><li>Text</li></ul>'],
+      ['noteContentToOrderedList', '<ol><li>Text</li></ol>'],
+      ['noteContentToAlphabeticList', '<ol outputclass="lower-alpha"><li>Text</li></ol>'],
+      ['noteContentToLines', '<lines>Text</lines>'],
+      ['noteContentToCodeblock', '<codeblock>Text</codeblock>'],
+    ] as const;
+
+    for (const [transform, expected] of cases) {
+      const source = '<body><note>Text</note></body>';
+      const result = applyTransform(source, { transform, noteContentId: idOf(source, 'note') });
+      expect(result.source).toBe(`<body><note>${expected}</note></body>`);
+    }
+  });
+
+  test('wraps a direct rich-text note as one bulleted list item', () => {
+    const source = '<body><note type="warning">Direct <b>rich</b> note</note></body>';
+    const noteId = idOf(source, 'note');
+    const result = applyTransform(source, {
+      transform: 'noteContentToUnorderedList',
+      noteContentId: noteId,
+      blockKind: 'ul',
+      listStyle: 'unordered',
+    });
+
+    expect(result.source).toBe('<body><note type="warning"><ul><li>Direct <b>rich</b> note</li></ul></note></body>');
+    expect(elAt(parse(result.source), result.focusId!)?.name).toBe('li');
+  });
+
+  test('wraps only the clicked mixed-note run and preserves sibling blocks byte-for-byte', () => {
+    const list = '<ul outputclass="keep"><li id="existing">Existing</li></ul>';
+    const source = `<body><note>Lead ${list} Tail</note></body>`;
+    const noteId = idOf(source, 'note');
+    const result = applyTransform(source, {
+      transform: 'noteContentToParagraph',
+      noteContentId: `${noteId}:t0`,
+      blockKind: 'p',
+    });
+
+    expect(result.source).toBe(`<body><note><p>Lead </p>${list} Tail</note></body>`);
+    expect(result.source).toContain(list);
+    expect(elAt(parse(result.source), result.focusId!)?.name).toBe('p');
+  });
+
+  test('wraps a styled mixed-note run while preserving its wrapper and source-only siblings', () => {
+    const source = '<body><note><b>Lead</b><!--keep--><ul><li>Existing</li></ul></note></body>';
+    const noteId = idOf(source, 'note');
+    const result = applyTransform(source, {
+      transform: 'noteContentToParagraph',
+      noteContentId: `${noteId}:t0`,
+    });
+
+    expect(result.source).toBe('<body><note><p><b>Lead</b></p><!--keep--><ul><li>Existing</li></ul></note></body>');
+  });
+
+  test('refuses a forged run id that points at a note block child', () => {
+    const source = '<body><note>Lead<ul><li>Existing</li></ul></note></body>';
+    const noteId = idOf(source, 'note');
+
+    expect(() => applyTransform(source, {
+      transform: 'noteContentToParagraph',
+      noteContentId: `${noteId}:t1`,
+      blockKind: 'p',
+    })).toThrow(/editable note content/i);
+  });
 });
 
 describe('paragraphToBlock (p -> section/note/codeblock)', () => {
@@ -317,6 +398,16 @@ describe('paragraphToBlock (p -> section/note/codeblock)', () => {
     expect(r.source).toBe(`<body>
   <codeblock>x</codeblock>
 </body>`);
+  });
+
+  test('paragraphToCodeblock is allowed inside a note without allowing a nested note', () => {
+    const src = '<body><note><p>warning</p></note></body>';
+    const pId = idOf(src, 'p', 'warning');
+
+    expect(applyTransform(src, { transform: 'paragraphToCodeblock', paragraphId: pId, blockKind: 'codeblock' }).source)
+      .toBe('<body><note><codeblock>warning</codeblock></note></body>');
+    expect(() => applyTransform(src, { transform: 'paragraphToNote', paragraphId: pId, blockKind: 'note' }))
+      .toThrow('paragraphToBlock: <note> is not permitted inside <note>');
   });
 });
 
@@ -578,6 +669,18 @@ describe('itemToParagraph (li -> p)', () => {
   <p>only</p>
 </body>`);
     expect(elAt(parse(r.source), r.focusId!)?.name).toBe('p');
+  });
+
+  test('dissolve-list inside a note preserves inline content', () => {
+    const source = '<body><note><ul><li><b>Business</b> A350</li></ul></note></body>';
+    const result = applyTransform(source, {
+      transform: 'itemToParagraph',
+      itemId: idOf(source, 'li', 'A350'),
+      mode: 'dissolve-list',
+    });
+
+    expect(result.source).toBe('<body><note><p><b>Business</b> A350</p></note></body>');
+    expect(elAt(parse(result.source), result.focusId!)?.name).toBe('p');
   });
 
   test('lift-before: the first item lifts out as a <p> before the list', () => {

@@ -33,7 +33,7 @@ import { applyInsertAction } from './insert-actions';
 import { applyLineBreakAction } from './line-break-actions';
 import { insertDitaFragment, sliceElements } from './dita-clipboard';
 import { openSiblingTopic } from './topic-nav';
-import { lintDitaSource } from '../cst/dita-quality';
+import { introducesEmptyList, lintDitaSource } from '../cst/dita-quality';
 import { mapLintToIds } from '../webview/lint-map';
 import { executeRangeAction, queryRangeActions } from './range-actions';
 import { createVisualRenderState } from './render-state';
@@ -703,6 +703,13 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
     // a change was actually written (false when newSource === current text).
     const applyMinimal = async (newSource: string, history?: ApplyMinimalHistory): Promise<boolean> => {
       const previousSource = document.getText();
+      if (introducesEmptyList(previousSource, newSource)) {
+        const message = 'That action would create an empty DITA list, so nothing was changed.';
+        console.error('dita-editor: refusing edit that would create an empty <ul>/<ol>');
+        postError(message);
+        void vscode.window.showErrorMessage('DITA Editor: refused an invalid empty list.');
+        return false;
+      }
       const span = minimalEdit(previousSource, newSource);
       if (!span) return false;
       const edit = new vscode.WorkspaceEdit();
@@ -1332,9 +1339,10 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
           });
       } else if (msg.type === 'lineBreak') {
         const text = typeof msg.text === 'string' ? msg.text : '';
+        const html = typeof msg.html === 'string' ? msg.html : undefined;
         const caretOffset = typeof msg.caretOffset === 'number' ? msg.caretOffset : undefined;
         queue = queue
-          .then(() => applyLineBreakAction(lineBreakActionContext(), id, text, caretOffset))
+          .then(() => applyLineBreakAction(lineBreakActionContext(), id, text, caretOffset, html))
           .catch((err) => {
             console.error('dita-editor: line break edit failed', err);
             postError('The line break could not be applied. See the developer console for details.');

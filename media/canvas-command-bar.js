@@ -157,6 +157,7 @@
       // Resolved directly: structTarget skips ul/ol and returns the lines leaf
       // for the corpus <li><lines> shape, so the li never surfaces as `kind`.
       const liEl = node && node.closest ? node.closest('li[data-struct-id][data-struct-kind="li"]') : null;
+      const noteEl = node && node.closest ? node.closest('[data-struct-id][data-struct-kind="note"]') : null;
       const cellEntryId = cell ? cell.getAttribute('data-cell-id') : null;
       const editId = editEl ? editEl.getAttribute('data-edit-id') : null;
       const directEntryEdit = !!(cellEntryId && editId === cellEntryId);
@@ -165,11 +166,13 @@
       return {
         id: id,
         kind: kind,
+        editId: editId,
         caretOffset: editEl ? caretOffset(editEl) : null,
         textLength: editEl ? commandStructure.sourceTextLength(editEl) : null,
         isCollapsed: isCollapsed,
         rowId: rowStruct ? rowStruct.getAttribute('data-struct-id') : null,
         listItemId: liEl ? liEl.getAttribute('data-struct-id') : null,
+        insideNote: !!(noteEl && noteEl !== struct),
         cellId: cell ? columnAnchorId(cell) : null,
         cellEntryId: cellEntryId,
         structEl: directEntryEdit ? cell : struct,
@@ -255,7 +258,11 @@
       const transform = commandStructure.structureTransformFor(op, current);
       if (transform) {
         if (postSelectedTransform(transform, commandStructure.structureTransformLabel(op, transform))) return;
-        postTransform(transform, current.id);
+        postTransform(transform, current.editId || current.id);
+        return;
+      }
+      if (commandStructure.isSameStructureInNote(op, current)) {
+        announceNav('Already in that form.');
         return;
       }
       if (commandStructure.isEditingBeforeEnd(current)) {
@@ -548,6 +555,10 @@
         const transform = commandStructure.structureTransformFor(s.op, c);
         if (transform) {
           applyBarTransform(s.b, c.id, transform, commandStructure.structureTransformLabel(s.op, transform), null);
+          continue;
+        }
+        if (commandStructure.isSameStructureInNote(s.op, c)) {
+          setBtnEnabled(s.b, false, s.op === 'paragraph' ? 'Already a paragraph' : 'Already in that form');
           continue;
         }
         if (commandStructure.isEditingBeforeEnd(c)) {

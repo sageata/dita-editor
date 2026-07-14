@@ -30,6 +30,7 @@ import {
 } from './list-style';
 import type { CstNode, Document, ElementNode } from './types';
 import type { StructuralResult } from './structural';
+import { isEditableInlinePhraseRun, isInlineHtmlEditable } from './text-targets';
 
 type EntryWrapperKind = 'p' | 'ul' | 'ol' | 'lines' | 'note' | 'codeblock';
 type LinesTargetKind = 'p' | 'ul' | 'ol' | 'section' | 'note' | 'codeblock';
@@ -59,6 +60,12 @@ export interface TransformSpec {
     | 'entryToLines'
     | 'entryToNote'
     | 'entryToCodeblock'
+    | 'noteContentToParagraph'
+    | 'noteContentToUnorderedList'
+    | 'noteContentToOrderedList'
+    | 'noteContentToAlphabeticList'
+    | 'noteContentToLines'
+    | 'noteContentToCodeblock'
     | 'paragraphToItem'
     | 'itemToParagraph';
   /** ul/ol to rename (list-kind transforms). */
@@ -85,6 +92,8 @@ export interface TransformSpec {
   entryId?: string;
   /** New wrapper for direct entry content. */
   wrapperKind?: EntryWrapperKind;
+  /** Whole-note edit id (eN) or mixed-note run id (eN:tK) to wrap in place. */
+  noteContentId?: string;
   /** <li> to convert (itemToParagraph). */
   itemId?: string;
   /** How the item leaves its list (itemToParagraph). */
@@ -198,6 +207,24 @@ export function applyTransform(source: string, spec: TransformSpec): StructuralR
       focusEl = entryToBlock(entry, kind, style);
       break;
     }
+    case 'noteContentToParagraph':
+    case 'noteContentToUnorderedList':
+    case 'noteContentToOrderedList':
+    case 'noteContentToAlphabeticList':
+    case 'noteContentToLines':
+    case 'noteContentToCodeblock': {
+      const kind = noteContentBlockKind(spec.transform);
+      const style = spec.listStyle ??
+        (spec.transform === 'noteContentToAlphabeticList'
+          ? 'alpha'
+          : kind === 'ul'
+            ? 'unordered'
+            : kind === 'ol'
+              ? 'ordered'
+              : undefined);
+      focusEl = noteContentToBlock(doc, spec.noteContentId, kind, style);
+      break;
+    }
     case 'itemToParagraph': {
       const li = requireEl(doc, spec.itemId, 'itemToParagraph source');
       if (li.name !== 'li') throw new Error(`itemToParagraph source is <${li.name}>, not a list item`);
@@ -215,6 +242,68 @@ function requireEl(doc: Document, id: string | undefined, what: string): Element
   const el = id ? findElementById(doc, id) : undefined;
   if (!el) throw new Error(`${what} not found: ${id}`);
   return el;
+}
+
+function noteContentBlockKind(transform: TransformSpec['transform']): 'p' | 'ul' | 'ol' | 'lines' | 'codeblock' {
+  switch (transform) {
+    case 'noteContentToParagraph': return 'p';
+    case 'noteContentToUnorderedList': return 'ul';
+    case 'noteContentToOrderedList':
+    case 'noteContentToAlphabeticList': return 'ol';
+    case 'noteContentToLines': return 'lines';
+    case 'noteContentToCodeblock': return 'codeblock';
+    default: throw new Error(`not a note-content transform: ${transform}`);
+  }
+}
+
+function noteContentToBlock(
+  doc: Document,
+  editId: string | undefined,
+  kind: 'p' | 'ul' | 'ol' | 'lines' | 'codeblock',
+  style?: ListStyle,
+): ElementNode {
+  if (!editId) throw new Error('editable note content target not found');
+  const separator = editId.indexOf(':t');
+  const noteId = separator >= 0 ? editId.slice(0, separator) : editId;
+  const note = requireEl(doc, noteId, 'editable note content');
+  if (note.name !== 'note') throw new Error(`editable note content parent is <${note.name}>, not <note>`);
+
+  let payload: CstNode[];
+  let runIndex: number | null = null;
+  if (separator >= 0) {
+    runIndex = Number(editId.slice(separator + 2));
+    const child = Number.isInteger(runIndex) ? note.children[runIndex] : undefined;
+    const editable = !!child && (
+      (child.type === 'text' && (child.newText ?? child.raw).trim() !== '') ||
+      (child.type === 'element' && isEditableInlinePhraseRun(child))
+    );
+    if (!editable || !child) throw new Error(`editable note content run not found: ${editId}`);
+    payload = [child];
+  } else {
+    const wholeEditable = note.children.every((child) => child.type === 'text') || isInlineHtmlEditable(note);
+    if (!wholeEditable) throw new Error('editable note content contains block or source-only children');
+    payload = note.children.slice();
+  }
+
+  let block: ElementNode;
+  let focus: ElementNode;
+  if (kind === 'ul' || kind === 'ol') {
+    const item = makeElement('li', [], payload);
+    block = makeElement(kind, listAttrsForStyle(style ?? (kind === 'ul' ? 'unordered' : 'ordered')), [item]);
+    focus = item;
+  } else {
+    block = makeElement(kind, [], payload);
+    focus = block;
+  }
+
+  if (runIndex === null) {
+    setElementChildren(note, [block]);
+  } else {
+    block.parent = note;
+    note.children.splice(runIndex, 1, block);
+    markDirty(note);
+  }
+  return focus;
 }
 
 function isDescendantOf(el: ElementNode, ancestor: ElementNode): boolean {
@@ -316,7 +405,7 @@ function paragraphToItem(
 function paragraphToList(p: ElementNode, kind: 'ul' | 'ol', style: ListStyle = kind === 'ul' ? 'unordered' : 'ordered'): ElementNode {
   const parent = p.parent;
   if (!parent) throw new Error('paragraphToList: paragraph has no parent');
-  if (!['body', 'conbody', 'refbody', 'li', 'entry', 'section'].includes(parent.name)) {
+  if (!['body', 'conbody', 'refbody', 'li', 'entry', 'section', 'note'].includes(parent.name)) {
     throw new Error(`paragraphToList: list is not permitted inside <${parent.name}>`);
   }
   const idx = parent.children.indexOf(p);
@@ -335,7 +424,10 @@ function paragraphToBlock(p: ElementNode, kind: 'section' | 'note' | 'codeblock'
   if (!parent) throw new Error('paragraphToBlock: paragraph has no parent');
   const sectionAllowed = ['body', 'conbody', 'refbody'].includes(parent.name);
   const blockAllowed = ['body', 'conbody', 'refbody', 'section', 'li', 'entry'].includes(parent.name);
-  if (kind === 'section' ? !sectionAllowed : !blockAllowed) {
+  const allowed = kind === 'section'
+    ? sectionAllowed
+    : blockAllowed || (kind === 'codeblock' && parent.name === 'note');
+  if (!allowed) {
     throw new Error(`paragraphToBlock: <${kind}> is not permitted inside <${parent.name}>`);
   }
   if (kind === 'codeblock') {

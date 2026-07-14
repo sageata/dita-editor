@@ -243,6 +243,18 @@ describe('structural host actions', () => {
     expect(ctx.announced).toEqual(['Cell content converted to bulleted list.']);
   });
 
+  test('applyTransformAction converts the clicked mixed-note run in place', async () => {
+    const list = '<ul outputclass="keep"><li>Existing</li></ul>';
+    const src = `<body><note>Lead ${list} Tail</note></body>`;
+    const noteId = idOf(src, 'note');
+    const ctx = makeContext(src);
+
+    await applyTransformAction(ctx, 'noteContentToParagraph', `${noteId}:t0`);
+
+    expect(ctx.applied).toEqual([`<body><note><p>Lead </p>${list} Tail</note></body>`]);
+    expect(ctx.announced).toEqual(['Note content converted to paragraph.']);
+  });
+
   test('applyTransformAction converts focused lines into a paragraph', async () => {
     const src = `<body>
   <lines>a

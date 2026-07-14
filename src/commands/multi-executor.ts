@@ -56,7 +56,17 @@ const BATCH_DELETE_OPS: ReadonlySet<string> = new Set([
   'deleteList',
   'deleteFig',
 ]);
-type BatchInPlaceTransform = Exclude<TransformSpec['transform'], 'paragraphToItem' | 'itemToParagraph'>;
+type BatchInPlaceTransform = Exclude<
+  TransformSpec['transform'],
+  | 'paragraphToItem'
+  | 'itemToParagraph'
+  | 'noteContentToParagraph'
+  | 'noteContentToUnorderedList'
+  | 'noteContentToOrderedList'
+  | 'noteContentToAlphabeticList'
+  | 'noteContentToLines'
+  | 'noteContentToCodeblock'
+>;
 const BATCH_IN_PLACE_TRANSFORMS: ReadonlySet<string> = new Set([
   'toOrderedList',
   'toUnorderedList',

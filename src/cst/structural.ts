@@ -84,9 +84,9 @@ const TOPIC_ROOTS = new Set([
 
 /** Parents whose only child of a given kind is required: a list keeps ≥1 <li>. */
 const LIST_PARENTS = new Set(['ul', 'ol']);
-/** Mixed-content parents that do NOT require a block-level child — a <li>/<entry> may hold
- *  just text (or be empty), so deleting its only block is allowed (no sole-block guard). */
-const OPTIONAL_BLOCK_PARENTS = new Set(['li', 'entry']);
+/** Mixed-content parents that do NOT require a block-level child — a <li>, <entry>, or
+ *  <note> may hold just text (or be empty), so deleting its only block is allowed. */
+const OPTIONAL_BLOCK_PARENTS = new Set(['li', 'entry', 'note']);
 /** CALS row sections that keep ≥1 <row> (thead/tbody are (row)+). */
 const ROW_SECTIONS = new Set(['thead', 'tbody']);
 /** Block-level element names: a (block)+ container (body/section/conbody/cell/…)
@@ -330,10 +330,21 @@ export function applyStructuralEdit(
       break;
     }
     case 'deleteRow':
-    case 'deleteItem':
     case 'deletePara':
       removeWithLeadingWs(el);
       break;
+    case 'deleteItem': {
+      if (el.name !== 'li') throw new Error(`deleteItem target is <${el.name}>, not <li>`);
+      const check = canDeleteElement(el, el.parent ?? null);
+      if (!check.canDelete) throw new Error(check.reason ?? 'Cannot delete this list item');
+      // Deleting the final item must be one atomic edit: remove its list as well,
+      // never serialize the transient invalid shape <ul/> / <ol/>.
+      const target = deleteTargetFor(el);
+      focusEl = nextOrPrevBlock(target);
+      removeWithLeadingWs(target);
+      caretOffset = focusEl ? 0 : null;
+      break;
+    }
     case 'deleteTable':
     case 'deleteList':
     case 'deleteFig': {

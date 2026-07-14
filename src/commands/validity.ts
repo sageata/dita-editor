@@ -221,7 +221,10 @@ export function isValid(op: StructuralOp, focus: FocusState, idx: DocIndex): Val
     case 'deleteItem': {
       const list = el.parent ?? null;
       const items = list ? childrenNamed(list, 'li') : [el];
-      if (items.length <= 1) return no('Cannot delete the only item in the list', false);
+      if (items.length <= 1) {
+        const check = canDeleteElement(el, list);
+        if (!check.canDelete) return no('Cannot delete the only item because its list cannot be removed', false);
+      }
       return ok();
     }
     case 'deletePara': {

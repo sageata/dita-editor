@@ -32,8 +32,26 @@
     return isCaretBeforeEnd(current) || isTextSelection(current);
   }
 
+  function isSameStructureInNote(op, current) {
+    if (!current || current.insideNote !== true) return false;
+    return (
+      (op === 'paragraph' && current.kind === 'p') ||
+      (op === 'lines' && current.kind === 'lines') ||
+      (op === 'codeblock' && current.kind === 'codeblock')
+    );
+  }
+
   function structureTransformFor(op, current) {
     if (!current || !current.id) return null;
+    if (current.kind === 'note' && current.editId) {
+      if (op === 'paragraph') return 'noteContentToParagraph';
+      if (op === 'unorderedList') return 'noteContentToUnorderedList';
+      if (op === 'alphabeticList') return 'noteContentToAlphabeticList';
+      if (op === 'orderedList') return 'noteContentToOrderedList';
+      if (op === 'lines') return 'noteContentToLines';
+      if (op === 'codeblock') return 'noteContentToCodeblock';
+      return null;
+    }
     if (current.kind === 'entry') {
       if (op === 'paragraph') return 'entryToParagraph';
       if (op === 'unorderedList') return 'entryToUnorderedList';
@@ -54,40 +72,43 @@
       if (op === 'codeblock') return 'linesToCodeblock';
       return null;
     }
-    if (!isEditingBeforeEnd(current)) return null;
+    const convertCurrentParagraph = current.kind === 'p' && (
+      current.insideNote === true || isEditingBeforeEnd(current)
+    );
+    if (!isEditingBeforeEnd(current) && !convertCurrentParagraph) return null;
     if (op === 'paragraph' && current.kind === 'li') return 'itemToParagraph';
-    if (op === 'section' && current.kind === 'p') return 'paragraphToSection';
+    if (op === 'section' && convertCurrentParagraph) return 'paragraphToSection';
     if (op === 'unorderedList') {
-      if (current.kind === 'p') return 'paragraphToUnorderedList';
+      if (convertCurrentParagraph) return 'paragraphToUnorderedList';
       if (current.kind === 'li') return 'toUnorderedList';
     }
     if (op === 'alphabeticList') {
-      if (current.kind === 'p') return 'paragraphToAlphabeticList';
+      if (convertCurrentParagraph) return 'paragraphToAlphabeticList';
       if (current.kind === 'li') return 'toAlphabeticList';
     }
     if (op === 'orderedList') {
-      if (current.kind === 'p') return 'paragraphToOrderedList';
+      if (convertCurrentParagraph) return 'paragraphToOrderedList';
       if (current.kind === 'li') return 'toOrderedList';
     }
-    if (op === 'note' && current.kind === 'p') return 'paragraphToNote';
-    if (op === 'codeblock' && current.kind === 'p') return 'paragraphToCodeblock';
+    if (op === 'note' && convertCurrentParagraph) return 'paragraphToNote';
+    if (op === 'codeblock' && convertCurrentParagraph) return 'paragraphToCodeblock';
     return null;
   }
 
   function structureTransformLabel(op, transform) {
-    if (transform === 'itemToParagraph' || transform === 'entryToParagraph') return 'Convert to paragraph';
+    if (transform === 'itemToParagraph' || transform === 'entryToParagraph' || transform === 'noteContentToParagraph') return 'Convert to paragraph';
     if (transform === 'linesToParagraph') return 'Convert to paragraph';
-    if (transform === 'toUnorderedList' || transform === 'paragraphToUnorderedList' || transform === 'entryToUnorderedList') return 'Convert to bulleted list';
+    if (transform === 'toUnorderedList' || transform === 'paragraphToUnorderedList' || transform === 'entryToUnorderedList' || transform === 'noteContentToUnorderedList') return 'Convert to bulleted list';
     if (transform === 'linesToUnorderedList') return 'Convert to bulleted list';
-    if (transform === 'toAlphabeticList' || transform === 'paragraphToAlphabeticList' || transform === 'entryToAlphabeticList') return 'Convert to alphabetic list';
+    if (transform === 'toAlphabeticList' || transform === 'paragraphToAlphabeticList' || transform === 'entryToAlphabeticList' || transform === 'noteContentToAlphabeticList') return 'Convert to alphabetic list';
     if (transform === 'linesToAlphabeticList') return 'Convert to alphabetic list';
-    if (transform === 'toOrderedList' || transform === 'paragraphToOrderedList' || transform === 'entryToOrderedList') return 'Convert to numbered list';
+    if (transform === 'toOrderedList' || transform === 'paragraphToOrderedList' || transform === 'entryToOrderedList' || transform === 'noteContentToOrderedList') return 'Convert to numbered list';
     if (transform === 'linesToOrderedList') return 'Convert to numbered list';
-    if (transform === 'entryToLines') return 'Convert to lines';
+    if (transform === 'entryToLines' || transform === 'noteContentToLines') return 'Convert to lines';
     if (transform === 'paragraphToSection' || transform === 'linesToSection') return 'Convert to section';
     if (transform === 'paragraphToNote' || transform === 'entryToNote') return 'Convert to note';
     if (transform === 'linesToNote') return 'Convert to note';
-    if (transform === 'paragraphToCodeblock' || transform === 'entryToCodeblock') return 'Convert to code block';
+    if (transform === 'paragraphToCodeblock' || transform === 'entryToCodeblock' || transform === 'noteContentToCodeblock') return 'Convert to code block';
     if (transform === 'linesToCodeblock') return 'Convert to code block';
     return 'Convert ' + op;
   }
@@ -180,6 +201,7 @@
     hasMultiListItemSelection: hasMultiListItemSelection,
     isCaretBeforeEnd: isCaretBeforeEnd,
     isEditingBeforeEnd: isEditingBeforeEnd,
+    isSameStructureInNote: isSameStructureInNote,
     listKindTransformForCurrent: listKindTransformForCurrent,
     selectedListItemIds: selectedListItemIds,
     selectedListStyles: selectedListStyles,

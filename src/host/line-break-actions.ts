@@ -19,10 +19,11 @@ export async function applyLineBreakAction(
   id: string,
   text: string,
   caretOffset: number | undefined,
+  inlineHtml?: string,
 ): Promise<void> {
   let result;
   try {
-    result = applyLineBreakEdit(ctx.document.getText(), id, text, caretOffset);
+    result = applyLineBreakEdit(ctx.document.getText(), id, text, caretOffset, inlineHtml);
   } catch (err) {
     const reason = err instanceof Error && err.message ? err.message : 'That line break is not available here.';
     ctx.setRefusedDiagnostic('lineBreak');

@@ -54,6 +54,7 @@ const BODY_P = '<body><p>intro</p></body>';
 const LIST = '<body><ul><li>a</li><li>b</li></ul></body>';
 const EMPTY_BODY = '<body></body>';
 const SECTION = '<body><section><title>S</title><p>sp</p></section></body>';
+const DIRECT_NOTE = '<body><note type="note">Direct note</note></body>';
 
 // ---- canInsert: content-model gating ----------------------------------------
 
@@ -119,6 +120,38 @@ describe('canInsert content model', () => {
     for (const kind of ['note', 'codeblock'] as InsertKind[]) {
       expect(canInsert(kind, { mode: 'after', refId: ref }, idx)).toEqual({ enabled: true, ditaValid: true });
     }
+  });
+
+  test('all editor-supported DITA blocks are allowed inside a note, but invalid children are refused', () => {
+    const idx = indexDocument(DIRECT_NOTE);
+    const pos = { mode: 'into', containerId: idOf(idx, 'note') } as const;
+    for (const kind of [
+      'paragraph',
+      'lines',
+      'unorderedList',
+      'alphabeticList',
+      'orderedList',
+      'table',
+      'codeblock',
+    ] as InsertKind[]) {
+      expect(canInsert(kind, pos, idx)).toEqual({ enabled: true, ditaValid: true });
+    }
+    expect(canInsert('note', pos, idx)).toEqual({
+      enabled: false,
+      reason: 'Cannot insert a note into <note>',
+      ditaValid: false,
+    });
+    expect(canInsert('section', pos, idx)).toMatchObject({ enabled: false, ditaValid: false });
+    expect(canInsert('listItem', pos, idx)).toMatchObject({ enabled: false, ditaValid: false });
+    expect(availableInserts(pos, idx)).toEqual([
+      'paragraph',
+      'lines',
+      'unorderedList',
+      'alphabeticList',
+      'orderedList',
+      'table',
+      'codeblock',
+    ]);
   });
 
   test('a section after a <p> in <body> is allowed but refused inside a list item / section', () => {
@@ -241,6 +274,22 @@ describe('applyInsert produces valid structures', () => {
     const focus = out.byId.get(r.focusId as string);
     expect(focus?.name).toBe('p');
     expect(focus?.parent?.name).toBe('note');
+  });
+
+  test('direct-text note: appends a paragraph and a list inside the note', () => {
+    const noteIdx = indexDocument(DIRECT_NOTE);
+    const paragraph = applyInsert(DIRECT_NOTE, 'paragraph', { mode: 'into', containerId: idOf(noteIdx, 'note') });
+    expect(paragraph.source).toBe('<body><note type="note">Direct note\n<p></p></note></body>');
+    const paragraphOut = reindex(paragraph.source);
+    expect(paragraphOut.byId.get(paragraph.focusId as string)?.parent?.name).toBe('note');
+
+    const listIdx = indexDocument(paragraph.source);
+    const list = applyInsert(paragraph.source, 'unorderedList', { mode: 'into', containerId: idOf(listIdx, 'note') });
+    const listOut = reindex(list.source);
+    const focusedItem = listOut.byId.get(list.focusId as string);
+    expect(focusedItem?.name).toBe('li');
+    expect(focusedItem?.parent?.name).toBe('ul');
+    expect(focusedItem?.parent?.parent?.name).toBe('note');
   });
 
   test('section: <section> seeded with an empty <title>, focus on the title', () => {

@@ -75,6 +75,12 @@ export type TransformType =
   | 'entryToLines'
   | 'entryToNote'
   | 'entryToCodeblock'
+  | 'noteContentToParagraph'
+  | 'noteContentToUnorderedList'
+  | 'noteContentToOrderedList'
+  | 'noteContentToAlphabeticList'
+  | 'noteContentToLines'
+  | 'noteContentToCodeblock'
   | 'paragraphToItem'
   | 'itemToParagraph';
 
@@ -162,6 +168,21 @@ export interface EntryToBlockIntent extends TransformBase {
   listStyle?: ListStyle;
 }
 
+/** Wrap the focused direct-text/phrase run inside a note at its current position. */
+export interface NoteContentToBlockIntent extends TransformBase {
+  status: 'ok';
+  transform:
+    | 'noteContentToParagraph'
+    | 'noteContentToUnorderedList'
+    | 'noteContentToOrderedList'
+    | 'noteContentToAlphabeticList'
+    | 'noteContentToLines'
+    | 'noteContentToCodeblock';
+  noteId: string;
+  blockKind: 'p' | 'ul' | 'ol' | 'lines' | 'codeblock';
+  listStyle?: ListStyle;
+}
+
 /** Lift a <li> out of its list as a sibling <p> (or dissolve a single-item list). */
 export interface ItemToParagraphIntent extends TransformBase {
   status: 'ok';
@@ -183,6 +204,7 @@ export type TransformIntent =
   | ParagraphToBlockIntent
   | LinesToBlockIntent
   | EntryToBlockIntent
+  | NoteContentToBlockIntent
   | ItemToParagraphIntent;
 
 export interface TransformNoop extends TransformBase {
@@ -202,8 +224,8 @@ export type TransformResult = TransformIntent | TransformNoop | TransformInvalid
 // grounded in the corpus (lists occur in body / li / entry) plus <section>, the
 // canonical DITA block container. An unrecognised parent is REFUSED rather than
 // guessed valid — this core never speculates a content model it cannot verify.
-const PARENT_ACCEPTS_P = new Set(['body', 'conbody', 'refbody', 'li', 'entry', 'section']);
-const PARENT_ACCEPTS_LIST = new Set(['body', 'conbody', 'refbody', 'li', 'entry', 'section']);
+const PARENT_ACCEPTS_P = new Set(['body', 'conbody', 'refbody', 'li', 'entry', 'section', 'note']);
+const PARENT_ACCEPTS_LIST = new Set(['body', 'conbody', 'refbody', 'li', 'entry', 'section', 'note']);
 const PARENT_ACCEPTS_SECTION = new Set(['body', 'conbody', 'refbody']);
 const PARENT_ACCEPTS_BLOCK = new Set(['body', 'conbody', 'refbody', 'section', 'li', 'entry']);
 
@@ -325,9 +347,40 @@ export function planTransform(
       return planEntryToBlock(transform, el, rev, 'note');
     case 'entryToCodeblock':
       return planEntryToBlock(transform, el, rev, 'codeblock');
+    case 'noteContentToParagraph':
+      return planNoteContentToBlock(transform, el, rev, 'p');
+    case 'noteContentToUnorderedList':
+      return planNoteContentToBlock(transform, el, rev, 'ul', 'unordered');
+    case 'noteContentToOrderedList':
+      return planNoteContentToBlock(transform, el, rev, 'ol', 'ordered');
+    case 'noteContentToAlphabeticList':
+      return planNoteContentToBlock(transform, el, rev, 'ol', 'alpha');
+    case 'noteContentToLines':
+      return planNoteContentToBlock(transform, el, rev, 'lines');
+    case 'noteContentToCodeblock':
+      return planNoteContentToBlock(transform, el, rev, 'codeblock');
     case 'itemToParagraph':
       return planItemToParagraph(el, rev);
   }
+}
+
+function planNoteContentToBlock(
+  transform: NoteContentToBlockIntent['transform'],
+  el: ElementNode,
+  rev: Map<ElementNode, string>,
+  blockKind: NoteContentToBlockIntent['blockKind'],
+  listStyle?: ListStyle,
+): TransformResult {
+  if (el.name !== 'note') {
+    return invalid(transform, 'wrong-kind', 'This action needs direct note content in focus');
+  }
+  return {
+    status: 'ok',
+    transform,
+    noteId: rev.get(el) as string,
+    blockKind,
+    listStyle,
+  };
 }
 
 function planListKind(
@@ -441,7 +494,10 @@ function planParagraphToBlock(
   const parent = el.parent ?? null;
   const allowed = blockKind === 'section'
     ? !!parent && PARENT_ACCEPTS_SECTION.has(parent.name)
-    : !!parent && PARENT_ACCEPTS_BLOCK.has(parent.name);
+    : !!parent && (
+      PARENT_ACCEPTS_BLOCK.has(parent.name) ||
+      (blockKind === 'codeblock' && parent.name === 'note')
+    );
   if (!allowed) {
     return invalid(
       transform,
@@ -624,6 +680,12 @@ export function availableTransforms(focus: FocusState, idx: DocIndex): Transform
     'entryToLines',
     'entryToNote',
     'entryToCodeblock',
+    'noteContentToParagraph',
+    'noteContentToUnorderedList',
+    'noteContentToOrderedList',
+    'noteContentToAlphabeticList',
+    'noteContentToLines',
+    'noteContentToCodeblock',
     'paragraphToItem',
     'itemToParagraph',
   ];

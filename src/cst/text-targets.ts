@@ -5,7 +5,8 @@
 // matter: a freshly-added row cell / list item / paragraph has no text yet but
 // must be typeable.
 //
-// Block-mixed elements (currently a <li> whose text coexists with a nested <ul>/<ol>)
+// Block-mixed elements (a <li> whose text coexists with a nested <ul>/<ol>, or a
+// <note> whose direct prose coexists with normal DITA block content)
 // are handled separately: the WHOLE element is NOT editable (that would let setElementText
 // nuke the child), but each text run becomes an independent editable target, addressed
 // `<parentId>:t<childIndex>`, edited via setText. Inline-only mixed leaves, including
@@ -67,23 +68,35 @@ function isEditable(el: ElementNode): boolean {
 export function isInlineHtmlEditable(el: ElementNode): boolean {
   const elementChildren = el.children.filter(isElement);
   if (elementChildren.length === 0) return false;
-  return INLINE_HTML_EDITABLE_PARENTS.has(el.name) && elementChildren.every((c) => isInlineEditableSibling(c.name));
+  return INLINE_HTML_EDITABLE_PARENTS.has(el.name) && el.children.every((c) => (
+    c.type === 'text' || (isElement(c) && isInlineEditableSibling(c.name))
+  ));
 }
 
-/** An element whose own text coexists with element children, where editing the text
+/** An element whose own text coexists with preserved non-text children, where editing the text
  *  IN PLACE (per text-run, via the `:t` path → setText) preserves those children verbatim:
- *   - a <li> whose text sits alongside a nested <ul>/<ol> (created by indenting an item).
+ *   - a <li> whose text sits alongside a nested <ul>/<ol> (created by indenting an item);
+ *   - a <note> whose direct prose sits alongside any DITA basic block, specialization,
+ *     comment, or processing instruction. The note content model accepts broad block and
+ *     domain content, so this preserves unknown children instead of guessing an allowlist.
  *  Whole-element editing is impossible for these (setElementText would nuke the children),
  *  so each non-whitespace text run becomes its own editable span instead. */
 function isMixedEditable(el: ElementNode): boolean {
   const elementChildren = el.children.filter(isElement);
   if (isInlineHtmlEditable(el)) return false;
-  if (elementChildren.length === 0) return false; // plain text-only -> isEditable handles it
   const hasEditableRun = el.children.some((c) => {
     if (c.type === 'text') return (c.newText ?? c.raw).trim() !== '';
     return c.type === 'element' && isEditableInlinePhraseRun(c);
   });
   if (!hasEditableRun) return false;
+  if (el.name === 'note') {
+    // Inline-only notes are handled above as one rich editable surface. Everything else is
+    // edited run-by-run so paragraphs, lists, tables, figures, domain specializations, and
+    // source-only nodes survive byte-exact. This changes no structure and therefore cannot
+    // introduce invalid note children.
+    return el.children.some((c) => c.type !== 'text');
+  }
+  if (elementChildren.length === 0) return false; // plain text-only -> isEditable handles it
   if (el.name === 'li') {
     // The canvas routes Enter in an <li>'s text run to addItemAfter (NOT split), so the
     // nested list is never destroyed — the reason this used to be entry-only.
