@@ -287,13 +287,13 @@
   },
   {
     "path": "media/canvas-context-menu.js",
-    "sha256": "1b868fbc20a2a5444cf1dd6c78a76cbbddc79ecbdb8d24c686446f8558765a01",
+    "sha256": "223650ab290a9e8e95fe5a2ab253b3b27cd83518e92085bd82461d18fdc946c9",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {
@@ -419,7 +419,7 @@
   },
   {
     "path": "media/canvas-image-bar.js",
-    "sha256": "9c6d679705b8d85170a6a5313e148388b8cc08c97dac8752db050809b1077179",
+    "sha256": "693fd07fb73e0da29f3dfeeb9aad21e7b6c629af9c6281b8b4dfb8d63cc69fcf",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1431,7 +1431,7 @@
   },
   {
     "path": "src/host/image-actions.ts",
-    "sha256": "a11d9ae9ec8f2ab7a85d7d63a21600b27d91f2adea76dc83c6ea313f6e8af3de",
+    "sha256": "d96e13e82208429019c552ec71ff0731261fec4bd8eb23ceaef983b8c0cd4dcc",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1673,7 +1673,7 @@
   },
   {
     "path": "src/host/visual-editor-provider.ts",
-    "sha256": "343629102a18f936cfdbfa7b685f9ee43c016128ce6cce4c58fde7946371ff6d",
+    "sha256": "2186f8bde45c473bed51709822fee412be5a39a6ed41afa71e5bd32408b25111",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1783,13 +1783,13 @@
   },
   {
     "path": "src/webview/canvas-messages.ts",
-    "sha256": "05e482c816f9460ce3bd895e65391a75d9eac927e31b062aa08e0bf5a06f7a38",
+    "sha256": "5249dfb23993810f73baf1c8a6ed08993e84ccef0bdec5ebec44e0eb906c94af",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {
@@ -2014,13 +2014,13 @@
   },
   {
     "path": "test/canvas-context-menu.test.ts",
-    "sha256": "25b1c2e2a2416de60dbf86ba3d71fe2b5b8d719e83ba650688592d2421bc9d48",
+    "sha256": "c9f31876ccf0c539756f8c9703e1518b82d8a61b79ac60b04231627fd79f6d2d",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {
@@ -2080,7 +2080,7 @@
   },
   {
     "path": "test/canvas-image-bar.test.ts",
-    "sha256": "28ffcc9363f80b16930d4b25c59d20dd229010c6328e9266cfcf6658bec81003",
+    "sha256": "21cd26b010c42ab736e76948628ed4f59564a8b22bc0176e622e00c0b92da7bf",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -2663,7 +2663,7 @@
   },
   {
     "path": "test/image-actions.test.ts",
-    "sha256": "68075b763f4f2222015ba71fcd6fc6596e682cb3fbb91fe6b8a96d411eb32115",
+    "sha256": "6fdc1e49b64de0087a69854992ffac417dcb8c1bfce923788f52a91d5f68b75d",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3081,13 +3081,13 @@
   },
   {
     "path": "test/real-webview.e2e.test.ts",
-    "sha256": "caba4032a4c83524a699512cc325c9144694039f2233404e65253315d535e752",
+    "sha256": "39ede96e20d3faf7fc606cd9c4469aac1bf3e515f979747af62b152520ad254c",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {
@@ -3521,13 +3521,13 @@
   },
   {
     "path": "test/z-layers.test.ts",
-    "sha256": "3d89cb02125f0e0b86ff36e39dbabedfd7b323ea83312656ad4f333fb4dbbee9",
+    "sha256": "3b8b71c3ed876d594bd87b2d78d75af079cae149619a4146194005610a8811da",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {

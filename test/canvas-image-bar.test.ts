@@ -17,12 +17,23 @@ function installImageBar() {
   doc.main.appendChild(image);
   const posted: unknown[] = [];
   const announcements: string[] = [];
+  const windowListeners = new Map<string, Array<(event: Record<string, unknown>) => void>>();
   let selection: unknown = null;
+  image.getBoundingClientRect = () => ({ left: 120, top: 40, right: 320, bottom: 140, width: 200, height: 100 }) as never;
 
   new Function('window', source)(win);
   const bar = win.DitaEditorCanvasImageBar.installImageBar({
     document: doc,
-    window: { scrollX: 0, scrollY: 0 },
+    window: {
+      scrollX: 0,
+      scrollY: 0,
+      innerWidth: 1200,
+      addEventListener: (type: string, listener: (event: Record<string, unknown>) => void) => {
+        const listeners = windowListeners.get(type) ?? [];
+        listeners.push(listener);
+        windowListeners.set(type, listeners);
+      },
+    },
     vscode: {
       postMessage: (msg: unknown) => {
         posted.push(msg);
@@ -45,6 +56,7 @@ function installImageBar() {
   const changeButton = toolbar.children[0];
   const altButton = toolbar.children[1];
   const resizeButton = toolbar.children[2];
+  const resizeHandle = doc.body.children[2];
   return {
     bar,
     doc,
@@ -52,8 +64,12 @@ function installImageBar() {
     changeButton,
     altButton,
     resizeButton,
+    resizeHandle,
     posted: () => posted,
     announcements: () => announcements,
+    dispatchWindow: (type: string, event: Record<string, unknown>) => {
+      for (const listener of windowListeners.get(type) ?? []) listener(event);
+    },
     selectImage: () => {
       selection = { mode: 'single', unit: 'image', id: 'i1' };
     },
@@ -98,6 +114,43 @@ describe('canvas-image-bar', () => {
     expect(posted()).toEqual([{ type: 'resizeImage', id: 'i1' }]);
   });
 
+  test('shows a drag handle and persists the dragged pixel width', () => {
+    const { bar, resizeHandle, posted, selectImage, dispatchWindow } = installImageBar();
+    selectImage();
+    bar.update();
+
+    expect(resizeHandle.getAttribute('aria-label')).toBe('Drag to resize image');
+    expect(resizeHandle.style.display).toBe('block');
+    resizeHandle.dispatch('mousedown', {
+      button: 0,
+      clientX: 320,
+      preventDefault: () => undefined,
+      stopPropagation: () => undefined,
+    });
+    dispatchWindow('mousemove', { clientX: 380, preventDefault: () => undefined });
+    dispatchWindow('mouseup', { clientX: 380 });
+
+    expect(posted()).toEqual([{ type: 'setImageWidth', id: 'i1', width: '260px' }]);
+  });
+
+  test('converts visual drag pixels to authored pixels when the canvas is zoomed', () => {
+    const { bar, doc, resizeHandle, posted, selectImage, dispatchWindow } = installImageBar();
+    doc.main.style.zoom = '2';
+    selectImage();
+    bar.update();
+
+    resizeHandle.dispatch('mousedown', {
+      button: 0,
+      clientX: 320,
+      preventDefault: () => undefined,
+      stopPropagation: () => undefined,
+    });
+    dispatchWindow('mousemove', { clientX: 380, preventDefault: () => undefined });
+    dispatchWindow('mouseup', { clientX: 380 });
+
+    expect(posted()).toEqual([{ type: 'setImageWidth', id: 'i1', width: '130px' }]);
+  });
+
   test('roves and activates image controls from the keyboard', () => {
     const { bar, doc, toolbar, changeButton, altButton, posted, announcements, selectImage } = installImageBar();
     selectImage();
@@ -132,7 +185,7 @@ describe('canvas-image-bar', () => {
   });
 
   test('hides and removes tab stops when the image selection clears', () => {
-    const { bar, toolbar, changeButton, altButton, resizeButton, selectImage, clearSelection } = installImageBar();
+    const { bar, toolbar, changeButton, altButton, resizeButton, resizeHandle, selectImage, clearSelection } = installImageBar();
     selectImage();
     bar.update();
     clearSelection();
@@ -144,5 +197,6 @@ describe('canvas-image-bar', () => {
     expect(changeButton.tabIndex).toBe(-1);
     expect(altButton.tabIndex).toBe(-1);
     expect(resizeButton.tabIndex).toBe(-1);
+    expect(resizeHandle.style.display).toBe('none');
   });
 });

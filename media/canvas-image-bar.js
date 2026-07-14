@@ -29,8 +29,20 @@
     imgBar.append(changeImgBtn, editAltBtn, resizeBtn);
     const buttons = [changeImgBtn, editAltBtn, resizeBtn];
     document.body.appendChild(imgBar);
+    const resizeHandle = document.createElement('div');
+    resizeHandle.setAttribute('role', 'separator');
+    resizeHandle.setAttribute('aria-label', 'Drag to resize image');
+    resizeHandle.setAttribute('aria-orientation', 'horizontal');
+    resizeHandle.style.cssText =
+      'position:absolute;display:none;width:14px;height:14px;z-index:48;box-sizing:border-box;' +
+      'background:#0b6bcb;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px #0b6bcb;' +
+      'cursor:nwse-resize;touch-action:none;';
+    resizeHandle.style.display = 'none';
+    document.body.appendChild(resizeHandle);
     let imgBarTargetId = null;
+    let imgBarTarget = null;
     let rovingIdx = 0;
+    let drag = null;
 
     function setRoving(idx) {
       rovingIdx = Math.max(0, Math.min(idx, buttons.length - 1));
@@ -52,8 +64,24 @@
 
     function hide() {
       imgBar.style.display = 'none';
+      resizeHandle.style.display = 'none';
       for (const btn of buttons) btn.tabIndex = -1;
       imgBarTargetId = null;
+      imgBarTarget = null;
+      drag = null;
+    }
+
+    function positionResizeHandle(rect) {
+      const sx = window.scrollX;
+      const sy = window.scrollY;
+      resizeHandle.style.left = rect.right + sx - 7 + 'px';
+      resizeHandle.style.top = rect.bottom + sy - 7 + 'px';
+    }
+
+    function canvasZoom() {
+      const main = document.querySelector('main');
+      const zoom = main ? Number.parseFloat(main.style.zoom || '1') : 1;
+      return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
     }
 
     function update() {
@@ -70,7 +98,9 @@
         return;
       }
       imgBarTargetId = selection.id;
+      imgBarTarget = img;
       imgBar.style.display = 'flex';
+      resizeHandle.style.display = 'block';
       const activeIdx = buttons.indexOf(document.activeElement);
       setRoving(activeIdx >= 0 ? activeIdx : 0);
       const geom = window.DitaEditorCanvasGeom;
@@ -83,6 +113,7 @@
       const left = Math.max(sx + MIN_GAP, rect.left + sx);
       imgBar.style.left = left + 'px';
       imgBar.style.top = top + 'px';
+      positionResizeHandle(rect);
     }
 
     function isShown() {
@@ -101,6 +132,40 @@
     });
     resizeBtn.addEventListener('click', () => {
       activateButton(resizeBtn);
+    });
+    resizeHandle.addEventListener('mousedown', (event) => {
+      if (event.button !== 0 || !imgBarTarget || !imgBarTargetId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const geom = window.DitaEditorCanvasGeom;
+      const rect = geom ? geom.visualRect(imgBarTarget) : imgBarTarget.getBoundingClientRect();
+      const zoom = canvasZoom();
+      drag = {
+        id: imgBarTargetId,
+        image: imgBarTarget,
+        startX: event.clientX,
+        zoom: zoom,
+        startWidth: rect.width / zoom,
+        width: Math.round(rect.width / zoom),
+      };
+    });
+    window.addEventListener('mousemove', (event) => {
+      if (!drag || typeof event.clientX !== 'number') return;
+      event.preventDefault();
+      const maxWidth = Math.max(28, ((window.innerWidth || 1200) - 24) / drag.zoom);
+      drag.width = Math.max(28, Math.min(maxWidth, Math.round(drag.startWidth + (event.clientX - drag.startX) / drag.zoom)));
+      drag.image.style.width = drag.width + 'px';
+      drag.image.style.height = 'auto';
+      const geom = window.DitaEditorCanvasGeom;
+      const rect = geom ? geom.visualRect(drag.image) : drag.image.getBoundingClientRect();
+      positionResizeHandle(rect);
+    });
+    window.addEventListener('mouseup', () => {
+      if (!drag) return;
+      const completed = drag;
+      drag = null;
+      vscode.postMessage({ type: 'setImageWidth', id: completed.id, width: completed.width + 'px' });
+      announceNav('Image width ' + completed.width + ' pixels.');
     });
     imgBar.addEventListener('keydown', (e) => {
       const currentIdx = buttons.indexOf(document.activeElement);

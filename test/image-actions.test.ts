@@ -67,7 +67,7 @@ mock.module('vscode', () => ({
   },
 }));
 
-const { pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt, promptAndApplyImageWidth } = await import('../src/host/image-actions');
+const { applyImageWidth, pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt, promptAndApplyImageWidth } = await import('../src/host/image-actions');
 
 function imageId(source = SRC): string {
   const doc = parse(source);
@@ -291,6 +291,18 @@ describe('image host actions', () => {
     ]);
     expect(fixture.pushed).toEqual([[null, null]]);
     expect(fixture.announced).toEqual(['Image width updated to 320px.']);
+  });
+
+  test('persists a drag-resize width without opening a prompt', async () => {
+    const fixture = makeCtx();
+
+    await applyImageWidth(fixture.ctx, imageId(), '438px');
+
+    expect(inputBoxCalls).toEqual([]);
+    expect(fixture.applied).toEqual([
+      SRC.replace(' placement="break"', ' placement="break" width="438px"'),
+    ]);
+    expect(fixture.announced).toEqual(['Image width updated to 438px.']);
   });
 
   test('clears image width to restore intrinsic size', async () => {

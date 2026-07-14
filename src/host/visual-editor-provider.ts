@@ -18,7 +18,7 @@ import {
 import { buildCanvasHtml } from '../webview/canvas-html';
 import { applyElementAttribute, applyElementAttributeToIds, applyTgroupAttributes } from './attribute-actions';
 import { authorizeAttributeMessage, type AuthorizedAttributeAction } from './attribute-authorization';
-import { pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt, promptAndApplyImageWidth } from './image-actions';
+import { applyImageWidth, pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt, promptAndApplyImageWidth } from './image-actions';
 import {
   editInlineText,
   formatInlineBlocks,
@@ -1521,6 +1521,13 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
           .then(() => promptAndApplyImageWidth(imageActionContext(), id))
           .catch((err) => {
             console.error('dita-editor: image resize failed', err);
+            postError('The image could not be resized. See the developer console for details.');
+          });
+      } else if (msg.type === 'setImageWidth' && typeof msg.width === 'string') {
+        queue = queue
+          .then(() => applyImageWidth(imageActionContext(), id, msg.width!))
+          .catch((err) => {
+            console.error('dita-editor: image drag resize failed', err);
             postError('The image could not be resized. See the developer console for details.');
           });
       }

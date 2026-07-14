@@ -88,6 +88,8 @@ export interface CanvasMessage {
   styleTarget?: string;
   attrs?: unknown[];
   widths?: number[];
+  /** setImageWidth: validated DITA width produced by the selected-image drag handle. */
+  width?: string;
   styles?: unknown;
   sourceHash?: string;
   targetToken?: string;

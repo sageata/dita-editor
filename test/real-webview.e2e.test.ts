@@ -18,6 +18,7 @@ const FIXTURE_SOURCE = `<?xml version="1.0" encoding="UTF-8"?>
 <topic id="real-webview-e2e">
   <title>Real WebView E2E</title>
   <body>
+    <fig><image href="diagram.svg"/></fig>
     <table>
       <title>Transform target</title>
       <tgroup cols="1">
@@ -279,6 +280,10 @@ async function createTempProject(): Promise<{ root: string; fixture: string }> {
   }, null, 2));
   const fixture = join(workspaceDir, 'real-webview-table-transform.dita');
   await writeFile(fixture, FIXTURE_SOURCE);
+  await writeFile(
+    join(workspaceDir, 'diagram.svg'),
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="#0b6bcb"/></svg>',
+  );
   return { root, fixture };
 }
 
@@ -485,11 +490,53 @@ async function runRealWebviewSmoke(): Promise<void> {
     expect(clickResult.label).toBe('Convert to alphabetic list');
     expect(clickResult.text).toBeTruthy();
 
+    console.log('[real-webview-e2e] selecting and drag-resizing the real rendered image');
+    const resizeResult = await evaluate(webview, `(() => {
+      const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
+      if (!image) throw new Error('No rendered image found');
+      image.click();
+      const handle = document.querySelector('[aria-label="Drag to resize image"]');
+      if (!handle || getComputedStyle(handle).display === 'none') throw new Error('Image resize handle is not visible');
+      const rect = image.getBoundingClientRect();
+      handle.dispatchEvent(new MouseEvent('mousedown', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: rect.right,
+        clientY: rect.bottom,
+        view: window,
+      }));
+      window.dispatchEvent(new MouseEvent('mousemove', {
+        bubbles: true,
+        cancelable: true,
+        clientX: rect.right + 60,
+        clientY: rect.bottom,
+        view: window,
+      }));
+      window.dispatchEvent(new MouseEvent('mouseup', {
+        bubbles: true,
+        cancelable: true,
+        clientX: rect.right + 60,
+        clientY: rect.bottom,
+        view: window,
+      }));
+      return { before: Math.round(rect.width), preview: image.style.width, handle: handle.getAttribute('aria-label') };
+    })()`, webviewContextId);
+    expect(resizeResult.handle).toBe('Drag to resize image');
+    expect(resizeResult.preview).toBe(`${resizeResult.before + 60}px`);
+
     console.log('[real-webview-e2e] waiting for WebView alphabetic-list rerender');
     await waitFor('WebView rerendered entry as an alphabetic list', async () => {
       return evaluate(webview!, `(() => {
         const list = document.querySelector('td[data-cell-id] ol.lower-alpha, th[data-cell-id] ol.lower-alpha');
         return list ? list.textContent : null;
+      })()`, webviewContextId);
+    }, 20_000);
+
+    await waitFor('WebView rerendered image with the persisted width', async () => {
+      return evaluate(webview!, `(() => {
+        const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
+        return image && image.style.width ? image.style.width : null;
       })()`, webviewContextId);
     }, 20_000);
 
@@ -499,13 +546,14 @@ async function runRealWebviewSmoke(): Promise<void> {
     console.log('[real-webview-e2e] waiting for saved file bytes');
     await waitFor('saved file bytes contain entryToAlphabeticList output', async () => {
       const source = await readFile(project.fixture, 'utf8');
-      return source.includes('<entry><ol outputclass="lower-alpha">') && source.includes('<li>Alpha beta gamma</li>') ? source : null;
+      return source.includes('<entry><ol outputclass="lower-alpha">') && source.includes('<li>Alpha beta gamma</li>') && /<image href="diagram\.svg" width="\d+px"\/>/.test(source) ? source : null;
     }, 20_000);
 
     const saved = await readFile(project.fixture, 'utf8');
     expect(saved).toContain('<entry><ol outputclass="lower-alpha">');
     expect(saved).toContain('<li>Alpha beta gamma</li>');
     expect(saved).not.toContain('<entry>Alpha beta gamma</entry>');
+    expect(saved).toMatch(/<image href="diagram\.svg" width="\d+px"\/>/);
   } finally {
     console.log('[real-webview-e2e] cleanup');
     if (proc) await quitCode(proc, browser);

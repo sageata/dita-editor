@@ -217,6 +217,45 @@ export async function promptAndApplyImageAlt(ctx: ImageActionContext, structId: 
   }
 }
 
+export async function applyImageWidth(
+  ctx: ImageActionContext,
+  structId: string,
+  requestedWidth: string,
+): Promise<void> {
+  const source = ctx.document.getText();
+  let doc: Document;
+  try {
+    doc = parse(source);
+  } catch {
+    ctx.pushBody(null, null);
+    return;
+  }
+  const el = findElementById(doc, structId);
+  if (!el || el.name !== 'image') {
+    ctx.pushBody(null, null);
+    return;
+  }
+  const current = el.attrs.find((attr) => attr.name === 'width')?.value ?? '';
+  const next = requestedWidth.trim();
+  const reason = imageDimensionError(next);
+  if (reason) {
+    ctx.announce(reason);
+    return;
+  }
+  if (next === current) {
+    ctx.announce('Image width unchanged.');
+    return;
+  }
+  if (next === '') removeAttrs(el, ['width'], source);
+  else setAttr(el, 'width', next, source);
+  const ok = await ctx.applyMinimal(serialize(doc));
+  if (ok) {
+    ctx.clearDiagnostics();
+    ctx.pushBody(null, null);
+    ctx.announce(next === '' ? 'Image width cleared.' : `Image width updated to ${next}.`);
+  }
+}
+
 export async function promptAndApplyImageWidth(ctx: ImageActionContext, structId: string): Promise<void> {
   const source = ctx.document.getText();
   let doc: Document;
@@ -239,22 +278,5 @@ export async function promptAndApplyImageWidth(ctx: ImageActionContext, structId
     placeHolder: '320px',
   });
   if (entered === undefined) return;
-  const next = entered.trim();
-  const reason = imageDimensionError(next);
-  if (reason) {
-    ctx.announce(reason);
-    return;
-  }
-  if (next === current) {
-    ctx.announce('Image width unchanged.');
-    return;
-  }
-  if (next === '') removeAttrs(el, ['width'], source);
-  else setAttr(el, 'width', next, source);
-  const ok = await ctx.applyMinimal(serialize(doc));
-  if (ok) {
-    ctx.clearDiagnostics();
-    ctx.pushBody(null, null);
-    ctx.announce(next === '' ? 'Image width cleared.' : `Image width updated to ${next}.`);
-  }
+  await applyImageWidth(ctx, structId, entered);
 }

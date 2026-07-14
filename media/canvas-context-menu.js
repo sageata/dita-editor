@@ -704,6 +704,15 @@
             announceNav('Edit image alt text…');
           },
         },
+        {
+          label: 'Resize image…',
+          icon: menuIcons.convert,
+          enabled: true,
+          onActivate: () => {
+            vscode.postMessage({ type: 'resizeImage', id: ctx.id });
+            announceNav('Resize image…');
+          },
+        },
       ];
       const entries = resolveInsertEntries(ctx);
       if (entries.length) {

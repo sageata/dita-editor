@@ -413,6 +413,7 @@ describe('canvas-context-menu', () => {
     expect(open.defs.filter((def) => def.label).map((def) => def.label)).toEqual([
       'Change image…',
       'Edit alt text…',
+      'Resize image…',
       'Insert after figure',
       'Delete this image',
     ]);
