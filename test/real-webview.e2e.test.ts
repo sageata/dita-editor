@@ -207,6 +207,12 @@ async function evaluate(client: CdpClient, expression: string, contextId = clien
   return result.result?.value;
 }
 
+async function pointerClick(client: CdpClient, point: { x: number; y: number }): Promise<void> {
+  await client.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y });
+  await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+  await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+}
+
 async function saveActiveEditor(client: CdpClient): Promise<void> {
   const { cdpMask } = shortcutModifier(process.platform);
   await client.send('Input.dispatchKeyEvent', {
@@ -533,6 +539,75 @@ async function runRealWebviewSmoke(): Promise<void> {
       return evaluate(webview!, `document.querySelector('td[data-valign="middle"] img[data-struct-kind="image"]') ? true : null`, webviewContextId);
     }, 20_000);
 
+    console.log('[real-webview-e2e] applying table frame and grid settings from the compact context menu');
+    const frameCases = [
+      { label: 'All', value: 'all', widths: ['1px', '1px', '1px', '1px'] },
+      { label: 'Top and bottom', value: 'topbot', widths: ['1px', '0px', '1px', '0px'] },
+      { label: 'Top', value: 'top', widths: ['1px', '0px', '0px', '0px'] },
+      { label: 'Bottom', value: 'bottom', widths: ['0px', '0px', '1px', '0px'] },
+      { label: 'None', value: 'none', widths: ['0px', '0px', '0px', '0px'] },
+    ];
+    for (const frameCase of frameCases) {
+      await evaluate(webview, `(() => {
+        const cell = document.querySelectorAll('tbody tr')[0].children[0];
+        cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 600, clientY: 400, view: window }));
+        const settings = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Table settings');
+        if (!settings) throw new Error('Table settings is not visible');
+        settings.click();
+        const choice = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === ${JSON.stringify('Table frame: ')} + ${JSON.stringify(frameCase.label)});
+        if (!choice) throw new Error('Table frame choice is not visible');
+        choice.click();
+      })()`, webviewContextId);
+      await waitFor(`WebView rendered frame ${frameCase.value}`, async () => evaluate(webview!, `(() => {
+        const table = document.querySelector('table[data-struct-id]');
+        if (!table?.classList.contains(${JSON.stringify(`frame-${frameCase.value}`)})) return null;
+        const style = getComputedStyle(table);
+        return [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth].join(',') === ${JSON.stringify(frameCase.widths.join(','))} ? true : null;
+      })()`, webviewContextId), 20_000);
+    }
+    const settingsPoint = await evaluate(webview, `(() => {
+      const cell = document.querySelectorAll('tbody tr')[0].children[0];
+      cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 600, clientY: 400, view: window }));
+      const settings = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Table settings');
+      if (!settings) throw new Error('Table settings is not visible after title rerender');
+      const rect = settings.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    })()`, webviewContextId);
+    await pointerClick(webview, settingsPoint);
+    const sidesPoint = await evaluate(webview, `(() => {
+      const sides = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Table frame: Sides');
+      if (!sides) throw new Error('Table frame: Sides is not visible');
+      const rect = sides.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    })()`, webviewContextId);
+    await pointerClick(webview, sidesPoint);
+    await waitFor('WebView rerendered table frame setting', async () => {
+      return evaluate(webview!, `(() => {
+        const table = document.querySelector('table[data-struct-id]');
+        if (!table?.classList.contains('frame-sides')) return null;
+        const style = getComputedStyle(table);
+        return style.borderTopWidth === '0px' && style.borderRightWidth === '1px' && style.borderBottomWidth === '0px' && style.borderLeftWidth === '1px' ? true : null;
+      })()`, webviewContextId);
+    }, 20_000);
+    await evaluate(webview, `(() => {
+      const cell = document.querySelectorAll('tbody tr')[0].children[0];
+      cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 600, clientY: 400, view: window }));
+      const settings = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Table settings');
+      if (!settings) throw new Error('Table settings is not visible after frame rerender');
+      settings.click();
+      const grid = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Grid lines: No grid lines');
+      if (!grid) throw new Error('Grid lines: No grid lines is not visible');
+      grid.click();
+    })()`, webviewContextId);
+    await waitFor('WebView rerendered table grid setting', async () => {
+      return evaluate(webview!, `(() => {
+        const cell = document.querySelectorAll('tbody tr')[0].children[0];
+        if (cell?.getAttribute('data-colsep') !== '0' || cell?.getAttribute('data-rowsep') !== '0') return null;
+        const style = getComputedStyle(cell);
+        return style.borderRightWidth === '0px' && style.borderBottomWidth === '0px' ? true : null;
+      })()`, webviewContextId);
+    }, 20_000);
+
     console.log('[real-webview-e2e] selecting and drag-resizing the real rendered image');
     const resizeResult = await evaluate(webview, `(() => {
       const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
@@ -618,13 +693,16 @@ async function runRealWebviewSmoke(): Promise<void> {
     }, 20_000);
     await waitFor('saved file bytes contain nested image width', async () => {
       const source = await readFile(project.fixture, 'utf8');
-      return source.includes('align="right"') && source.includes('valign="middle"') && source.includes('namest="c1"') && source.includes('nameend="c2"') && /<image href="diagram\.svg" width="\d+px"\/>/.test(source) ? source : null;
+      return source.includes('frame="sides"') && source.includes('colsep="0"') && source.includes('rowsep="0"') && source.includes('align="right"') && source.includes('valign="middle"') && source.includes('namest="c1"') && source.includes('nameend="c2"') && /<image href="diagram\.svg" width="\d+px"\/>/.test(source) ? source : null;
     }, 20_000);
 
     const saved = await readFile(project.fixture, 'utf8');
     expect(saved).toContain('<entry><ol outputclass="lower-alpha">');
     expect(saved).toContain('<li>Alpha beta gamma</li>');
     expect(saved).not.toContain('<entry>Alpha beta gamma</entry>');
+    expect(saved).toContain('frame="sides"');
+    expect(saved).toContain('colsep="0"');
+    expect(saved).toContain('rowsep="0"');
     expect(saved).toContain('align="right"');
     expect(saved).toContain('valign="middle"');
     expect(saved).toContain('namest="c1"');

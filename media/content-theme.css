@@ -199,8 +199,20 @@
 
 :where(body.ditaeditor-canvas table.table th.entry),
 :where(body.ditaeditor-canvas table.table td.entry) {
-  border: 1px solid var(--dc-color-border);
+  border: 0;
+  border-right: 1px solid var(--dc-color-border);
+  border-bottom: 1px solid var(--dc-color-border);
   vertical-align: top;
+}
+
+:where(body.ditaeditor-canvas table.table tr > th.entry:last-child),
+:where(body.ditaeditor-canvas table.table tr > td.entry:last-child) {
+  border-right: 0;
+}
+
+:where(body.ditaeditor-canvas table.table tbody > tr:last-child > th.entry),
+:where(body.ditaeditor-canvas table.table tbody > tr:last-child > td.entry) {
+  border-bottom: 0;
 }
 
 :where(body.ditaeditor-canvas table.table th.entry) {
@@ -237,29 +249,27 @@
 }
 
 :where(body.ditaeditor-canvas table.table.frame-all) {
-  border: 1px solid var(--dc-color-border);
+  border-width: 1px;
 }
 
 :where(body.ditaeditor-canvas table.table.frame-topbot) {
-  border-top: 1px solid var(--dc-color-border);
-  border-bottom: 1px solid var(--dc-color-border);
+  border-width: 1px 0;
 }
 
 :where(body.ditaeditor-canvas table.table.frame-sides) {
-  border-right: 1px solid var(--dc-color-border);
-  border-left: 1px solid var(--dc-color-border);
+  border-width: 0 1px;
 }
 
 :where(body.ditaeditor-canvas table.table.frame-top) {
-  border-top: 1px solid var(--dc-color-border);
+  border-width: 1px 0 0;
 }
 
 :where(body.ditaeditor-canvas table.table.frame-bottom) {
-  border-bottom: 1px solid var(--dc-color-border);
+  border-width: 0 0 1px;
 }
 
 :where(body.ditaeditor-canvas table.table.frame-none) {
-  border: 0;
+  border-width: 0;
 }
 
 @media (max-width: 720px) {

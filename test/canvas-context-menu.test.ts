@@ -130,6 +130,7 @@ function installForCapture(doc: TestDocument, open: MenuOpen, overrides: Record<
       payload.mode === 'into' ? payload.containerId : payload.refId,
     nounForKind: overrides.nounForKind || testNounForKind,
     getStyleState: overrides.getStyleState || (() => ({})),
+    getStructVersion: overrides.getStructVersion || (() => 0),
     getSelection: overrides.getSelection || (() => null),
     currentSelectionIds: overrides.currentSelectionIds || (() => []),
     rangeActionForSelection: overrides.rangeActionForSelection || (() => null),
@@ -191,7 +192,11 @@ describe('canvas-context-menu', () => {
     table.appendChild(row);
     row.appendChild(cell);
     const open: MenuOpen = { defs: [], opts: {} };
-    installForCapture(doc, open);
+    const posted: unknown[] = [];
+    installForCapture(doc, open, {
+      vscode: { postMessage: (message: unknown) => posted.push(message) },
+      getStructVersion: () => 7,
+    });
 
     const event = dispatchContextMenu(doc, cell);
 
@@ -221,6 +226,23 @@ describe('canvas-context-menu', () => {
     expect(shading.submenu.map((def: Record<string, unknown>) => def.label).filter(Boolean)).toEqual([
       'Cell: Neutral', 'Cell: Gold tint', 'Cell: Blue tint', 'Cell: White', 'Cell: Custom color…', 'Cell: Clear',
       'Row: Neutral', 'Row: Gold tint', 'Row: Blue tint', 'Row: White', 'Row: Custom color…', 'Row: Clear',
+    ]);
+    const tableSettings = open.defs.find((def) => def.label === 'Table settings')!;
+    expect(tableSettings.submenu.map((def: Record<string, unknown>) => def.label).filter(Boolean)).toEqual([
+      'Add table title',
+      'Table frame: All', 'Table frame: Top and bottom', 'Table frame: Sides', 'Table frame: Top',
+      'Table frame: Bottom', 'Table frame: None', 'Table frame: Default',
+      'Grid lines: All grid lines', 'Grid lines: No grid lines', 'Grid lines: Default',
+    ]);
+    tableSettings.submenu.find((def: Record<string, any>) => def.label === 'Table frame: Sides').onActivate();
+    tableSettings.submenu.find((def: Record<string, any>) => def.label === 'Grid lines: No grid lines').onActivate();
+    expect(posted).toEqual([
+      { type: 'setCalsAttr', id: 'table1', attrName: 'frame', attrValue: 'sides', baseStructVersion: 7 },
+      {
+        type: 'setTgroupAttr', id: 'table1',
+        attrs: [{ name: 'colsep', value: '0' }, { name: 'rowsep', value: '0' }],
+        baseStructVersion: 7,
+      },
     ]);
     const deleteTable = open.defs.find((def) => def.label === 'Delete this table')!;
     expect(deleteTable.del).toBe(true);

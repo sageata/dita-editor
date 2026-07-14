@@ -21,6 +21,18 @@ describe('editor.css', () => {
     );
   });
 
+  test('CALS grid and frame choices control distinct, non-conflicting border edges', () => {
+    expect(theme).toMatch(/th\.entry\),\s*:where\([^)]*td\.entry\)\s*{[^}]*border: 0;[^}]*border-right: 1px solid var\(--dc-color-border\);[^}]*border-bottom: 1px solid var\(--dc-color-border\);/s);
+    expect(theme).toContain('table.table tr > td.entry:last-child)');
+    expect(theme).toContain('table.table tbody > tr:last-child > td.entry)');
+    expect(theme).toMatch(/table\.table\.frame-all\)\s*{\s*border-width: 1px;/s);
+    expect(theme).toMatch(/table\.table\.frame-topbot\)\s*{\s*border-width: 1px 0;/s);
+    expect(theme).toMatch(/table\.table\.frame-sides\)\s*{\s*border-width: 0 1px;/s);
+    expect(theme).toMatch(/table\.table\.frame-top\)\s*{\s*border-width: 1px 0 0;/s);
+    expect(theme).toMatch(/table\.table\.frame-bottom\)\s*{\s*border-width: 0 0 1px;/s);
+    expect(theme).toMatch(/table\.table\.frame-none\)\s*{\s*border-width: 0;/s);
+  });
+
   test('editable text selections keep prose background transparent', () => {
     expect(css).toContain('body.ditaeditor-canvas [contenteditable].is-selected:not(td):not(th)');
     expect(css).toContain('background: transparent;');

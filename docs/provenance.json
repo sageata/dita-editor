@@ -727,7 +727,7 @@
   },
   {
     "path": "media/content-theme.css",
-    "sha256": "5ebaedc0db1a66ee07563807e0a2fddff931591ed7cbb43207825301bb9b2902",
+    "sha256": "4cb3cf228694ccbb236a9ccc9a64d18b1d807f70784f36d5a2013b53bb8b57ba",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -2014,7 +2014,7 @@
   },
   {
     "path": "test/canvas-context-menu.test.ts",
-    "sha256": "91ce17ffab7b4099554bac1cdaee17bd8ce73fe93231da5600c6baaa4ee940a8",
+    "sha256": "74eb16e6407c299778759b3328a253aed47ec55ba4fd77abee72a49c9c7331c7",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -2399,7 +2399,7 @@
   },
   {
     "path": "test/editor-css.test.ts",
-    "sha256": "3c5b59b9c62ea3ecf695b2b794bbc88e85b34705b9f90eaee635fd515247ed90",
+    "sha256": "e4b2769f76e1cbfe624118017eb80750f91c23cef40acee7bd466df3e27d5e1a",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3081,7 +3081,7 @@
   },
   {
     "path": "test/real-webview.e2e.test.ts",
-    "sha256": "f0f472d9d8360ee1cebe02b3096c0eeb45ee6b9c141e937640f56eb8f0503df5",
+    "sha256": "7ba195066b61b6ae1abcb67147c048a86dc4e5973aa8328ed5a952ab29d50be5",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
