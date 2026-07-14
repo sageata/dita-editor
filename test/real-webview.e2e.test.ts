@@ -18,7 +18,6 @@ const FIXTURE_SOURCE = `<?xml version="1.0" encoding="UTF-8"?>
 <topic id="real-webview-e2e">
   <title>Real WebView E2E</title>
   <body>
-    <fig><image href="diagram.svg"/></fig>
     <table>
       <title>Transform target</title>
       <tgroup cols="1">
@@ -26,6 +25,9 @@ const FIXTURE_SOURCE = `<?xml version="1.0" encoding="UTF-8"?>
         <tbody>
           <row>
             <entry>Alpha beta gamma</entry>
+          </row>
+          <row>
+            <entry><image href="diagram.svg"/></entry>
           </row>
         </tbody>
       </tgroup>
@@ -490,6 +492,14 @@ async function runRealWebviewSmoke(): Promise<void> {
     expect(clickResult.label).toBe('Convert to alphabetic list');
     expect(clickResult.text).toBeTruthy();
 
+    console.log('[real-webview-e2e] waiting for WebView alphabetic-list rerender');
+    await waitFor('WebView rerendered entry as an alphabetic list', async () => {
+      return evaluate(webview!, `(() => {
+        const list = document.querySelector('td[data-cell-id] ol.lower-alpha, th[data-cell-id] ol.lower-alpha');
+        return list ? list.textContent : null;
+      })()`, webviewContextId);
+    }, 20_000);
+
     console.log('[real-webview-e2e] selecting and drag-resizing the real rendered image');
     const resizeResult = await evaluate(webview, `(() => {
       const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
@@ -525,18 +535,12 @@ async function runRealWebviewSmoke(): Promise<void> {
     expect(resizeResult.handle).toBe('Drag to resize image');
     expect(resizeResult.preview).toBe(`${resizeResult.before + 60}px`);
 
-    console.log('[real-webview-e2e] waiting for WebView alphabetic-list rerender');
-    await waitFor('WebView rerendered entry as an alphabetic list', async () => {
-      return evaluate(webview!, `(() => {
-        const list = document.querySelector('td[data-cell-id] ol.lower-alpha, th[data-cell-id] ol.lower-alpha');
-        return list ? list.textContent : null;
-      })()`, webviewContextId);
-    }, 20_000);
-
-    await waitFor('WebView rerendered image with the persisted width', async () => {
+    await waitFor('WebView rerendered image from authored width', async () => {
       return evaluate(webview!, `(() => {
         const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
-        return image && image.style.width ? image.style.width : null;
+        if (!image || !image.style.width) return null;
+        const authoredAttrs = decodeURIComponent(image.getAttribute('data-attrs') || '');
+        return authoredAttrs.includes('"width"') ? { width: image.style.width, authoredAttrs } : null;
       })()`, webviewContextId);
     }, 20_000);
 
@@ -546,7 +550,11 @@ async function runRealWebviewSmoke(): Promise<void> {
     console.log('[real-webview-e2e] waiting for saved file bytes');
     await waitFor('saved file bytes contain entryToAlphabeticList output', async () => {
       const source = await readFile(project.fixture, 'utf8');
-      return source.includes('<entry><ol outputclass="lower-alpha">') && source.includes('<li>Alpha beta gamma</li>') && /<image href="diagram\.svg" width="\d+px"\/>/.test(source) ? source : null;
+      return source.includes('<entry><ol outputclass="lower-alpha">') && source.includes('<li>Alpha beta gamma</li>') ? source : null;
+    }, 20_000);
+    await waitFor('saved file bytes contain nested image width', async () => {
+      const source = await readFile(project.fixture, 'utf8');
+      return /<image href="diagram\.svg" width="\d+px"\/>/.test(source) ? source : null;
     }, 20_000);
 
     const saved = await readFile(project.fixture, 'utf8');

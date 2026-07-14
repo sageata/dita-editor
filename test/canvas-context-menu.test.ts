@@ -420,4 +420,30 @@ describe('canvas-context-menu', () => {
     const afterFigure = open.defs.find((def) => def.label === 'Insert after figure')!;
     expect(afterFigure.submenu.map((def: Record<string, unknown>) => def.label)).toEqual(['Paragraph', 'Table']);
   });
+
+  test('an image inside a table cell opens image actions instead of cell actions', () => {
+    const doc = new TestDocument();
+    const row = doc.createElement('tr');
+    row.setAttribute('data-struct-id', 'row1');
+    row.setAttribute('data-struct-kind', 'row');
+    const cell = doc.createElement('td');
+    cell.setAttribute('data-cell-id', 'cell1');
+    const image = doc.createElement('img');
+    image.setAttribute('data-struct-id', 'image1');
+    image.setAttribute('data-struct-kind', 'image');
+    doc.main.appendChild(row);
+    row.appendChild(cell);
+    cell.appendChild(image);
+    const open: MenuOpen = { defs: [], opts: {} };
+    installForCapture(doc, open, { resolveInsertEntries: () => [] });
+
+    dispatchContextMenu(doc, image);
+
+    expect(open.defs.filter((def) => def.label).map((def) => def.label)).toEqual([
+      'Change image…',
+      'Edit alt text…',
+      'Resize image…',
+      'Delete this image',
+    ]);
+  });
 });

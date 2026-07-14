@@ -21,6 +21,7 @@ function installSelectionHelpers() {
       createSelectionHelpers(options?: Record<string, unknown>): {
         buildSelection(anchorEl: TestElement, focusEl: TestElement): unknown;
         unitFromPoint(root: TestElement, clientY: number): { type: string; el: TestElement } | null;
+        unitOf(node: TestElement): { type: string; el: TestElement } | null;
       };
     };
   };
@@ -29,6 +30,15 @@ function installSelectionHelpers() {
 }
 
 describe('canvas selection helpers', () => {
+  test('a directly targeted image inside a table cell is an image selection unit', () => {
+    const cell = new TestElement('td');
+    cell.setAttribute('data-cell-id', 'cell1');
+    const image = cell.appendChild(block('img', 'image1'));
+    image.setAttribute('data-struct-kind', 'image');
+
+    expect(installSelectionHelpers().unitOf(image)).toEqual({ type: 'image', el: image });
+  });
+
   test('dragging from a paragraph across an indented list creates a document-order multi-selection', () => {
     const main = new TestElement('main');
     const p1 = main.appendChild(block('p', 'e1', 'Intro'));

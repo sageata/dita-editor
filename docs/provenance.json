@@ -287,7 +287,7 @@
   },
   {
     "path": "media/canvas-context-menu.js",
-    "sha256": "223650ab290a9e8e95fe5a2ab253b3b27cd83518e92085bd82461d18fdc946c9",
+    "sha256": "e9e09e0652a3a21364b785683d5c25af1df99339979d4f297de1ed0ad52e7a43",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -606,13 +606,13 @@
   },
   {
     "path": "media/canvas-selection.js",
-    "sha256": "d9939370bba5a2836b1985b01eccd89c4035ed5c9db160e948018071c8f44604",
+    "sha256": "0563532d3c2521307a790ca09662aa8db207505e1df4622a7915a790edf155a8",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {
@@ -2014,7 +2014,7 @@
   },
   {
     "path": "test/canvas-context-menu.test.ts",
-    "sha256": "c9f31876ccf0c539756f8c9703e1518b82d8a61b79ac60b04231627fd79f6d2d",
+    "sha256": "65fa2e204558635e8322f997c034a8c42e388bd7fafd4c5829cdd9d8168cac5f",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -2223,13 +2223,13 @@
   },
   {
     "path": "test/canvas-selection.test.ts",
-    "sha256": "92bd13bd808dde12b4de67e55e4a8d465e48e95136effc14e8d7602edb0d62e1",
+    "sha256": "1c95838f005ab1c4ada1cb91f572118377643a694d1f184da72e21e4e0291d62",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-14",
     "approved": true
   },
   {
@@ -3081,7 +3081,7 @@
   },
   {
     "path": "test/real-webview.e2e.test.ts",
-    "sha256": "39ede96e20d3faf7fc606cd9c4469aac1bf3e515f979747af62b152520ad254c",
+    "sha256": "424bcdf59bfadf5d6352356eb09506b580484b91713a272c07b0f6cf4a61616d",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",

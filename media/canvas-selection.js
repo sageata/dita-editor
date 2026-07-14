@@ -10,6 +10,8 @@
     function unitOf(node) {
       if (node && node.nodeType === 3) node = node.parentElement;
       if (!node || !node.closest) return null;
+      const image = node.closest('img[data-struct-id][data-struct-kind="image"]');
+      if (image) return { type: 'image', el: image };
       const cell = node.closest('td[data-cell-id], th[data-cell-id]');
       if (cell) return { type: 'cell', el: cell };
 

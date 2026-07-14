@@ -796,6 +796,13 @@
     document.addEventListener('contextmenu', (e) => {
       const node = e.target;
       const reach = node && node.closest ? node : null;
+      const img = reach ? reach.closest('img[data-struct-id][data-struct-kind="image"]') : null;
+      if (img) {
+        e.preventDefault();
+        ctxMenu.close(false);
+        const pt = visualXY(img, e.clientX, e.clientY);
+        if (openImageMenuFor(img, pt.x, pt.y)) return;
+      }
       const cell = reach ? reach.closest('td[data-cell-id], th[data-cell-id]') : null;
       const tr = cell ? cell.closest('tr[data-struct-id][data-struct-kind="row"]') : null;
       if (cell && tr) {
@@ -804,13 +811,6 @@
         const pt = visualXY(cell, e.clientX, e.clientY);
         openCellMenuFor(tr, cell, pt.x, pt.y, editableTarget(e.target));
         return;
-      }
-      const img = reach ? reach.closest('img[data-struct-id][data-struct-kind="image"]') : null;
-      if (img) {
-        e.preventDefault();
-        ctxMenu.close(false);
-        const pt = visualXY(img, e.clientX, e.clientY);
-        if (openImageMenuFor(img, pt.x, pt.y)) return;
       }
       const sEl = reach ? reach.closest('[data-struct-id]') : null;
       if (sEl) {
