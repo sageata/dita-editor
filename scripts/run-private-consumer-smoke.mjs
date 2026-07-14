@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseJsonc } from 'jsonc-parser';
 import {
@@ -48,20 +48,47 @@ function parsePrivateSettings(source) {
   return settings;
 }
 
-function parseArgs(argv) {
+export function parsePrivateSmokeArgs(argv, env = process.env) {
   const vsix = argv[0] ? resolve(argv[0]) : '';
   if (!vsix || !existsSync(vsix)) throw new Error(`VSIX does not exist: ${vsix || '<missing>'}`);
   let retain = false;
   let timeoutMs = 30_000;
   let artifactRoot;
+  let consumerRoot = env.DITAEDITOR_PRIVATE_CONSUMER_ROOT?.trim()
+    ? resolve(env.DITAEDITOR_PRIVATE_CONSUMER_ROOT)
+    : '';
   for (let index = 1; index < argv.length; index += 1) {
     if (argv[index] === '--retain') retain = true;
     else if (argv[index] === '--timeout-ms') timeoutMs = Number(argv[++index]);
     else if (argv[index] === '--artifact-root') artifactRoot = resolve(argv[++index]);
+    else if (argv[index] === '--consumer-root') consumerRoot = resolve(argv[++index] ?? '');
     else throw new Error(`unknown argument: ${argv[index]}`);
   }
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000) throw new Error('--timeout-ms must be at least 1000');
-  return { vsix, retain, timeoutMs, artifactRoot };
+  if (!consumerRoot) {
+    throw new Error('private consumer root is required; pass --consumer-root or set DITAEDITOR_PRIVATE_CONSUMER_ROOT');
+  }
+  if (!existsSync(consumerRoot)) throw new Error(`private consumer root does not exist: ${consumerRoot}`);
+  return { vsix, retain, timeoutMs, artifactRoot, consumerRoot };
+}
+
+function configuredPrivateSetting(settings, currentKey, legacyKey) {
+  return settings[currentKey] ?? settings[legacyKey];
+}
+
+function privateWorkspacePath(privateRoot, configuredPath, label) {
+  if (typeof configuredPath !== 'string' || !configuredPath.trim()) {
+    throw new Error(`${label} must be a non-empty workspace-relative path`);
+  }
+  if (isAbsolute(configuredPath) || /^[a-z][a-z0-9+.-]*:/iu.test(configuredPath)) {
+    throw new Error(`${label} must be workspace-relative`);
+  }
+  const absolute = resolve(privateRoot, configuredPath);
+  const fromRoot = relative(privateRoot, absolute);
+  if (!fromRoot || fromRoot === '..' || fromRoot.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) || isAbsolute(fromRoot)) {
+    throw new Error(`${label} escapes the private consumer root`);
+  }
+  return absolute;
 }
 
 export async function preparePrivateConsumerWorkspace(layout, privateRoot) {
@@ -75,9 +102,24 @@ export async function preparePrivateConsumerWorkspace(layout, privateRoot) {
   const settingsPath = join(workspaceRoot, '.vscode', 'settings.json');
   const taxonomyPath = join(workspaceRoot, '.ditaeditor', 'taxonomy.json');
   const sourceSettings = parsePrivateSettings(await readFile(join(privateRoot, '.vscode', 'settings.json'), 'utf8'));
-  const configuredContent = sourceSettings['ditacraft.visual.contentStylesheets'];
-  const configuredManaged = sourceSettings['ditacraft.visual.managedAuthorStylesheet'];
-  if (!Array.isArray(configuredContent) || configuredContent.length < 2 || typeof configuredManaged !== 'string') {
+  const configuredContent = configuredPrivateSetting(
+    sourceSettings,
+    'ditaeditor.visual.contentStylesheets',
+    'ditacraft.visual.contentStylesheets',
+  );
+  const configuredManaged = configuredPrivateSetting(
+    sourceSettings,
+    'ditaeditor.visual.managedAuthorStylesheet',
+    'ditacraft.visual.managedAuthorStylesheet',
+  );
+  const configuredTaxonomy = configuredPrivateSetting(
+    sourceSettings,
+    'ditaeditor.visual.taxonomyFile',
+    'ditacraft.visual.taxonomyFile',
+  );
+  if (!Array.isArray(configuredContent) || configuredContent.length < 2 ||
+      configuredContent.some((path) => typeof path !== 'string') ||
+      typeof configuredManaged !== 'string' || typeof configuredTaxonomy !== 'string') {
     throw new Error('private workspace does not configure the required appearance files');
   }
   const migratedManagedPath = 'css/ditaeditor-author-styles.css';
@@ -88,9 +130,20 @@ export async function preparePrivateConsumerWorkspace(layout, privateRoot) {
     'workbench.editorAssociations': { '*.dita': 'ditaeditor.visual' },
   };
   await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
-  await cp(join(privateRoot, '.ditacraft', 'taxonomy.json'), taxonomyPath);
-  const developerCssNames = configuredContent.map((path) => basename(path));
-  for (const name of developerCssNames) await cp(join(privateRoot, 'css', name), join(workspaceRoot, 'css', name));
+  await cp(
+    privateWorkspacePath(privateRoot, configuredTaxonomy, 'private taxonomy setting'),
+    taxonomyPath,
+  );
+  const developerCssPaths = [];
+  for (const configuredPath of configuredContent) {
+    const target = privateWorkspacePath(workspaceRoot, configuredPath, 'private stylesheet setting');
+    await mkdir(dirname(target), { recursive: true });
+    await cp(
+      privateWorkspacePath(privateRoot, configuredPath, 'private stylesheet setting'),
+      target,
+    );
+    developerCssPaths.push(target);
+  }
   async function firstTopic(directory) {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
@@ -114,9 +167,9 @@ export async function preparePrivateConsumerWorkspace(layout, privateRoot) {
     topicPath,
     settingsPath,
     taxonomyPath,
-    developerCssPaths: developerCssNames.map((name) => join(workspaceRoot, 'css', name)),
+    developerCssPaths,
     managedCssPath: join(workspaceRoot, migratedManagedPath),
-    immutableFixturePaths: [workspacePath, settingsPath, taxonomyPath, ...developerCssNames.map((name) => join(workspaceRoot, 'css', name))],
+    immutableFixturePaths: [workspacePath, settingsPath, taxonomyPath, ...developerCssPaths],
     mutableSpecs: [
       { label: 'private-consumer.dita', path: topicPath, allowedActions: ['modify'], expectedTransitions: ['unknown-value-removal'], invariant: 'any-change' },
       { label: 'private-managed.css', path: join(workspaceRoot, migratedManagedPath), allowedActions: ['create'], expectedTransitions: ['managed-save-reload'], invariant: 'created' },
@@ -125,9 +178,9 @@ export async function preparePrivateConsumerWorkspace(layout, privateRoot) {
 }
 
 async function main(argv = process.argv.slice(2)) {
-  const options = parseArgs(argv);
+  const options = parsePrivateSmokeArgs(argv);
   const extensionRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  const privateRoot = resolve(extensionRoot, '..');
+  const privateRoot = options.consumerRoot;
   const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
   const artifactRoot = options.artifactRoot ?? join(extensionRoot, 'test-artifacts', 'public-alpha-vsix-smoke', 'private', runId);
   await mkdir(artifactRoot, { recursive: true });
@@ -139,11 +192,16 @@ async function main(argv = process.argv.slice(2)) {
   await writeFile(privacyLog, `${privacy.stdout}\n${privacy.stderr}`);
   if (privacy.exitCode !== 0) throw new Error(`candidate package privacy scan failed\n${privacy.stdout}\n${privacy.stderr}`);
   const privateSettings = parsePrivateSettings(await readFile(join(privateRoot, '.vscode', 'settings.json'), 'utf8'));
-  const configuredDeveloperCss = privateSettings['ditacraft.visual.contentStylesheets'];
+  const configuredDeveloperCss = configuredPrivateSetting(
+    privateSettings,
+    'ditaeditor.visual.contentStylesheets',
+    'ditacraft.visual.contentStylesheets',
+  );
   if (!Array.isArray(configuredDeveloperCss) || configuredDeveloperCss.length < 2) {
     throw new Error('private workspace developer stylesheets are not configured');
   }
-  const realDeveloperCss = configuredDeveloperCss.map((path) => join(privateRoot, path));
+  const realDeveloperCss = configuredDeveloperCss.map((path) =>
+    privateWorkspacePath(privateRoot, path, 'private stylesheet setting'));
   const realBefore = await Promise.all(realDeveloperCss.map(sha256File));
   const pins = JSON.parse(await readFile(join(extensionRoot, 'test', 'vscode-version.json'), 'utf8'));
   const layout = await createIsolatedSmokeLayout('dcp-');

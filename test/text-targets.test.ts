@@ -14,6 +14,8 @@ const SRC =
   '<row><entry>txt<image href="i.jpg"/></entry></row>' + // inline-rich entry -> editable
   '</tbody></tgroup></table>' +
   '<lines>one\ntwo</lines>' +
+  '<note type="note">direct note</note>' +
+  '<note><p>block note</p></note>' +
   '<ul><li>parent <ul><li>child</li></ul></li></ul>' +
   '</body></topic>';
 
@@ -21,10 +23,11 @@ describe('editableElementIds', () => {
   test('includes text-only, empty, and inline-rich leaves', () => {
     const names = [...editableElementIds(parse(SRC)).keys()].map((el) => (el as ElementNode).name);
     expect(names).toContain('title');
-    expect(names.filter((n) => n === 'p').length).toBe(2); // text + empty
+    expect(names.filter((n) => n === 'p').length).toBe(3); // text + empty + block-note paragraph
     expect(names.filter((n) => n === 'li').length).toBe(3); // text + empty + nested child
     expect(names.filter((n) => n === 'entry').length).toBe(3); // plain + empty + inline-rich image cell
     expect(names).toContain('lines');
+    expect(names.filter((n) => n === 'note').length).toBe(1); // direct text note; block note delegates to its <p>
   });
 
   test('findEditableById resolves to the same element node', () => {

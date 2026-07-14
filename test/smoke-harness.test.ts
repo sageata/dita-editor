@@ -26,8 +26,12 @@ import {
 } from '../scripts/run-vsix-smoke.mjs';
 // @ts-expect-error executable ESM smoke modules intentionally have no generated declarations
 import { assertNoCoexistenceCollisions } from '../scripts/run-coexistence-smoke.mjs';
+import {
+  assertPrivateSmokeEvidence,
+  parsePrivateSmokeArgs,
+  preparePrivateConsumerWorkspace,
 // @ts-expect-error executable ESM smoke modules intentionally have no generated declarations
-import { assertPrivateSmokeEvidence, preparePrivateConsumerWorkspace } from '../scripts/run-private-consumer-smoke.mjs';
+} from '../scripts/run-private-consumer-smoke.mjs';
 import {
   assertPinnedVersionRecord,
   downloadAndVerifyPinnedArchive,
@@ -477,6 +481,62 @@ describe('coexistence and private consumer policy', () => {
         expectedTransitions: ['managed-save-reload'],
         invariant: 'created',
       });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test('accepts an explicit private consumer root or environment override', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ditaeditor-private-args-'));
+    const vsix = join(root, 'candidate.vsix');
+    const consumerRoot = join(root, 'consumer');
+    try {
+      await Promise.all([writeFile(vsix, 'candidate'), mkdir(consumerRoot)]);
+      expect(parsePrivateSmokeArgs([vsix, '--consumer-root', consumerRoot])).toMatchObject({
+        vsix: resolve(vsix),
+        consumerRoot: resolve(consumerRoot),
+      });
+      expect(parsePrivateSmokeArgs([vsix], {
+        DITAEDITOR_PRIVATE_CONSUMER_ROOT: consumerRoot,
+      })).toMatchObject({ consumerRoot: resolve(consumerRoot) });
+      expect(() => parsePrivateSmokeArgs([vsix], {})).toThrow('consumer root');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test('copies current DITA Editor settings from their configured workspace paths', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ditaeditor-current-private-adapter-'));
+    const privateRoot = join(root, 'private');
+    const workspaceDir = join(root, 'isolated');
+    try {
+      await Promise.all([
+        mkdir(join(privateRoot, '.vscode'), { recursive: true }),
+        mkdir(join(privateRoot, 'config'), { recursive: true }),
+        mkdir(join(privateRoot, 'styles'), { recursive: true }),
+        mkdir(join(privateRoot, 'src', 'dita'), { recursive: true }),
+        mkdir(workspaceDir, { recursive: true }),
+      ]);
+      await writeFile(join(privateRoot, '.vscode', 'settings.json'), `{
+        "ditaeditor.visual.contentStylesheets": ["styles/base.css", "styles/project.css"],
+        "ditaeditor.visual.managedAuthorStylesheet": "styles/managed.css",
+        "ditaeditor.visual.taxonomyFile": "config/taxonomy.json"
+      }\n`);
+      await Promise.all([
+        writeFile(join(privateRoot, 'config', 'taxonomy.json'), '{"fields":[]}\n'),
+        writeFile(join(privateRoot, 'styles', 'base.css'), 'body { color: black; }\n'),
+        writeFile(join(privateRoot, 'styles', 'project.css'), 'p { margin: 0; }\n'),
+        writeFile(join(privateRoot, 'src', 'dita', 'topic.dita'), '<topic id="t"><title>T</title><body><p>P</p></body></topic>\n'),
+      ]);
+
+      const prepared = await preparePrivateConsumerWorkspace({ workspaceDir }, privateRoot);
+      const settings = JSON.parse(await readFile(prepared.settingsPath, 'utf8'));
+      expect(settings['ditaeditor.visual.contentStylesheets']).toEqual([
+        'styles/base.css',
+        'styles/project.css',
+      ]);
+      expect(await readFile(join(prepared.workspaceRoot, 'styles', 'base.css'), 'utf8')).toBe('body { color: black; }\n');
+      expect(await readFile(prepared.taxonomyPath, 'utf8')).toBe('{"fields":[]}\n');
     } finally {
       await rm(root, { recursive: true, force: true });
     }

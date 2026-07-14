@@ -417,6 +417,19 @@ describe('renderEditable', () => {
     expect(html).toContain('Hello\ntail</pre>');
   });
 
+  test('direct-text notes are editable while block notes delegate editing to their children', () => {
+    const html = renderEditable(
+      parse('<topic><body><note type="note">Direct note</note><note><p>Block note</p></note></body></topic>'),
+    );
+
+    expect(html).toMatch(
+      /<div class="note note_note" contenteditable="true" data-edit-id="e\d+" spellcheck="false" data-struct-id="e\d+" data-struct-kind="note">Direct note<\/div>/,
+    );
+    expect(html).toMatch(
+      /<div class="note note_note" data-struct-id="e\d+" data-struct-kind="note"><p class="p" contenteditable="true"/,
+    );
+  });
+
   test('marks mixed text runs as autofocus targets by full run id', () => {
     const doc = parse('<topic><body><li>Intro<ul><li>Nested</li></ul></li></body></topic>');
     const html = renderEditable(doc, 'e2:t0');

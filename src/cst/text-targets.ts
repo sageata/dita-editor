@@ -15,8 +15,8 @@ import type { Document, ElementNode } from './types';
 import { isElement } from './types';
 import { assignElementIds } from './element-ids';
 
-const EDITABLE_PARENTS = new Set(['p', 'title', 'shortdesc', 'li', 'entry', 'cmd', 'codeblock', 'lines']);
-const INLINE_HTML_EDITABLE_PARENTS = new Set(['p', 'title', 'shortdesc', 'li', 'entry', 'cmd']);
+const EDITABLE_PARENTS = new Set(['p', 'title', 'shortdesc', 'li', 'entry', 'cmd', 'codeblock', 'lines', 'note']);
+const INLINE_HTML_EDITABLE_PARENTS = new Set(['p', 'title', 'shortdesc', 'li', 'entry', 'cmd', 'note']);
 
 /** DITA inline/phrase elements that may sit inside a text-bearing leaf and that the inline-formatting
  *  ops (b/i/u/line-through/codeph/sub/sup) produce. When a block-mixed parent contains these

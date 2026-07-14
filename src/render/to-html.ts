@@ -471,9 +471,9 @@ class HtmlRenderer {
         // Wired with the same edit/struct/selection attrs as <p>/<lines> so it is editable + addressable.
         return `<pre${this.classAttr(el, 'pre codeblock')}${ed}${this.structAttr(el)}${this.selectionAttr('block')}>${this.children(el)}</pre>`;
       case 'note':
-        // DITA note/callout. A block container (not a text leaf): its children (a <p>, etc.) render and
-        // carry their own edit/struct attrs. structAttr makes the whole note an addressable/insert anchor.
-        return `<div${this.classAttr(el, 'note note_note')}${this.structAttr(el)}>${this.children(el)}</div>`;
+        // A note may contain direct text or block children. Direct text notes use the note itself as
+        // the editable leaf; block notes keep their child <p>, etc. as the editable surfaces.
+        return `<div${this.classAttr(el, 'note note_note')}${ed}${this.structAttr(el)}>${this.children(el)}</div>`;
       case 'fig':
         // P1-2b: data-struct-id + data-struct-kind="fig" (editable render) make a figure an insert anchor.
         return `<figure${this.classAttr(el, 'fig fignone')}${this.structAttr(el)}>${this.children(el)}</figure>`;
