@@ -130,6 +130,10 @@ function installForCapture(doc: TestDocument, open: MenuOpen, overrides: Record<
       payload.mode === 'into' ? payload.containerId : payload.refId,
     nounForKind: overrides.nounForKind || testNounForKind,
     getStyleState: overrides.getStyleState || (() => ({})),
+    getSelection: overrides.getSelection || (() => null),
+    currentSelectionIds: overrides.currentSelectionIds || (() => []),
+    rangeActionForSelection: overrides.rangeActionForSelection || (() => null),
+    rangeAvailFor: overrides.rangeAvailFor || (() => null),
     announceNav: () => undefined,
     showError: () => undefined,
   });
@@ -160,8 +164,8 @@ describe('canvas-context-menu', () => {
     });
 
     dispatchContextMenu(doc, cell);
-    const shading = open.defs.find((definition) => definition.label === 'Cell shading')!;
-    shading.submenu.find((definition: Record<string, unknown>) => definition.label === 'Gold tint').onActivate();
+    const shading = open.defs.find((definition) => definition.label === 'Shading')!;
+    shading.submenu.find((definition: Record<string, unknown>) => definition.label === 'Cell: Gold tint').onActivate();
 
     expect(messages).toEqual([{
       type: 'applyShade',
@@ -196,55 +200,60 @@ describe('canvas-context-menu', () => {
     expect(open.defs[0]).toEqual({
       elementHeader: { label: 'Table cell', icon: '<tableCell>', tag: '<entry>' },
     });
-    expect(open.defs.filter((def) => def.header).map((def) => def.header)).toEqual([
-      'TRANSFORM',
-      'ROW',
-      'COLUMN',
-      'MERGE',
-      'PRESENTATION',
-      'TABLE',
-      'DELETE',
-    ]);
+    expect(open.defs.filter((def) => def.header).map((def) => def.header)).toEqual([]);
     expect(open.defs.filter((def) => def.label).map((def) => def.label)).toEqual([
-      'Convert content to paragraph',
-      'Convert content to bulleted list',
-      'Convert content to alphabetic list',
-      'Convert content to numbered list',
-      'Convert content to lines',
-      'Convert content to note',
-      'Convert content to code block',
-      'Add row above',
-      'Add row below',
-      'Make this the header row',
-      'Delete row',
-      'Add column to the left',
-      'Add column to the right',
-      'Move column left',
-      'Move column right',
-      'Delete column',
-      'Merge with the cell on the right',
-      'Merge with the cell on the left',
-      'Merge with the cell below',
-      'Merge with the cell above',
+      'Convert content',
+      'Row',
+      'Column',
       'Borders',
       'Align text',
       'Vertical align',
-      'Cell shading',
-      'Row shading',
-      'Add table title',
-      'Table frame',
-      'Grid lines',
+      'Shading',
+      'Table settings',
       'Delete this table',
     ]);
-    const lines = open.defs.find((def) => def.label === 'Convert content to lines')!;
+    const convert = open.defs.find((def) => def.label === 'Convert content')!;
+    const lines = convert.submenu.find((def: Record<string, unknown>) => def.label === 'Convert content to lines')!;
     expect(lines.enabled).toBe(false);
     expect(lines.icon).toBe('<lines>');
-    const mergeRight = open.defs.find((def) => def.label === 'Merge with the cell on the right')!;
-    expect(mergeRight.enabled).toBe(false);
-    expect(mergeRight.icon).toBe('<mergeRight>');
+    expect(open.defs.some((def) => String(def.label || '').startsWith('Merge with'))).toBe(false);
+    const shading = open.defs.find((def) => def.label === 'Shading')!;
+    expect(shading.submenu.map((def: Record<string, unknown>) => def.label).filter(Boolean)).toEqual([
+      'Cell: Neutral', 'Cell: Gold tint', 'Cell: Blue tint', 'Cell: White', 'Cell: Custom color…', 'Cell: Clear',
+      'Row: Neutral', 'Row: Gold tint', 'Row: Blue tint', 'Row: White', 'Row: Custom color…', 'Row: Clear',
+    ]);
     const deleteTable = open.defs.find((def) => def.label === 'Delete this table')!;
     expect(deleteTable.del).toBe(true);
     expect(deleteTable.icon).toBe('<trash>');
+  });
+
+  test('shows only Merge selected cells for a mergeable rectangular selection', () => {
+    const doc = new TestDocument();
+    const table = doc.createElement('table');
+    table.setAttribute('data-struct-id', 'table1');
+    const row = doc.createElement('tr');
+    row.setAttribute('data-struct-id', 'row1');
+    row.setAttribute('data-struct-kind', 'row');
+    const cell = doc.createElement('td');
+    cell.setAttribute('data-cell-id', 'cell1');
+    doc.main.appendChild(table);
+    table.appendChild(row);
+    row.appendChild(cell);
+    const open: MenuOpen = { defs: [], opts: {} };
+    const posted: unknown[] = [];
+    installForCapture(doc, open, {
+      vscode: { postMessage: (message: unknown) => posted.push(message) },
+      getSelection: () => ({ mode: 'cellRect' }),
+      currentSelectionIds: () => ['cell1', 'cell2'],
+      rangeActionForSelection: () => 'cellRectMerge',
+      rangeAvailFor: () => ({ enabled: true }),
+    });
+
+    dispatchContextMenu(doc, cell);
+    const merge = open.defs.find((def) => def.label === 'Merge selected cells')!;
+    expect(merge.enabled).toBe(true);
+    merge.onActivate();
+    expect(posted).toEqual([{ type: 'rangeExecute', action: 'cellRectMerge', ids: ['cell1', 'cell2'] }]);
   });
 
   test('list item context menu matches frame F fly-out grouping', () => {

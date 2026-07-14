@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { describe, expect, test } from 'bun:test';
-import { TestDocument, TestElement, TestText } from './canvas-test-dom';
+import { TestDocument, TestElement, TestText, keyEvent } from './canvas-test-dom';
 
 function icons(names: string[]): Record<string, string> {
   return Object.fromEntries(names.map((name) => [name, `<${name}>`]));
@@ -288,6 +288,8 @@ describe('canvas-command-bar Structure transform clicks', () => {
     doc.activeElement = cell;
 
     const posted: Array<{ transform: string; id: string | null }> = [];
+    const messages: unknown[] = [];
+    const alignmentMenus = new Map<string, Array<Record<string, any>>>();
     const announcements: string[] = [];
     const win = {
       CSS: { escape: (value: string) => value },
@@ -307,7 +309,14 @@ describe('canvas-command-bar Structure transform clicks', () => {
     ).installCommandBar({
       document: doc,
       window: win,
-      vscode: { postMessage: () => undefined },
+      vscode: { postMessage: (message: unknown) => messages.push(message) },
+      menu: {
+        createMenu: (label: string) => ({
+          openAt: (defs: Array<Record<string, any>>) => alignmentMenus.set(label, defs),
+          close: () => undefined,
+          isOpen: () => false,
+        }),
+      },
       fontFamily: 'sans-serif',
       controls: controls(doc),
       menuIcons: icons(['paragraph', 'section', 'ul', 'ol', 'lines', 'note', 'codeblock', 'table']),
@@ -336,11 +345,26 @@ describe('canvas-command-bar Structure transform clicks', () => {
     expect(lines.getAttribute('aria-disabled')).toBeNull();
     expect(ordered.getAttribute('aria-disabled')).toBeNull();
     expect(unordered.getAttribute('aria-disabled')).toBeNull();
+    const horizontal = buttonByAction(doc, 'Horizontal alignment');
+    const vertical = buttonByAction(doc, 'Vertical alignment');
+    expect(horizontal.style.display).toBe('inline-flex');
+    expect(vertical.style.display).toBe('inline-flex');
+    expect(horizontal.getAttribute('aria-label')).toBe('Horizontal alignment: Default');
+    expect(vertical.getAttribute('aria-label')).toBe('Vertical alignment: Default');
 
     paragraph.click();
     lines.click();
     ordered.click();
     unordered.click();
+    horizontal.focus();
+    const enter = keyEvent('Enter');
+    doc.body.children.find((element) => element.getAttribute('role') === 'toolbar')!.dispatch('keydown', enter);
+    expect(enter.prevented).toBe(true);
+    alignmentMenus.get('Horizontal alignment')!.find((item) => item.label === 'Center')!.onActivate();
+    alignmentMenus.get('Horizontal alignment')!.find((item) => item.label === 'Default')!.onActivate();
+    vertical.click();
+    alignmentMenus.get('Vertical alignment')!.find((item) => item.label === 'Bottom')!.onActivate();
+    alignmentMenus.get('Vertical alignment')!.find((item) => item.label === 'Default')!.onActivate();
 
     expect(posted).toEqual([
       { transform: 'entryToParagraph', id: 'c1' },
@@ -349,6 +373,12 @@ describe('canvas-command-bar Structure transform clicks', () => {
       { transform: 'entryToUnorderedList', id: 'c1' },
     ]);
     expect(announcements).toEqual([]);
+    expect(messages).toEqual([
+      { type: 'setCalsAttr', id: 'c1', attrName: 'align', attrValue: 'center', baseStructVersion: 3 },
+      { type: 'setCalsAttr', id: 'c1', attrName: 'align', attrValue: '', baseStructVersion: 3 },
+      { type: 'setCalsAttr', id: 'c1', attrName: 'valign', attrValue: 'bottom', baseStructVersion: 3 },
+      { type: 'setCalsAttr', id: 'c1', attrName: 'valign', attrValue: '', baseStructVersion: 3 },
+    ]);
   });
 
   test('clicking Structure buttons on focused table-cell lines posts line-block transforms', () => {

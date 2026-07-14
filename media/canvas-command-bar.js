@@ -100,8 +100,42 @@
     const cRowDel = ui.cRowDel;
     const cColAdd = ui.cColAdd;
     const cColDel = ui.cColDel;
+    const cAlignHorizontal = ui.cAlignHorizontal;
+    const cAlignVertical = ui.cAlignVertical;
     const tableDivider = ui.tableDivider;
     const cmdBtns = ui.cmdBtns;
+
+    const menuFactory = opts.menu;
+    const horizontalMenu = menuFactory ? menuFactory.createMenu('Horizontal alignment', (open) => cAlignHorizontal.setAttribute('aria-expanded', open ? 'true' : 'false'), { announceNav: announceNav }) : null;
+    const verticalMenu = menuFactory ? menuFactory.createMenu('Vertical alignment', (open) => cAlignVertical.setAttribute('aria-expanded', open ? 'true' : 'false'), { announceNav: announceNav }) : null;
+
+    function postCellAlignment(attrName, attrValue) {
+      const current = refreshBarCurrent();
+      if (!current || !current.cellEntryId) return;
+      vscode.postMessage({
+        type: 'setCalsAttr', id: current.cellEntryId, attrName: attrName,
+        attrValue: attrValue, baseStructVersion: getStructVersion(),
+      });
+    }
+
+    function openAlignmentMenu(button, controller, attrName, choices) {
+      if (!controller) return;
+      const current = refreshBarCurrent();
+      if (!current || !current.cellEl) return;
+      const active = current.cellEl.getAttribute(attrName === 'align' ? 'data-align' : 'data-valign') || '';
+      const defs = choices.map((choice) => ({
+        label: choice.label,
+        enabled: active !== choice.value,
+        reason: 'Already ' + choice.label.toLowerCase(),
+        onActivate: () => postCellAlignment(attrName, choice.value),
+      }));
+      const rect = button.getBoundingClientRect();
+      controller.openAt(defs, rect.left, rect.bottom + 4, {
+        width: 190,
+        ariaLabel: button.getAttribute('aria-label'),
+        announce: button.getAttribute('aria-label') + '. Up and Down to choose, Enter to apply, Escape to close.',
+      });
+    }
 
     const vZoomOut = ui.vZoomOut;
     const vZoomPct = ui.vZoomPct;
@@ -179,12 +213,14 @@
         cellEl: cell || null,
       };
     }
-    function selectedBlockNode() {
+    function selectedUnitNode() {
       const selection = getSelection ? getSelection() : null;
-      if (!selection || selection.mode !== 'single' || selection.unit !== 'block' || selection.id == null) return null;
+      if (!selection || selection.mode !== 'single' || (selection.unit !== 'block' && selection.unit !== 'image') || selection.id == null) return null;
       return document.querySelector(structIdSelector(selection.id));
     }
     function resolveBarContext() {
+      const selectedUnit = selectedUnitNode();
+      if (selectedUnit) return contextFromNode(selectedUnit);
       const sel = windowObj.getSelection();
       let node = sel && sel.anchorNode ? sel.anchorNode : null;
       if (node && node.nodeType === 3) node = node.parentElement;
@@ -192,7 +228,7 @@
         const ae = document.activeElement;
         if (ae.closest && ae.closest('main')) node = ae;
       }
-      return contextFromNode(node) || contextFromNode(selectedBlockNode());
+      return contextFromNode(node);
     }
     function refreshBarCurrent() {
       barCurrent = resolveBarContext();
@@ -287,6 +323,23 @@
     cRowDel._barRun = function () { if (barCurrent && barCurrent.rowId) postStructural('deleteRow', barCurrent.rowId, withStructuralSuccess('deleteRow', 'row')); };
     cColAdd._barRun = function () { if (barCurrent && barCurrent.cellEntryId) postStructural('addColumnAfter', barCurrent.cellEntryId, withStructuralSuccess('addColumnAfter', 'entry')); };
     cColDel._barRun = function () { if (barCurrent && barCurrent.cellEntryId) postStructural('deleteColumn', barCurrent.cellEntryId, withStructuralSuccess('deleteColumn', 'entry')); };
+    cAlignHorizontal._barRun = function () {
+      openAlignmentMenu(cAlignHorizontal, horizontalMenu, 'align', [
+        { label: 'Left', value: 'left' },
+        { label: 'Center', value: 'center' },
+        { label: 'Right', value: 'right' },
+        { label: 'Justify', value: 'justify' },
+        { label: 'Default', value: '' },
+      ]);
+    };
+    cAlignVertical._barRun = function () {
+      openAlignmentMenu(cAlignVertical, verticalMenu, 'valign', [
+        { label: 'Top', value: 'top' },
+        { label: 'Middle', value: 'middle' },
+        { label: 'Bottom', value: 'bottom' },
+        { label: 'Default', value: '' },
+      ]);
+    };
 
     const currentFormatTarget = formatHelpers.currentFormatTarget;
     const currentFormatState = formatHelpers.currentFormatState;
@@ -593,6 +646,8 @@
       cRowDel.style.display = tableVis;
       cColAdd.style.display = tableVis;
       cColDel.style.display = tableVis;
+      cAlignHorizontal.style.display = tableVis;
+      cAlignVertical.style.display = tableVis;
       if (inCell) {
         applyAvail(cRowAdd, c.rowId, 'addRowAfter', 'Add row below');
         applyAvail(cRowDel, c.rowId, 'deleteRow', 'Delete this row');
@@ -603,6 +658,12 @@
           !anchorOk ? 'No editable cell in this column' : addA.enabled ? 'Add column to the right' : addA.reason || 'Add column to the right');
         setBtnEnabled(cColDel, anchorOk && delA.enabled,
           !anchorOk ? 'No editable cell in this column' : delA.enabled ? 'Delete this column' : delA.reason || 'Delete this column');
+        const horizontal = c.cellEl.getAttribute('data-align') || 'Default';
+        const vertical = c.cellEl.getAttribute('data-valign') || 'Default';
+        setBtnEnabled(cAlignHorizontal, true, 'Horizontal alignment: ' + horizontal);
+        setBtnEnabled(cAlignVertical, true, 'Vertical alignment: ' + vertical);
+        setPressed(cAlignHorizontal, horizontal !== 'Default');
+        setPressed(cAlignVertical, vertical !== 'Default');
       }
 
       refreshViewGroup();

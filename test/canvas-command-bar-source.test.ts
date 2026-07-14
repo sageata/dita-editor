@@ -60,9 +60,9 @@ describe('canvas-command-bar source contract', () => {
     expect(source).toContain("postStructural('addColumnAfter', barCurrent.cellEntryId");
   });
 
-  test('falls back to the selected block when the DOM caret is unavailable', () => {
-    expect(source).toContain('function selectedBlockNode()');
-    expect(source).toContain("selection.mode !== 'single' || selection.unit !== 'block'");
-    expect(source).toContain('return contextFromNode(node) || contextFromNode(selectedBlockNode());');
+  test('prioritizes the selected block or image over a stale DOM caret', () => {
+    expect(source).toContain('function selectedUnitNode()');
+    expect(source).toContain("selection.unit !== 'block' && selection.unit !== 'image'");
+    expect(source).toContain('if (selectedUnit) return contextFromNode(selectedUnit);');
   });
 });

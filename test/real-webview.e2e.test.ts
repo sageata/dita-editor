@@ -20,14 +20,17 @@ const FIXTURE_SOURCE = `<?xml version="1.0" encoding="UTF-8"?>
   <body>
     <table>
       <title>Transform target</title>
-      <tgroup cols="1">
+      <tgroup cols="2">
         <colspec colname="c1"/>
+        <colspec colname="c2"/>
         <tbody>
           <row>
             <entry>Alpha beta gamma</entry>
+            <entry>Keep separate</entry>
           </row>
           <row>
             <entry><image href="diagram.svg"/></entry>
+            <entry>Merge partner</entry>
           </row>
         </tbody>
       </tgroup>
@@ -198,7 +201,7 @@ async function evaluate(client: CdpClient, expression: string, contextId = clien
     ...(contextId ? { contextId } : {}),
   });
   if (result.exceptionDetails) {
-    const text = result.exceptionDetails.text || result.exceptionDetails.exception?.description || 'Runtime.evaluate failed';
+    const text = result.exceptionDetails.exception?.description || result.exceptionDetails.text || 'Runtime.evaluate failed';
     throw new Error(text);
   }
   return result.result?.value;
@@ -500,32 +503,31 @@ async function runRealWebviewSmoke(): Promise<void> {
       })()`, webviewContextId);
     }, 20_000);
 
-    console.log('[real-webview-e2e] aligning the table image right and vertically middle');
+    console.log('[real-webview-e2e] aligning the image cell from the top command bar');
     await evaluate(webview, `(() => {
       const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
       if (!image) throw new Error('No rendered image found');
       image.click();
-      const button = document.querySelector('[aria-label="Align image right"]');
-      if (!button) throw new Error('Horizontal image alignment control is not visible');
+      const button = document.querySelector('[aria-label^="Horizontal alignment"]');
+      if (!button || getComputedStyle(button).display === 'none') throw new Error('Top-bar horizontal alignment control is not visible');
       button.click();
+      const choice = Array.from(document.querySelectorAll('[role="menu"] [role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Right' && item.closest('[role="menu"]').style.display === 'flex');
+      if (!choice) throw new Error('Right alignment choice is not visible');
+      choice.click();
     })()`, webviewContextId);
-    await waitFor('table image rerendered right-aligned', async () => {
-      return evaluate(webview!, `(() => {
-        const image = document.querySelector('td img[data-struct-kind="image"]');
-        if (!image) return null;
-        const authoredAttrs = decodeURIComponent(image.getAttribute('data-attrs') || '');
-        return authoredAttrs.includes('"name":"placement","value":"break"') && authoredAttrs.includes('"name":"align","value":"right"')
-          ? { style: image.getAttribute('style'), authoredAttrs }
-          : null;
-      })()`, webviewContextId);
+    await waitFor('table image cell rerendered right-aligned', async () => {
+      return evaluate(webview!, `document.querySelector('td[data-align="right"] img[data-struct-kind="image"]') ? true : null`, webviewContextId);
     }, 20_000);
     await evaluate(webview, `(() => {
       const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
       if (!image) throw new Error('No rendered image found after horizontal alignment');
       image.click();
-      const button = document.querySelector('[aria-label="Align image vertically middle"]');
-      if (!button || getComputedStyle(button).display === 'none') throw new Error('Vertical image alignment control is not visible');
+      const button = document.querySelector('[aria-label^="Vertical alignment"]');
+      if (!button || getComputedStyle(button).display === 'none') throw new Error('Top-bar vertical alignment control is not visible');
       button.click();
+      const choice = Array.from(document.querySelectorAll('[role="menu"] [role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Middle' && item.closest('[role="menu"]').style.display === 'flex');
+      if (!choice) throw new Error('Middle alignment choice is not visible');
+      choice.click();
     })()`, webviewContextId);
     await waitFor('table image cell rerendered vertically middle', async () => {
       return evaluate(webview!, `document.querySelector('td[data-valign="middle"] img[data-struct-kind="image"]') ? true : null`, webviewContextId);
@@ -575,6 +577,37 @@ async function runRealWebviewSmoke(): Promise<void> {
       })()`, webviewContextId);
     }, 20_000);
 
+    console.log('[real-webview-e2e] merging a selected cell rectangle from the compact context menu');
+    const selectedCellCount = await evaluate(webview, `(() => {
+      const row = document.querySelectorAll('tbody tr')[1];
+      if (!row || row.children.length !== 2) throw new Error('Expected two cells in the image row');
+      const first = row.children[0];
+      const second = row.children[1];
+      first.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, view: window }));
+      second.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, button: 0, view: window }));
+      second.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, button: 0, view: window }));
+      return document.querySelectorAll('td.is-selected, th.is-selected').length;
+    })()`, webviewContextId);
+    expect(selectedCellCount).toBe(2);
+    await waitFor('Merge selected cells availability in compact context menu', async () => evaluate(webview!, `(() => {
+      const first = document.querySelectorAll('tbody tr')[1].children[0];
+      first.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 600, clientY: 500, view: window }));
+      const merge = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Merge selected cells');
+      return merge && merge.getAttribute('aria-disabled') !== 'true' ? true : null;
+    })()`, webviewContextId), 20_000);
+    await evaluate(webview, `(() => {
+      const merge = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Merge selected cells');
+      if (!merge) throw new Error('Merge selected cells disappeared before activation');
+      merge.click();
+    })()`, webviewContextId);
+    await waitFor('selected image row merged into one spanning cell', async () => {
+      return evaluate(webview!, `(() => {
+        const row = document.querySelectorAll('tbody tr')[1];
+        const cell = row && row.children[0];
+        return row && row.children.length === 1 && cell && cell.getAttribute('colspan') === '2' ? cell.textContent : null;
+      })()`, webviewContextId);
+    }, 20_000);
+
     console.log('[real-webview-e2e] saving active editor');
     await saveActiveEditor(workbench);
 
@@ -585,14 +618,18 @@ async function runRealWebviewSmoke(): Promise<void> {
     }, 20_000);
     await waitFor('saved file bytes contain nested image width', async () => {
       const source = await readFile(project.fixture, 'utf8');
-      return /<entry valign="middle"><image href="diagram\.svg" placement="break" align="right" width="\d+px"\/><\/entry>/.test(source) ? source : null;
+      return source.includes('align="right"') && source.includes('valign="middle"') && source.includes('namest="c1"') && source.includes('nameend="c2"') && /<image href="diagram\.svg" width="\d+px"\/>/.test(source) ? source : null;
     }, 20_000);
 
     const saved = await readFile(project.fixture, 'utf8');
     expect(saved).toContain('<entry><ol outputclass="lower-alpha">');
     expect(saved).toContain('<li>Alpha beta gamma</li>');
     expect(saved).not.toContain('<entry>Alpha beta gamma</entry>');
-    expect(saved).toMatch(/<entry valign="middle"><image href="diagram\.svg" placement="break" align="right" width="\d+px"\/><\/entry>/);
+    expect(saved).toContain('align="right"');
+    expect(saved).toContain('valign="middle"');
+    expect(saved).toContain('namest="c1"');
+    expect(saved).toContain('nameend="c2"');
+    expect(saved).toMatch(/<image href="diagram\.svg" width="\d+px"\/>/);
   } finally {
     console.log('[real-webview-e2e] cleanup');
     if (proc) await quitCode(proc, browser);

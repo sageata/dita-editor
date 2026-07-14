@@ -116,7 +116,13 @@
     const cRowDel = makeBarBtn('−▭', 'Delete this row', false);
     const cColAdd = makeBarBtn('+|', 'Add column to the right', false);
     const cColDel = makeBarBtn('−|', 'Delete this column', false);
-    tableGroup.row.append(cRowAdd, cRowDel, cColAdd, cColDel);
+    const cAlignHorizontal = makeBarBtn('H↔', 'Horizontal alignment', false);
+    const cAlignVertical = makeBarBtn('V↕', 'Vertical alignment', false);
+    cAlignHorizontal.setAttribute('aria-haspopup', 'menu');
+    cAlignHorizontal.setAttribute('aria-expanded', 'false');
+    cAlignVertical.setAttribute('aria-haspopup', 'menu');
+    cAlignVertical.setAttribute('aria-expanded', 'false');
+    tableGroup.row.append(cRowAdd, cRowDel, cColAdd, cColDel, cAlignHorizontal, cAlignVertical);
 
     const viewGroup = makeBarGroup('View');
     const vZoomOut = makeBarBtn('−', 'Zoom out', false);
@@ -159,7 +165,7 @@
       hUndo, hRedo, hFind, hReplace,
       fmtBold, fmtItalic, fmtUnderline, fmtStrike, fmtCode, fmtSub, fmtSup, fmtClear,
       biParagraph, biSection, biList, aiList, niList, biLines, biNote, biCode, biIndent, biOutdent, biTable, biImage, biXref, biConref,
-      cRowAdd, cRowDel, cColAdd, cColDel,
+      cRowAdd, cRowDel, cColAdd, cColDel, cAlignHorizontal, cAlignVertical,
       vZoomOut, vZoomPct, vZoomIn, vSpell, vHelp,
     ];
 
@@ -217,6 +223,8 @@
       cRowDel: cRowDel,
       cColAdd: cColAdd,
       cColDel: cColDel,
+      cAlignHorizontal: cAlignHorizontal,
+      cAlignVertical: cAlignVertical,
       viewGroup: viewGroup,
       viewDivider: viewDivider,
       vZoomOut: vZoomOut,
