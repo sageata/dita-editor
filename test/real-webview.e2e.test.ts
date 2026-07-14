@@ -37,6 +37,9 @@ const FIXTURE_SOURCE = `<?xml version="1.0" encoding="UTF-8"?>
     </table>
     <note>Backspace lead</note>
     <p>Backspace tail</p>
+    <p>List lead</p>
+    <ul><li>List tail</li></ul>
+    <ul><li>Keep listed</li></ul>
   </body>
 </topic>
 `;
@@ -711,6 +714,31 @@ async function runRealWebviewSmoke(): Promise<void> {
       })()`, webviewContextId);
     }, 20_000);
 
+    console.log('[real-webview-e2e] joining a sole list item across its list wrapper');
+    await evaluate(webview, `(() => {
+      const item = Array.from(document.querySelectorAll('li[data-edit-id][contenteditable]'))
+        .find((element) => element.textContent === 'List tail');
+      if (!item) throw new Error('Single-item list Backspace target is not rendered');
+      item.focus();
+      const range = document.createRange();
+      range.selectNodeContents(item);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    })()`, webviewContextId);
+    await dispatchKey(webview, 'Backspace', 'Backspace', 8);
+    await waitFor('sole list item joined into preceding paragraph', async () => {
+      return evaluate(webview!, `(() => {
+        const paragraph = Array.from(document.querySelectorAll('p[data-edit-id][contenteditable]'))
+          .find((element) => element.textContent === 'List leadList tail');
+        const kept = Array.from(document.querySelectorAll('li[data-edit-id][contenteditable]'))
+          .find((element) => element.textContent === 'Keep listed');
+        return paragraph && kept ? true : null;
+      })()`, webviewContextId);
+    }, 20_000);
+
     console.log('[real-webview-e2e] saving active editor');
     await saveActiveEditor(workbench);
 
@@ -738,6 +766,9 @@ async function runRealWebviewSmoke(): Promise<void> {
     expect(saved).toMatch(/<image href="diagram\.svg" width="\d+px"\/>/);
     expect(saved).toContain('<note>Backspace leadBackspace tail</note>');
     expect(saved).not.toContain('<p>Backspace tail</p>');
+    expect(saved).toContain('<p>List leadList tail</p>');
+    expect(saved).not.toContain('<li>List tail</li>');
+    expect(saved).toContain('<ul><li>Keep listed</li></ul>');
   } finally {
     console.log('[real-webview-e2e] cleanup');
     if (proc) await quitCode(proc, browser);

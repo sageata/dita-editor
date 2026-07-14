@@ -940,6 +940,29 @@ describe('structural: deleteElement (universal, byte-exact apply)', () => {
 });
 
 describe('structural: broad Backspace joins', () => {
+  test('joins a sole list item into the paragraph immediately before its list wrapper', () => {
+    const src = '<topic><body><p>Lead</p><ul><li>Tail</li></ul><ul><li>Keep</li></ul></body></topic>';
+    const res = applyStructuralEdit(src, 'join', idsNamed(src, 'li')[0], {
+      prevId: idsNamed(src, 'p')[0],
+    });
+    expect(res.source).toBe('<topic><body><p>LeadTail</p><ul><li>Keep</li></ul></body></topic>');
+    expect(res.caretOffset).toBe(4);
+  });
+
+  test.each([
+    ['list attributes', '<topic><body><p>Lead</p><ul outputclass="keep"><li>Tail</li></ul></body></topic>'],
+    ['item attributes', '<topic><body><p>Lead</p><ul><li id="tail">Tail</li></ul></body></topic>'],
+    ['wrapper comment', '<topic><body><p>Lead</p><ul><!--audit--><li>Tail</li></ul></body></topic>'],
+    ['wrapper processing instruction', '<topic><body><p>Lead</p><ul><?audit keep?><li>Tail</li></ul></body></topic>'],
+    ['nested list', '<topic><body><p>Lead</p><ul><li>Tail<ul><li>Nested</li></ul></li></ul></body></topic>'],
+  ])('refuses a cross-wrapper join that would discard %s', (_label, src) => {
+    const before = serialize(parse(src));
+    expect(() => applyStructuralEdit(src, 'join', idsNamed(src, 'li')[0], {
+      prevId: idsNamed(src, 'p')[0],
+    })).toThrow(/adjacent sibling/);
+    expect(serialize(parse(src))).toBe(before);
+  });
+
   test.each([
     ['paragraph into note', '<topic><body><note>A</note><p>B</p></body></topic>', 'p', 'note', '<note>AB</note>'],
     ['note into paragraph', '<topic><body><p>A</p><note>B</note></body></topic>', 'note', 'p', '<p>AB</p>'],

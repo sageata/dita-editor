@@ -128,13 +128,28 @@ function hasPlainTextContent(el: ElementNode): boolean {
   return el.children.every((child) => child.type === 'text');
 }
 
+function soleItemListWrapperBefore(current: ElementNode, previous: ElementNode): ElementNode | null {
+  const list = current.parent;
+  if (!list || (list.name !== 'ul' && list.name !== 'ol') || childElements(list).length !== 1) return null;
+  if (list.attrs.length > 0 || current.attrs.length > 0) return null;
+  if (list.children.some((child) => child !== current && (
+    child.type !== 'text' || (child.newText ?? child.raw).trim() !== ''
+  ))) return null;
+  if (current.children.some((child) => child.type === 'element' && (child.name === 'ul' || child.name === 'ol'))) return null;
+  const container = list.parent;
+  if (!container || previous.parent !== container) return null;
+  const siblings = childElements(container);
+  return siblings[siblings.indexOf(list) - 1] === previous ? list : null;
+}
+
 export function canJoinTextBlocks(current: ElementNode, previous: ElementNode | null): DeleteCheck {
   const parent = current.parent ?? null;
-  if (!parent || !previous || previous.parent !== parent) {
+  if (!parent || !previous) {
     return { canDelete: false, reason: 'The previous text element is not an adjacent sibling' };
   }
+  const wrapper = soleItemListWrapperBefore(current, previous);
   const siblings = childElements(parent);
-  if (siblings[siblings.indexOf(current) - 1] !== previous) {
+  if (!wrapper && (previous.parent !== parent || siblings[siblings.indexOf(current) - 1] !== previous)) {
     return { canDelete: false, reason: 'The previous text element is not an adjacent sibling' };
   }
   const currentInline = INLINE_JOIN_TARGETS.has(current.name);
@@ -144,7 +159,7 @@ export function canJoinTextBlocks(current: ElementNode, previous: ElementNode | 
   if ((!currentInline && !currentPlain) || (!previousInline && !previousPlain)) {
     return { canDelete: false, reason: 'These element types cannot be joined as text' };
   }
-  if ((current.name === 'li' || previous.name === 'li') && (current.name !== 'li' || previous.name !== 'li')) {
+  if (!wrapper && (current.name === 'li' || previous.name === 'li') && (current.name !== 'li' || previous.name !== 'li')) {
     return { canDelete: false, reason: 'A list item can only join the preceding item in the same list' };
   }
   if ((currentPlain || previousPlain) && (!hasPlainTextContent(current) || !hasPlainTextContent(previous))) {
@@ -156,7 +171,7 @@ export function canJoinTextBlocks(current: ElementNode, previous: ElementNode | 
   if (!previousPlain && !hasJoinableInlineContent(previous)) {
     return { canDelete: false, reason: 'The previous element contains content that cannot be joined safely' };
   }
-  return canDeleteElement(current, parent);
+  return wrapper ? canDeleteElement(wrapper, wrapper.parent ?? null) : canDeleteElement(current, parent);
 }
 
 /** Can `el` (with the given `parent`) be deleted on its own without violating the
@@ -371,7 +386,7 @@ export function applyStructuralEdit(
       if (!target) throw new Error(`join target not found: ${payload.prevId}`);
       const check = canJoinTextBlocks(el, target);
       if (!check.canDelete) throw new Error(check.reason ?? 'These text elements cannot be joined');
-      const result = joinTextBlocks(el, target, payload);
+      const result = joinTextBlocks(el, target, payload, soleItemListWrapperBefore(el, target) ?? el);
       focusEl = result.focusEl;
       caretOffset = result.caretOffset;
       break;

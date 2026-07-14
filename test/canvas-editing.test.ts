@@ -1361,6 +1361,33 @@ describe('canvas-editing', () => {
     expect(posted).toEqual([]);
   });
 
+  test('Backspace at the sole item of a list targets the paragraph before the list wrapper', () => {
+    const doc = new FakeDocument();
+    doc.caretOffset = 0;
+    const posted: unknown[] = [];
+    installEditing(doc, posted);
+
+    const previous = new FakeElement({
+      'data-edit-id': 'e1', 'data-struct-id': 'e1', 'data-struct-kind': 'p', contenteditable: 'true',
+    });
+    previous.textContent = 'Lead';
+    const list = new FakeElement({ 'data-struct-id': 'e2', 'data-struct-kind': 'ul' }, 'ul');
+    list.previousElementSibling = previous;
+    const item = new FakeElement({
+      'data-edit-id': 'e3', 'data-struct-id': 'e3', 'data-struct-kind': 'li', contenteditable: 'true',
+    }, 'li');
+    item.textContent = 'Tail';
+    list.appendChild(item);
+
+    let prevented = false;
+    for (const listener of doc.listeners.get('keydown') ?? []) {
+      listener({ key: 'Backspace', target: item, preventDefault: () => { prevented = true; } });
+    }
+
+    expect(prevented).toBe(true);
+    expect(posted.at(-1)).toMatchObject({ type: 'structural', op: 'join', id: 'e3', prevId: 'e1' });
+  });
+
   test('Delete join at source end ignores render-only conref chip length', () => {
     const doc = new FakeDocument();
     doc.caretOffset = 4;

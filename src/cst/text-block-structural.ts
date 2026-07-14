@@ -35,6 +35,7 @@ export function joinTextBlocks(
   el: ElementNode,
   target: ElementNode,
   _payload: TextBlockStructuralPayload,
+  removalTarget: ElementNode = el,
 ): { focusEl: ElementNode; caretOffset: number } {
   // The host owns the merge bytes. Never trust merged/mergedHtml from the
   // WebView: valid adjacent ids paired with forged content must not overwrite
@@ -48,7 +49,7 @@ export function joinTextBlocks(
     : [];
   const caretOffset = inlineTextLength(targetInline);
   setElementChildren(target, [...targetInline, ...currentInline, ...nestedLists]);
-  removeWithLeadingWs(el);
+  removeWithLeadingWs(removalTarget);
   return { focusEl: target, caretOffset };
 }
 

@@ -174,7 +174,13 @@
       if (e.key === 'Backspace' && !selection && !isRun && BACKSPACE_JOIN_KINDS.indexOf(kind) >= 0) {
         const sel = win.getSelection();
         if (!sel || !sel.isCollapsed || caretOffset(el) !== 0) return;
-        const prev = struct.previousElementSibling;
+        let prev = struct.previousElementSibling;
+        if (!prev && kind === 'li') {
+          const list = struct.parentElement;
+          if (list && (list.tagName === 'UL' || list.tagName === 'OL') && list.children.length === 1) {
+            prev = list.previousElementSibling;
+          }
+        }
         if (prev && prev.hasAttribute('data-edit-id')) {
           e.preventDefault();
           // Flush the current DOM bytes first. The host queues this edit ahead
