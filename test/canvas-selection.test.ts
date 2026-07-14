@@ -52,6 +52,7 @@ describe('canvas selection helpers', () => {
 
     expect(helpers.buildSelection(p1, p2)).toEqual({
       mode: 'multiSet',
+      origin: 'documentRange',
       units: [
         { unit: 'block', id: 'e1', kind: 'p', text: 'Intro' },
         { unit: 'block', id: 'e3', kind: 'li', text: 'Parent item' },
@@ -73,6 +74,7 @@ describe('canvas selection helpers', () => {
 
     expect(helpers.buildSelection(p1, nested)).toEqual({
       mode: 'multiSet',
+      origin: 'documentRange',
       units: [
         { unit: 'block', id: 'e1', kind: 'p', text: 'Intro' },
         { unit: 'block', id: 'e3', kind: 'li', text: 'Parent item' },
@@ -93,6 +95,7 @@ describe('canvas selection helpers', () => {
 
     expect(helpers.buildSelection(p2, nested)).toEqual({
       mode: 'multiSet',
+      origin: 'documentRange',
       units: [
         { unit: 'block', id: 'e2', kind: 'li', text: 'Parent item' },
         { unit: 'block', id: 'e4', kind: 'li', text: 'Nested item' },
@@ -118,6 +121,7 @@ describe('canvas selection helpers', () => {
     expect(hit).toEqual({ type: 'block', el: li1 });
     expect(helpers.buildSelection(p1, hit!.el)).toEqual({
       mode: 'multiSet',
+      origin: 'documentRange',
       units: [
         { unit: 'block', id: 'e1', kind: 'p', text: 'Intro' },
         { unit: 'block', id: 'e3', kind: 'li', text: 'Indented item' },

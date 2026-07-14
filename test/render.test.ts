@@ -131,10 +131,31 @@ describe('CALS table -> HTML', () => {
     expect(html).toContain('<td class="entry">B</td>'); // untouched neighbour stays clean
   });
 
+  test('editable entries expose authored alignment separately from effective CALS inheritance', () => {
+    const html = renderEditable(parse(
+      '<table><tgroup cols="2" align="center">' +
+        '<colspec colname="c1" colnum="1"/><colspec colname="c2" colnum="2"/>' +
+        '<tbody><row><entry>A</entry><entry align="right">B</entry></row></tbody>' +
+        '</tgroup></table>',
+    ));
+
+    expect(html).toMatch(/<td class="entry" data-authored-align=""[^>]*data-align="center" style="text-align:center"/);
+    expect(html).toMatch(/<td class="entry" data-authored-align="right"[^>]*data-align="right" style="text-align:right"/);
+  });
+
   test('break image @align renders visibly in the editor', () => {
     const html = render('<topic><body><image href="diagram.svg" placement="break" align="center"/></body></topic>');
 
     expect(html).toContain('style="display:block;margin-left:auto;margin-right:auto"');
+  });
+
+  test('editable images expose authored alignment and placement even when inline placement suppresses alignment rendering', () => {
+    const html = renderEditable(parse(
+      '<topic><body><image href="diagram.svg" placement="inline" align="center"/></body></topic>',
+    ));
+
+    expect(html).toContain('data-authored-align="center" data-authored-placement="inline"');
+    expect(html).not.toContain('style="display:block');
   });
 
   test('colspec @align inherits to its column; entry-level wins (CALS precedence)', () => {
@@ -450,7 +471,7 @@ describe('renderEditable', () => {
         '</tbody></tgroup></table></body></topic>',
     );
     const html = renderEditable(doc);
-    expect(html).toMatch(/<td class="entry" data-selectable data-selection-kind="cell" data-cell-id="e\d+" contenteditable="true" data-edit-id="e\d+" data-inline-html="true" spellcheck="false">a<img/);
+    expect(html).toMatch(/<td class="entry" data-authored-align="" data-selectable data-selection-kind="cell" data-cell-id="e\d+" contenteditable="true" data-edit-id="e\d+" data-inline-html="true" spellcheck="false">a<img/);
     expect(html).toMatch(/<img class="image" src="i\.jpg" alt="i\.jpg"[^>]*data-dita="image"[^>]*data-href="i\.jpg"[^>]*data-attrs=/);
     expect(html).toMatch(/<img class="image"[^>]*data-struct-id="e\d+" data-struct-kind="image" data-selectable data-selection-kind="image">/);
     expect(html).not.toContain('data-edit-run');

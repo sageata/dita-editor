@@ -118,7 +118,7 @@
       });
     }
 
-    function openAlignmentMenu(button, controller, attrName, choices) {
+    function openCellAlignmentMenu(button, controller, attrName, choices) {
       if (!controller) return;
       const current = refreshBarCurrent();
       if (!current || !current.cellEl) return;
@@ -134,6 +134,162 @@
         width: 190,
         ariaLabel: button.getAttribute('aria-label'),
         announce: button.getAttribute('aria-label') + '. Up and Down to choose, Enter to apply, Escape to close.',
+      });
+    }
+
+    const HORIZONTAL_ALIGNABLE_KINDS = new Set([
+      'title', 'shortdesc', 'p', 'li', 'note', 'codeblock', 'lines', 'cmd', 'entry', 'image',
+    ]);
+    const HORIZONTAL_ALIGN_TOKENS = [
+      ['justify', 'ditaeditor-align-justify'],
+      ['right', 'ditaeditor-align-right'],
+      ['center', 'ditaeditor-align-center'],
+      ['left', 'ditaeditor-align-left'],
+    ];
+
+    function horizontalTargetElement(unit, id) {
+      if (id == null) return null;
+      const value = String(id);
+      const escaped = windowObj.CSS && typeof windowObj.CSS.escape === 'function'
+        ? windowObj.CSS.escape(value)
+        : value.replace(/"/g, '\\"');
+      const attr = unit === 'cell' ? 'data-cell-id' : 'data-struct-id';
+      return document.querySelector('[' + attr + '="' + escaped + '"]');
+    }
+
+    function horizontalTarget(unit, id, kind) {
+      const resolvedKind = unit === 'cell' ? 'entry' : unit === 'image' ? 'image' : kind;
+      if (!HORIZONTAL_ALIGNABLE_KINDS.has(resolvedKind)) {
+        return { ok: false, reason: 'Horizontal alignment is not available for this element' };
+      }
+      const el = horizontalTargetElement(unit, id);
+      if (!el) return { ok: false, reason: 'The selected element is no longer available' };
+      if (resolvedKind === 'note' && !(el.hasAttribute('data-edit-id') && el.hasAttribute('contenteditable'))) {
+        return { ok: false, reason: 'Select editable note text or a block inside the note' };
+      }
+      return { ok: true, target: { id: id, kind: resolvedKind, el: el } };
+    }
+
+    function horizontalTargets() {
+      const selection = getSelection ? getSelection() : null;
+      const descriptors = [];
+      if (selection) {
+        if (selection.mode === 'single') {
+          descriptors.push({ unit: selection.unit, id: selection.id, kind: selection.kind });
+        } else if (selection.mode === 'blockRange') {
+          for (const member of selection.members || []) {
+            descriptors.push({ unit: 'block', id: member.id, kind: selection.kind });
+          }
+        } else if (selection.mode === 'cellRect') {
+          for (const member of selection.members || []) {
+            descriptors.push({ unit: 'cell', id: member.id, kind: 'entry' });
+          }
+        } else if (selection.mode === 'multiSet') {
+          const isDocumentRange = selection.origin === 'documentRange';
+          for (const unit of selection.units || []) {
+            if (isDocumentRange && unit.unit === 'block' && (unit.kind === 'section' || unit.kind === 'row')) continue;
+            descriptors.push(unit);
+          }
+        } else {
+          return { ok: false, targets: [], reason: 'Horizontal alignment is not available for this selection' };
+        }
+      } else {
+        const current = refreshBarCurrent();
+        if (!current || current.id == null) {
+          return { ok: false, targets: [], reason: 'Select content, an image, or table cells to align' };
+        }
+        descriptors.push({
+          unit: current.kind === 'entry' ? 'cell' : current.kind === 'image' ? 'image' : 'block',
+          id: current.id,
+          kind: current.kind,
+        });
+      }
+
+      if (!descriptors.length) {
+        return { ok: false, targets: [], reason: 'Select content, an image, or table cells to align' };
+      }
+      const targets = [];
+      const seen = new Set();
+      for (const descriptor of descriptors) {
+        if (!descriptor || descriptor.id == null || seen.has(descriptor.id)) {
+          return { ok: false, targets: [], reason: 'The selection contains invalid or duplicate targets' };
+        }
+        const resolved = horizontalTarget(descriptor.unit, descriptor.id, descriptor.kind);
+        if (!resolved.ok) return { ok: false, targets: [], reason: resolved.reason };
+        seen.add(descriptor.id);
+        targets.push(resolved.target);
+      }
+      return { ok: true, targets: targets, reason: '' };
+    }
+
+    function targetHorizontalValue(target) {
+      if (target.kind === 'entry' || target.kind === 'image') {
+        return target.el.getAttribute('data-authored-align') || '';
+      }
+      const outputclass = target.el.getAttribute('data-outputclass') || '';
+      const tokens = new Set(outputclass.split(/\s+/).filter(Boolean));
+      for (const pair of HORIZONTAL_ALIGN_TOKENS) {
+        if (tokens.has(pair[1])) return pair[0];
+      }
+      return '';
+    }
+
+    function horizontalState(targets) {
+      const values = targets.map(targetHorizontalValue);
+      const first = values[0] || '';
+      const mixed = values.some((value) => value !== first);
+      return {
+        label: mixed ? 'Mixed' : first ? first.charAt(0).toUpperCase() + first.slice(1) : 'Default',
+        pressed: values.some(Boolean),
+      };
+    }
+
+    function horizontalChoiceChanges(target, value) {
+      if (target.kind !== 'entry' && target.kind !== 'image') {
+        const tokens = (target.el.getAttribute('data-outputclass') || '').split(/\s+/).filter(Boolean);
+        const managedCount = tokens.filter((token) => HORIZONTAL_ALIGN_TOKENS.some((pair) => pair[1] === token)).length;
+        if (managedCount > 1) return true;
+      }
+      if (targetHorizontalValue(target) !== value) return true;
+      return target.kind === 'image' && value !== '' && target.el.getAttribute('data-authored-placement') !== 'break';
+    }
+
+    function postHorizontalAlignment(targets, value) {
+      vscode.postMessage({
+        type: 'setHorizontalAlign',
+        ids: targets.map((target) => target.id),
+        align: value,
+        baseStructVersion: getStructVersion(),
+      });
+    }
+
+    function openHorizontalAlignmentMenu() {
+      if (!horizontalMenu) return;
+      const resolved = horizontalTargets();
+      if (!resolved.ok) return;
+      const hasImage = resolved.targets.some((target) => target.kind === 'image');
+      const choices = [
+        { label: 'Left', value: 'left' },
+        { label: 'Center', value: 'center' },
+        { label: 'Right', value: 'right' },
+        { label: 'Justify', value: 'justify' },
+        { label: 'Default', value: '' },
+      ];
+      const defs = choices.map((choice) => {
+        const imageUnsupported = choice.value === 'justify' && hasImage;
+        const changes = resolved.targets.some((target) => horizontalChoiceChanges(target, choice.value));
+        return {
+          label: choice.label,
+          enabled: !imageUnsupported && changes,
+          reason: imageUnsupported ? 'Images do not support justified alignment' : 'Already ' + choice.label.toLowerCase(),
+          onActivate: () => postHorizontalAlignment(resolved.targets, choice.value),
+        };
+      });
+      const rect = cAlignHorizontal.getBoundingClientRect();
+      horizontalMenu.openAt(defs, rect.left, rect.bottom + 4, {
+        width: 190,
+        ariaLabel: cAlignHorizontal.getAttribute('aria-label'),
+        announce: cAlignHorizontal.getAttribute('aria-label') + '. Up and Down to choose, Enter to apply, Escape to close.',
       });
     }
 
@@ -323,17 +479,9 @@
     cRowDel._barRun = function () { if (barCurrent && barCurrent.rowId) postStructural('deleteRow', barCurrent.rowId, withStructuralSuccess('deleteRow', 'row')); };
     cColAdd._barRun = function () { if (barCurrent && barCurrent.cellEntryId) postStructural('addColumnAfter', barCurrent.cellEntryId, withStructuralSuccess('addColumnAfter', 'entry')); };
     cColDel._barRun = function () { if (barCurrent && barCurrent.cellEntryId) postStructural('deleteColumn', barCurrent.cellEntryId, withStructuralSuccess('deleteColumn', 'entry')); };
-    cAlignHorizontal._barRun = function () {
-      openAlignmentMenu(cAlignHorizontal, horizontalMenu, 'align', [
-        { label: 'Left', value: 'left' },
-        { label: 'Center', value: 'center' },
-        { label: 'Right', value: 'right' },
-        { label: 'Justify', value: 'justify' },
-        { label: 'Default', value: '' },
-      ]);
-    };
+    cAlignHorizontal._barRun = openHorizontalAlignmentMenu;
     cAlignVertical._barRun = function () {
-      openAlignmentMenu(cAlignVertical, verticalMenu, 'valign', [
+      openCellAlignmentMenu(cAlignVertical, verticalMenu, 'valign', [
         { label: 'Top', value: 'top' },
         { label: 'Middle', value: 'middle' },
         { label: 'Bottom', value: 'bottom' },
@@ -560,6 +708,17 @@
         setPressed(fmtBtnByOp[op], canFormat && currentFormatState(op));
       }
 
+      cAlignHorizontal.style.display = 'inline-flex';
+      const horizontal = horizontalTargets();
+      if (horizontal.ok) {
+        const state = horizontalState(horizontal.targets);
+        setBtnEnabled(cAlignHorizontal, true, 'Horizontal alignment: ' + state.label);
+        setPressed(cAlignHorizontal, state.pressed);
+      } else {
+        setBtnEnabled(cAlignHorizontal, false, horizontal.reason);
+        setPressed(cAlignHorizontal, false);
+      }
+
       const canInline = !!currentInlineInsertTarget();
       for (const b of inlineInsertBtns) {
         setBtnEnabled(b, canInline, canInline ? b.dataset.action : 'Place the caret in text to insert here');
@@ -646,7 +805,6 @@
       cRowDel.style.display = tableVis;
       cColAdd.style.display = tableVis;
       cColDel.style.display = tableVis;
-      cAlignHorizontal.style.display = tableVis;
       cAlignVertical.style.display = tableVis;
       if (inCell) {
         applyAvail(cRowAdd, c.rowId, 'addRowAfter', 'Add row below');
@@ -658,11 +816,8 @@
           !anchorOk ? 'No editable cell in this column' : addA.enabled ? 'Add column to the right' : addA.reason || 'Add column to the right');
         setBtnEnabled(cColDel, anchorOk && delA.enabled,
           !anchorOk ? 'No editable cell in this column' : delA.enabled ? 'Delete this column' : delA.reason || 'Delete this column');
-        const horizontal = c.cellEl.getAttribute('data-align') || 'Default';
         const vertical = c.cellEl.getAttribute('data-valign') || 'Default';
-        setBtnEnabled(cAlignHorizontal, true, 'Horizontal alignment: ' + horizontal);
         setBtnEnabled(cAlignVertical, true, 'Vertical alignment: ' + vertical);
-        setPressed(cAlignHorizontal, horizontal !== 'Default');
         setPressed(cAlignVertical, vertical !== 'Default');
       }
 

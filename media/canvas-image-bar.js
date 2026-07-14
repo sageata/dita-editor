@@ -76,7 +76,10 @@
       if (btn === resizeBtn && imgBarTargetId) vscode.postMessage({ type: 'resizeImage', id: imgBarTargetId });
       const horizontal = btn === alignLeftBtn ? 'left' : btn === alignCenterBtn ? 'center' : btn === alignRightBtn ? 'right' : null;
       if (horizontal && imgBarTargetId) {
-        vscode.postMessage({ type: 'setImageAlign', id: imgBarTargetId, align: horizontal });
+        vscode.postMessage({
+          type: 'setHorizontalAlign', ids: [imgBarTargetId], align: horizontal,
+          baseStructVersion: getStructVersion(),
+        });
       }
       const vertical = btn === alignTopBtn ? 'top' : btn === alignMiddleBtn ? 'middle' : btn === alignBottomBtn ? 'bottom' : null;
       if (vertical && imgBarCellId) vscode.postMessage({ type: 'setCalsAttr', id: imgBarCellId, attrName: 'valign', attrValue: vertical, baseStructVersion: getStructVersion() });

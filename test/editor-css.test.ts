@@ -5,6 +5,24 @@ const css = readFileSync(new URL('../media/editor.css', import.meta.url), 'utf8'
 const theme = readFileSync(new URL('../media/content-theme.css', import.meta.url), 'utf8');
 
 describe('editor.css', () => {
+  test('managed alignment classes are shared by editable and read-only markup with deterministic precedence', () => {
+    const left = theme.indexOf('main .ditaeditor-align-left');
+    const center = theme.indexOf('main .ditaeditor-align-center');
+    const right = theme.indexOf('main .ditaeditor-align-right');
+    const justify = theme.indexOf('main .ditaeditor-align-justify');
+
+    expect(left).toBeGreaterThan(-1);
+    expect(left).toBeLessThan(center);
+    expect(center).toBeLessThan(right);
+    expect(right).toBeLessThan(justify);
+    expect(theme.slice(left, justify + 160)).not.toContain('[data-struct-id]');
+    expect(theme).toMatch(/main \.ditaeditor-align-left\s*{\s*text-align: left !important;/);
+    expect(theme).toMatch(/main \.ditaeditor-align-center\s*{\s*text-align: center !important;/);
+    expect(theme).toMatch(/main \.ditaeditor-align-right\s*{\s*text-align: right !important;/);
+    expect(theme).toMatch(/main \.ditaeditor-align-justify\s*{\s*text-align: justify !important;/);
+    expect(theme).toMatch(/main \.cmd\.ditaeditor-align-left,[\s\S]*main \.cmd\.ditaeditor-align-justify\s*{\s*display: block;/);
+  });
+
   test('semantic lines blocks preserve authored breaks with paragraph typography', () => {
     expect(theme).toContain('body.ditaeditor-canvas pre.lines');
     expect(theme).toContain('white-space: pre-wrap;');

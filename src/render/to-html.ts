@@ -511,7 +511,8 @@ class HtmlRenderer {
     const width = ditaImageDimensionCss(attr(el, 'width'));
     const height = ditaImageDimensionCss(attr(el, 'height'));
     const placement = attr(el, 'placement');
-    const align = placement === 'break' ? presEnum(attr(el, 'align'), IMAGE_ALIGN_VALUES) : undefined;
+    const authoredAlign = presEnum(attr(el, 'align'), IMAGE_ALIGN_VALUES);
+    const align = placement === 'break' ? authoredAlign : undefined;
     const authoredAlt = firstChildNamed(el, 'alt');
     // alt: authored DITA <alt> wins. Without it, a non-empty href falls back to the file's
     // basename (so a broken/missing image has a label), and an empty href becomes "Empty image"
@@ -522,7 +523,9 @@ class HtmlRenderer {
     // structAttr stamps data-struct-id + data-struct-kind="image" (IMG-1) when renderEditable
     // supplies the id, so canvas can re-resolve/restore an image selection after a rerender.
     // Render-only; image() bypasses structAttr otherwise, so without this an image has no id.
-    const data = this.editIds ? ` data-dita="image" data-href="${escapeRawAttrValue(href)}"${atomAttrData(el)}` : '';
+    const data = this.editIds
+      ? ` data-dita="image" data-href="${escapeRawAttrValue(href)}" data-authored-align="${authoredAlign ?? ''}" data-authored-placement="${escapeAttrValue(placement ?? '')}"${atomAttrData(el)}`
+      : '';
     const imageStyles: string[] = [];
     if (align) {
       imageStyles.push('display:block');
@@ -660,6 +663,9 @@ class HtmlRenderer {
     let attrs = this.classAttr(entry, 'entry');
     const outputclass = attr(entry, 'outputclass');
     if (outputclass && this.editIds) attrs += ` data-outputclass="${escapeAttrValue(outputclass)}"`;
+    if (this.editIds) {
+      attrs += ` data-authored-align="${presEnum(attr(entry, 'align'), ALIGN_VALUES) ?? ''}"`;
+    }
     const cell = grid ? gridCellFor(grid, entry) : undefined;
 
     const colspan = cell ? cell.colEnd - cell.colStart + 1 : 1;

@@ -514,7 +514,7 @@ async function runRealWebviewSmoke(): Promise<void> {
       })()`, webviewContextId);
     }, 20_000);
 
-    console.log('[real-webview-e2e] aligning the image cell from the top command bar');
+    console.log('[real-webview-e2e] aligning the image from the top command bar');
     await evaluate(webview, `(() => {
       const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
       if (!image) throw new Error('No rendered image found');
@@ -526,8 +526,28 @@ async function runRealWebviewSmoke(): Promise<void> {
       if (!choice) throw new Error('Right alignment choice is not visible');
       choice.click();
     })()`, webviewContextId);
-    await waitFor('table image cell rerendered right-aligned', async () => {
-      return evaluate(webview!, `document.querySelector('td[data-align="right"] img[data-struct-kind="image"]') ? true : null`, webviewContextId);
+    await waitFor('image rerendered with native right alignment', async () => {
+      return evaluate(webview!, `document.querySelector('img[data-struct-kind="image"][data-authored-align="right"][data-authored-placement="break"]') ? true : null`, webviewContextId);
+    }, 20_000);
+    console.log('[real-webview-e2e] undoing and redoing image alignment as one history entry');
+    await evaluate(webview, `(() => {
+      const button = document.querySelector('[aria-label="Undo"]');
+      if (!button) throw new Error('Undo button is not visible');
+      button.click();
+    })()`, webviewContextId);
+    await waitFor('one undo restored default image alignment', async () => {
+      return evaluate(webview!, `(() => {
+        const image = document.querySelector('img[data-struct-kind="image"]');
+        return image && image.getAttribute('data-authored-align') === '' && image.getAttribute('data-authored-placement') === '' ? true : null;
+      })()`, webviewContextId);
+    }, 20_000);
+    await evaluate(webview, `(() => {
+      const button = document.querySelector('[aria-label="Redo"]');
+      if (!button) throw new Error('Redo button is not visible');
+      button.click();
+    })()`, webviewContextId);
+    await waitFor('one redo restored native image alignment', async () => {
+      return evaluate(webview!, `document.querySelector('img[data-struct-kind="image"][data-authored-align="right"][data-authored-placement="break"]') ? true : null`, webviewContextId);
     }, 20_000);
     await evaluate(webview, `(() => {
       const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
@@ -749,7 +769,7 @@ async function runRealWebviewSmoke(): Promise<void> {
     }, 20_000);
     await waitFor('saved file bytes contain nested image width', async () => {
       const source = await readFile(project.fixture, 'utf8');
-      return source.includes('frame="sides"') && source.includes('colsep="0"') && source.includes('rowsep="0"') && source.includes('align="right"') && source.includes('valign="middle"') && source.includes('namest="c1"') && source.includes('nameend="c2"') && /<image href="diagram\.svg" width="\d+px"\/>/.test(source) ? source : null;
+      return source.includes('frame="sides"') && source.includes('colsep="0"') && source.includes('rowsep="0"') && source.includes('valign="middle"') && source.includes('namest="c1"') && source.includes('nameend="c2"') && /<image(?=[^>]*\bhref="diagram\.svg")(?=[^>]*\bplacement="break")(?=[^>]*\balign="right")(?=[^>]*\bwidth="\d+px")[^>]*\/>/.test(source) ? source : null;
     }, 20_000);
 
     const saved = await readFile(project.fixture, 'utf8');
@@ -759,11 +779,10 @@ async function runRealWebviewSmoke(): Promise<void> {
     expect(saved).toContain('frame="sides"');
     expect(saved).toContain('colsep="0"');
     expect(saved).toContain('rowsep="0"');
-    expect(saved).toContain('align="right"');
     expect(saved).toContain('valign="middle"');
     expect(saved).toContain('namest="c1"');
     expect(saved).toContain('nameend="c2"');
-    expect(saved).toMatch(/<image href="diagram\.svg" width="\d+px"\/>/);
+    expect(saved).toMatch(/<image(?=[^>]*\bhref="diagram\.svg")(?=[^>]*\bplacement="break")(?=[^>]*\balign="right")(?=[^>]*\bwidth="\d+px")[^>]*\/>/);
     expect(saved).toContain('<note>Backspace leadBackspace tail</note>');
     expect(saved).not.toContain('<p>Backspace tail</p>');
     expect(saved).toContain('<p>List leadList tail</p>');

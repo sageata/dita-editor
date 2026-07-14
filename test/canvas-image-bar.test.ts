@@ -145,7 +145,9 @@ describe('canvas-image-bar', () => {
     expect(alignCenterButton.textContent).toBe('C');
     alignCenterButton.dispatch('click', {});
 
-    expect(posted()).toEqual([{ type: 'setImageAlign', id: 'i1', align: 'center' }]);
+    expect(posted()).toEqual([{
+      type: 'setHorizontalAlign', ids: ['i1'], align: 'center', baseStructVersion: 7,
+    }]);
   });
 
   test('targets the enclosing entry for table image horizontal and vertical alignment', () => {
@@ -159,7 +161,7 @@ describe('canvas-image-bar', () => {
     fixture.alignMiddleButton.dispatch('click', {});
 
     expect(fixture.posted()).toEqual([
-      { type: 'setImageAlign', id: 'i1', align: 'right' },
+      { type: 'setHorizontalAlign', ids: ['i1'], align: 'right', baseStructVersion: 7 },
       { type: 'setCalsAttr', id: 'entry1', attrName: 'valign', attrValue: 'middle', baseStructVersion: 7 },
     ]);
   });

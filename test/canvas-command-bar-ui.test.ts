@@ -71,6 +71,12 @@ describe('canvas-command-bar-ui', () => {
     expect((ui.biTable as TestElement).getAttribute('aria-label')).toBe('Table');
     expect((ui as unknown as { cAlignHorizontal: TestElement }).cAlignHorizontal.getAttribute('aria-label')).toBe('Horizontal alignment');
     expect((ui as unknown as { cAlignVertical: TestElement }).cAlignVertical.getAttribute('aria-label')).toBe('Vertical alignment');
+    expect((ui as unknown as { cAlignHorizontal: TestElement }).cAlignHorizontal.parentElement).toBe(
+      (ui as unknown as { fmtGroup: { row: TestElement } }).fmtGroup.row,
+    );
+    expect((ui as unknown as { cAlignVertical: TestElement }).cAlignVertical.parentElement).toBe(
+      (ui as unknown as { tableGroup: { row: TestElement } }).tableGroup.row,
+    );
     expect((ui.inlineInsertBtns as TestElement[]).map((btn) => btn.getAttribute('aria-label'))).toEqual([
       'Image',
       'Cross-reference',

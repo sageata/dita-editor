@@ -374,8 +374,8 @@ describe('canvas-command-bar Structure transform clicks', () => {
     ]);
     expect(announcements).toEqual([]);
     expect(messages).toEqual([
-      { type: 'setCalsAttr', id: 'c1', attrName: 'align', attrValue: 'center', baseStructVersion: 3 },
-      { type: 'setCalsAttr', id: 'c1', attrName: 'align', attrValue: '', baseStructVersion: 3 },
+      { type: 'setHorizontalAlign', ids: ['c1'], align: 'center', baseStructVersion: 3 },
+      { type: 'setHorizontalAlign', ids: ['c1'], align: '', baseStructVersion: 3 },
       { type: 'setCalsAttr', id: 'c1', attrName: 'valign', attrValue: 'bottom', baseStructVersion: 3 },
       { type: 'setCalsAttr', id: 'c1', attrName: 'valign', attrValue: '', baseStructVersion: 3 },
     ]);

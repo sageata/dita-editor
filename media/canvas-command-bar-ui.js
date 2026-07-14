@@ -74,7 +74,10 @@
     const fmtSub = makeBarBtn('<span style="font-weight:600;font-size:13px">X<sub style="font-size:9px">2</sub></span>', 'Subscript', true);
     const fmtSup = makeBarBtn('<span style="font-weight:600;font-size:13px">X<sup style="font-size:9px">2</sup></span>', 'Superscript', true);
     const fmtClear = makeBarBtn(barIcons.clearFormat, 'Remove all styles', true);
-    fmtGroup.row.append(fmtBold, fmtItalic, fmtUnderline, fmtStrike, fmtCode, fmtSub, fmtSup, fmtClear);
+    const cAlignHorizontal = makeBarBtn('H↔', 'Horizontal alignment', false);
+    cAlignHorizontal.setAttribute('aria-haspopup', 'menu');
+    cAlignHorizontal.setAttribute('aria-expanded', 'false');
+    fmtGroup.row.append(fmtBold, fmtItalic, fmtUnderline, fmtStrike, fmtCode, fmtSub, fmtSup, fmtClear, cAlignHorizontal);
     const fmtBtns = [fmtBold, fmtItalic, fmtUnderline, fmtStrike, fmtCode, fmtSub, fmtSup];
     const fmtActionBtns = [fmtBold, fmtItalic, fmtUnderline, fmtStrike, fmtCode, fmtSub, fmtSup, fmtClear];
     const fmtOp = { Bold: 'b', Italic: 'i', Underline: 'u', Strikethrough: 'line-through', 'Inline code': 'codeph', Subscript: 'sub', Superscript: 'sup' };
@@ -116,13 +119,10 @@
     const cRowDel = makeBarBtn('−▭', 'Delete this row', false);
     const cColAdd = makeBarBtn('+|', 'Add column to the right', false);
     const cColDel = makeBarBtn('−|', 'Delete this column', false);
-    const cAlignHorizontal = makeBarBtn('H↔', 'Horizontal alignment', false);
     const cAlignVertical = makeBarBtn('V↕', 'Vertical alignment', false);
-    cAlignHorizontal.setAttribute('aria-haspopup', 'menu');
-    cAlignHorizontal.setAttribute('aria-expanded', 'false');
     cAlignVertical.setAttribute('aria-haspopup', 'menu');
     cAlignVertical.setAttribute('aria-expanded', 'false');
-    tableGroup.row.append(cRowAdd, cRowDel, cColAdd, cColDel, cAlignHorizontal, cAlignVertical);
+    tableGroup.row.append(cRowAdd, cRowDel, cColAdd, cColDel, cAlignVertical);
 
     const viewGroup = makeBarGroup('View');
     const vZoomOut = makeBarBtn('−', 'Zoom out', false);

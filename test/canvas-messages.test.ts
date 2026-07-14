@@ -31,6 +31,8 @@ describe('canvas message protocol helpers', () => {
     for (const type of AUTHORIZED_ATTRIBUTE_MESSAGE_TYPES) {
       expect(isAuthorizedAttributeMessageType(type)).toBe(true);
     }
+    expect(isAuthorizedAttributeMessageType('setHorizontalAlign')).toBe(true);
+    expect(isAuthorizedAttributeMessageType('setImageAlign')).toBe(false);
     expect(isAuthorizedAttributeMessageType('setAttr')).toBe(false);
     expect(isAuthorizedAttributeMessageType('setAttrMulti')).toBe(false);
     expect(isAuthorizedAttributeMessageType('setArbitraryAttr')).toBe(false);

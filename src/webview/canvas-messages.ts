@@ -90,7 +90,7 @@ export interface CanvasMessage {
   widths?: number[];
   /** setImageWidth: validated DITA width produced by the selected-image drag handle. */
   width?: string;
-  /** setImageAlign: DITA horizontal image alignment. */
+  /** setHorizontalAlign / legacy setImageAlign horizontal alignment value. */
   align?: string;
   styles?: unknown;
   sourceHash?: string;
@@ -107,6 +107,7 @@ export const AUTHORIZED_ATTRIBUTE_MESSAGE_TYPES = [
   'setCalsAttr',
   'setCalsAttrMulti',
   'setTgroupAttr',
+  'setHorizontalAlign',
   'applyStyle',
   'clearStyle',
   'applyShade',

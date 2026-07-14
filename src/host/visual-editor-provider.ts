@@ -18,7 +18,8 @@ import {
 import { buildCanvasHtml } from '../webview/canvas-html';
 import { applyElementAttribute, applyElementAttributeToIds, applyTgroupAttributes } from './attribute-actions';
 import { authorizeAttributeMessage, type AuthorizedAttributeAction } from './attribute-authorization';
-import { applyImageAlignment, applyImageWidth, pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt, promptAndApplyImageWidth } from './image-actions';
+import { applyImageWidth, pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt, promptAndApplyImageWidth } from './image-actions';
+import { applyHorizontalAlignmentToIds } from './horizontal-alignment-actions';
 import {
   editInlineText,
   formatInlineBlocks,
@@ -1127,6 +1128,12 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         refuseAttributeMessage(msg.type, 'The legacy generic attribute channel is disabled.');
         return;
       }
+      if (msg && msg.type === 'setImageAlign') {
+        const reason = 'Image alignment controls changed. Reload the editor and try again.';
+        refuseAttributeMessage(msg.type, reason);
+        pushBody(null, null);
+        return;
+      }
       if (msg && isAuthorizedAttributeMessageType(msg.type)) {
         queue = queue
           .then(async () => {
@@ -1159,6 +1166,12 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
                   structVersion++;
                 },
               }, action.ids, action.className, action.managedClassNames, action.styleTarget);
+              return;
+            }
+            if (action.kind === 'horizontalAlign') {
+              await applyHorizontalAlignmentToIds(
+                attributeActionContext(), action.ids, action.align,
+              );
               return;
             }
             await applyAuthorizedShade(action, msg);
@@ -1529,13 +1542,6 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
           .catch((err) => {
             console.error('dita-editor: image drag resize failed', err);
             postError('The image could not be resized. See the developer console for details.');
-          });
-      } else if (msg.type === 'setImageAlign' && typeof msg.align === 'string') {
-        queue = queue
-          .then(() => applyImageAlignment(imageActionContext(), id, msg.align!))
-          .catch((err) => {
-            console.error('dita-editor: image alignment failed', err);
-            postError('The image could not be aligned. See the developer console for details.');
           });
       }
     });

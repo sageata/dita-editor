@@ -39,6 +39,35 @@
   margin-top: 32px;
 }
 
+/* Reserved DITA Editor alignment outputclasses. These rules are shared by the
+ * editable canvas and read-only/review surfaces, so they deliberately depend
+ * only on the persisted class contract rather than editable-only data attrs.
+ * Source order is the malformed-token precedence: justify > right > center > left. */
+main .ditaeditor-align-left {
+  text-align: left !important;
+}
+
+main .ditaeditor-align-center {
+  text-align: center !important;
+}
+
+main .ditaeditor-align-right {
+  text-align: right !important;
+}
+
+main .ditaeditor-align-justify {
+  text-align: justify !important;
+}
+
+/* DITA <cmd> renders as an inline span. Only aligned commands become blocks so
+ * their persisted horizontal alignment has a box to align within. */
+main .cmd.ditaeditor-align-left,
+main .cmd.ditaeditor-align-center,
+main .cmd.ditaeditor-align-right,
+main .cmd.ditaeditor-align-justify {
+  display: block;
+}
+
 :where(body.ditaeditor-canvas h1.title.topictitle1),
 :where(body.ditaeditor-canvas h2.title),
 :where(body.ditaeditor-canvas h3.title),
