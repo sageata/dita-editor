@@ -32,7 +32,7 @@ import { assignElementIds } from '../cst/element-ids';
 import { childElements, childrenNamed } from '../cst/query';
 import { computeGrid, cellAt, gridCellFor, isGridValid } from '../cst/table-grid';
 import type { Document, ElementNode } from '../cst/types';
-import { canDeleteElement } from '../cst/structural';
+import { canDeleteElement, canJoinTextBlocks } from '../cst/structural';
 import type { StructuralOp } from '../cst/structural';
 
 export type { StructuralOp } from '../cst/structural';
@@ -307,10 +307,8 @@ export function isValid(op: StructuralOp, focus: FocusState, idx: DocIndex): Val
       const parent = el.parent ?? null;
       const sibs = parent ? childElements(parent) : [];
       const prev = sibs[sibs.indexOf(el) - 1];
-      if (!prev || prev.name !== el.name) {
-        return no(`No previous ${el.name === 'li' ? 'list item' : 'paragraph'} to join into`);
-      }
-      return ok();
+      const check = canJoinTextBlocks(el, prev ?? null);
+      return check.canDelete ? ok() : no(check.reason ?? 'No compatible previous text element to join into');
     }
 
     // Indent: valid only when an item ABOVE it exists in the same list to nest under.

@@ -114,6 +114,51 @@ export interface DeleteCheck {
   reason?: string;
 }
 
+const INLINE_JOIN_TARGETS = new Set(['p', 'li', 'title', 'shortdesc', 'note', 'cmd']);
+const PLAIN_JOIN_TARGETS = new Set(['lines', 'codeblock']);
+const JOIN_INLINE_CHILDREN = new Set(['b', 'i', 'u', 'codeph', 'sub', 'sup', 'tt', 'line-through', 'overline', 'xref', 'ph']);
+
+function hasJoinableInlineContent(el: ElementNode): boolean {
+  return el.children.every((child) => child.type === 'text' || (child.type === 'element' && (
+    JOIN_INLINE_CHILDREN.has(child.name) || (el.name === 'li' && (child.name === 'ul' || child.name === 'ol'))
+  )));
+}
+
+function hasPlainTextContent(el: ElementNode): boolean {
+  return el.children.every((child) => child.type === 'text');
+}
+
+export function canJoinTextBlocks(current: ElementNode, previous: ElementNode | null): DeleteCheck {
+  const parent = current.parent ?? null;
+  if (!parent || !previous || previous.parent !== parent) {
+    return { canDelete: false, reason: 'The previous text element is not an adjacent sibling' };
+  }
+  const siblings = childElements(parent);
+  if (siblings[siblings.indexOf(current) - 1] !== previous) {
+    return { canDelete: false, reason: 'The previous text element is not an adjacent sibling' };
+  }
+  const currentInline = INLINE_JOIN_TARGETS.has(current.name);
+  const previousInline = INLINE_JOIN_TARGETS.has(previous.name);
+  const currentPlain = PLAIN_JOIN_TARGETS.has(current.name);
+  const previousPlain = PLAIN_JOIN_TARGETS.has(previous.name);
+  if ((!currentInline && !currentPlain) || (!previousInline && !previousPlain)) {
+    return { canDelete: false, reason: 'These element types cannot be joined as text' };
+  }
+  if ((current.name === 'li' || previous.name === 'li') && (current.name !== 'li' || previous.name !== 'li')) {
+    return { canDelete: false, reason: 'A list item can only join the preceding item in the same list' };
+  }
+  if ((currentPlain || previousPlain) && (!hasPlainTextContent(current) || !hasPlainTextContent(previous))) {
+    return { canDelete: false, reason: 'Rich inline content cannot be merged into a plain-text block' };
+  }
+  if (!currentPlain && !hasJoinableInlineContent(current)) {
+    return { canDelete: false, reason: 'The current element contains content that cannot be joined safely' };
+  }
+  if (!previousPlain && !hasJoinableInlineContent(previous)) {
+    return { canDelete: false, reason: 'The previous element contains content that cannot be joined safely' };
+  }
+  return canDeleteElement(current, parent);
+}
+
 /** Can `el` (with the given `parent`) be deleted on its own without violating the
  *  DITA content model? Pure: reads the CST only. Categories, in priority order:
  *   - entry (CALS cell): never deletable alone — delete its row/column instead.
@@ -324,6 +369,8 @@ export function applyStructuralEdit(
     case 'join': {
       const target = payload.prevId ? findElementById(doc, payload.prevId) : null;
       if (!target) throw new Error(`join target not found: ${payload.prevId}`);
+      const check = canJoinTextBlocks(el, target);
+      if (!check.canDelete) throw new Error(check.reason ?? 'These text elements cannot be joined');
       const result = joinTextBlocks(el, target, payload);
       focusEl = result.focusEl;
       caretOffset = result.caretOffset;

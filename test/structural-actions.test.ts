@@ -107,6 +107,21 @@ describe('structural host actions', () => {
     expect(ctx.version()).toBe(2);
   });
 
+  test('applyStructuralAction rejects a stale cross-kind join without applying bytes', async () => {
+    const src = '<topic><body><note>one</note><p>two</p></body></topic>';
+    const ctx = makeContext(src, 4);
+
+    await applyStructuralAction(ctx, 'join', idOf(src, 'p'), {
+      prevId: idOf(src, 'note'),
+      merged: 'onetwo',
+      boundary: 3,
+    }, 3);
+
+    expect(ctx.applied).toEqual([]);
+    expect(ctx.pushed).toEqual([[null, null]]);
+    expect(ctx.version()).toBe(4);
+  });
+
   test('applyStructuralAction surfaces refused operations as diagnostics, announcements, and visible errors', async () => {
     const src = '<topic id="t"><title>T</title><body><p>x</p></body></topic>';
     const ctx = makeContext(src);

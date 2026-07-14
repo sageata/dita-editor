@@ -936,4 +936,65 @@ describe('structural: deleteElement (universal, byte-exact apply)', () => {
     expect(res.source).toContain('<li>two</li>');
     expect(serialize(parse(res.source))).toBe(res.source);
   });
+
+});
+
+describe('structural: broad Backspace joins', () => {
+  test.each([
+    ['paragraph into note', '<topic><body><note>A</note><p>B</p></body></topic>', 'p', 'note', '<note>AB</note>'],
+    ['note into paragraph', '<topic><body><p>A</p><note>B</note></body></topic>', 'note', 'p', '<p>AB</p>'],
+    ['short description into title', '<topic><title>A</title><shortdesc>B</shortdesc><body><p>X</p></body></topic>', 'shortdesc', 'title', '<title>AB</title>'],
+    ['lines into lines', '<topic><body><lines>A</lines><lines>B</lines></body></topic>', 'lines', 'lines', '<lines>AB</lines>'],
+    ['code block into code block', '<topic><body><codeblock>A</codeblock><codeblock>B</codeblock></body></topic>', 'codeblock', 'codeblock', '<codeblock>AB</codeblock>'],
+    ['command into command', '<task><taskbody><steps><step><cmd>A</cmd><cmd>B</cmd></step></steps></taskbody></task>', 'cmd', 'cmd', '<cmd>AB</cmd>'],
+  ])('joins compatible direct siblings: %s', (_label, src, currentName, previousName, expected) => {
+    const current = idsNamed(src, currentName)[currentName === previousName ? 1 : 0];
+    const previous = idsNamed(src, previousName)[0];
+    const res = applyStructuralEdit(src, 'join', current, { prevId: previous, merged: 'AB', boundary: 1 });
+    expect(res.source).toContain(expected);
+    expect(res.caretOffset).toBe(1);
+    expect(serialize(parse(res.source))).toBe(res.source);
+  });
+
+  test('removes an empty compatible wrapper through the join path', () => {
+    const src = '<topic><body><p>A</p><note></note></body></topic>';
+    const res = applyStructuralEdit(src, 'join', idsNamed(src, 'note')[0], {
+      prevId: idsNamed(src, 'p')[0], merged: 'A', boundary: 1,
+    });
+    expect(res.source).toBe('<topic><body><p>A</p></body></topic>');
+  });
+
+  test('preserves nested sublists when joining list items', () => {
+    const src = '<topic><body><ul><li>A<ul><li>A1</li></ul></li><li>B<ol><li>B1</li></ol></li></ul></body></topic>';
+    const listIds = idsNamed(src, 'li');
+    const firstLi = listIds[0];
+    const secondLi = listIds[2];
+    const res = applyStructuralEdit(src, 'join', secondLi, { prevId: firstLi, merged: 'AB', boundary: 1 });
+    expect(res.source).toContain('<li>AB<ul><li>A1</li></ul><ol><li>B1</li></ol></li>');
+    expect(serialize(parse(res.source))).toBe(res.source);
+  });
+
+  test('ignores forged merged text and HTML while joining valid adjacent ids', () => {
+    const src = '<topic><body><p>A<b>bold</b></p><note><i>B</i></note></body></topic>';
+    const res = applyStructuralEdit(src, 'join', idsNamed(src, 'note')[0], {
+      prevId: idsNamed(src, 'p')[0],
+      merged: 'FORGED',
+      mergedHtml: '<b>FORGED</b>',
+      boundary: 999,
+    });
+    expect(res.source).toBe('<topic><body><p>A<b>bold</b><i>B</i></p></body></topic>');
+    expect(res.caretOffset).toBe('Abold'.length);
+  });
+
+  test.each([
+    ['non-adjacent target', '<topic><body><p>A</p><p>B</p><p>C</p></body></topic>', 'p', 2, 'p', 0],
+    ['different parents', '<topic><body><section><p>A</p></section><p>B</p></body></topic>', 'p', 1, 'p', 0],
+    ['table cell', '<topic><body><table><tgroup cols="2"><tbody><row><entry>A</entry><entry>B</entry></row></tbody></tgroup></table></body></topic>', 'entry', 1, 'entry', 0],
+    ['rich content into plain block', '<topic><body><codeblock>A</codeblock><p><b>B</b></p></body></topic>', 'p', 0, 'codeblock', 0],
+  ])('refuses unsafe joins without producing bytes: %s', (_label, src, currentName, currentIndex, previousName, previousIndex) => {
+    const current = idsNamed(src, currentName)[currentIndex];
+    const previous = idsNamed(src, previousName)[previousIndex];
+    expect(() => applyStructuralEdit(src, 'join', current, { prevId: previous, merged: 'AB' })).toThrow();
+    expect(serialize(parse(src))).toBe(src);
+  });
 });

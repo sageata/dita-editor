@@ -35,6 +35,8 @@ const FIXTURE_SOURCE = `<?xml version="1.0" encoding="UTF-8"?>
         </tbody>
       </tgroup>
     </table>
+    <note>Backspace lead</note>
+    <p>Backspace tail</p>
   </body>
 </topic>
 `;
@@ -683,6 +685,32 @@ async function runRealWebviewSmoke(): Promise<void> {
       })()`, webviewContextId);
     }, 20_000);
 
+    console.log('[real-webview-e2e] joining a paragraph into the preceding note with Backspace');
+    await evaluate(webview, `(() => {
+      const paragraph = Array.from(document.querySelectorAll('p[data-edit-id][contenteditable]'))
+        .find((element) => element.textContent === 'Backspace tail');
+      if (!paragraph) throw new Error('Backspace target paragraph is not rendered');
+      paragraph.scrollIntoView({ block: 'center' });
+      paragraph.focus();
+      const range = document.createRange();
+      range.selectNodeContents(paragraph);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    })()`, webviewContextId);
+    await dispatchKey(webview, 'Backspace', 'Backspace', 8);
+    await waitFor('paragraph joined into preceding note', async () => {
+      return evaluate(webview!, `(() => {
+        const note = Array.from(document.querySelectorAll('[data-struct-kind="note"]'))
+          .find((element) => element.textContent === 'Backspace leadBackspace tail');
+        const tail = Array.from(document.querySelectorAll('p[data-edit-id][contenteditable]'))
+          .find((element) => element.textContent === 'Backspace tail');
+        return note && !tail ? true : null;
+      })()`, webviewContextId);
+    }, 20_000);
+
     console.log('[real-webview-e2e] saving active editor');
     await saveActiveEditor(workbench);
 
@@ -708,6 +736,8 @@ async function runRealWebviewSmoke(): Promise<void> {
     expect(saved).toContain('namest="c1"');
     expect(saved).toContain('nameend="c2"');
     expect(saved).toMatch(/<image href="diagram\.svg" width="\d+px"\/>/);
+    expect(saved).toContain('<note>Backspace leadBackspace tail</note>');
+    expect(saved).not.toContain('<p>Backspace tail</p>');
   } finally {
     console.log('[real-webview-e2e] cleanup');
     if (proc) await quitCode(proc, browser);

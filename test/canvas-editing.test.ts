@@ -1280,7 +1280,7 @@ describe('canvas-editing', () => {
     ]);
   });
 
-  test('Backspace join in inline-rich prose posts merged HTML instead of flattened text', () => {
+  test('Backspace joins a paragraph into a preceding inline-rich note without flattening markup', () => {
     const doc = new FakeDocument();
     doc.caretOffset = 0;
     const posted: unknown[] = [];
@@ -1290,7 +1290,7 @@ describe('canvas-editing', () => {
       'data-edit-id': 'e1',
       'data-inline-html': 'true',
       'data-struct-id': 'e1',
-      'data-struct-kind': 'p',
+      'data-struct-kind': 'note',
       contenteditable: 'true',
     });
     previous.appendChild(new FakeText('Lead bold'));
@@ -1321,6 +1321,12 @@ describe('canvas-editing', () => {
     expect(prevented).toBe(true);
     expect(posted).toEqual([
       {
+        type: 'edit',
+        id: 'e2',
+        text: 'tail',
+        html: '<em>tail</em>',
+      },
+      {
         type: 'structural',
         op: 'join',
         id: 'e2',
@@ -1331,6 +1337,28 @@ describe('canvas-editing', () => {
         announceOnSuccess: 'Paragraphs joined.',
       },
     ]);
+  });
+
+  test('Backspace in an empty command without a compatible predecessor does not post an undefined delete', () => {
+    const doc = new FakeDocument();
+    doc.caretOffset = 0;
+    const posted: unknown[] = [];
+    installEditing(doc, posted);
+    const command = new FakeElement({
+      'data-edit-id': 'e2',
+      'data-struct-id': 'e2',
+      'data-struct-kind': 'cmd',
+      contenteditable: 'true',
+    });
+    command.textContent = '';
+
+    let prevented = false;
+    for (const listener of doc.listeners.get('keydown') ?? []) {
+      listener({ key: 'Backspace', target: command, preventDefault: () => { prevented = true; } });
+    }
+
+    expect(prevented).toBe(false);
+    expect(posted).toEqual([]);
   });
 
   test('Delete join at source end ignores render-only conref chip length', () => {

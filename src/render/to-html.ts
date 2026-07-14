@@ -498,7 +498,7 @@ class HtmlRenderer {
       case 'step':
         return `<li${this.classAttr(el, 'li step stepexpand')}>${this.children(el)}</li>`;
       case 'cmd':
-        return `<span${this.classAttr(el, 'ph cmd')}${ed}>${this.children(el)}</span>`;
+        return `<span${this.classAttr(el, 'ph cmd')}${ed}${this.structAttr(el)}>${this.children(el)}</span>`;
       case 'info':
         return `<div${this.classAttr(el, 'itemgroup info')}>${this.children(el)}</div>`;
       default:

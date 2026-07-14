@@ -34,15 +34,22 @@ export function splitTextBlock(
 export function joinTextBlocks(
   el: ElementNode,
   target: ElementNode,
-  payload: TextBlockStructuralPayload,
+  _payload: TextBlockStructuralPayload,
 ): { focusEl: ElementNode; caretOffset: number } {
-  if (payload.mergedHtml !== undefined) {
-    setElementChildren(target, htmlInlineToCst(payload.mergedHtml));
-  } else {
-    setElementText(target, payload.merged ?? '');
-  }
+  // The host owns the merge bytes. Never trust merged/mergedHtml from the
+  // WebView: valid adjacent ids paired with forged content must not overwrite
+  // either element. The source nodes already include every acknowledged edit.
+  const isNestedList = (child: CstNode): boolean =>
+    child.type === 'element' && (child.name === 'ul' || child.name === 'ol');
+  const targetInline = target.children.filter((child) => !isNestedList(child));
+  const currentInline = el.children.filter((child) => !isNestedList(child));
+  const nestedLists = target.name === 'li' && el.name === 'li'
+    ? [...target.children, ...el.children].filter(isNestedList)
+    : [];
+  const caretOffset = inlineTextLength(targetInline);
+  setElementChildren(target, [...targetInline, ...currentInline, ...nestedLists]);
   removeWithLeadingWs(el);
-  return { focusEl: target, caretOffset: payload.boundary ?? 0 };
+  return { focusEl: target, caretOffset };
 }
 
 export function pasteBlocksIntoTextBlock(

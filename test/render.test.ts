@@ -569,7 +569,7 @@ describe('renderEditable', () => {
     expect(html.match(/data-struct-kind="title"/g)?.length).toBe(2);
   });
 
-  test('excluded kinds are NEVER stamped: table cells (entry), inline cmd, and text-run spans', () => {
+  test('excluded kinds are never stamped while editable cmd is addressable for Backspace joins', () => {
     const doc = parse(
       '<topic><body>' +
         '<table><tgroup cols="1"><colspec colname="c1" colnum="1"/><tbody>' +
@@ -581,14 +581,13 @@ describe('renderEditable', () => {
     const html = renderEditable(doc);
     // cells use data-cell-id, not data-struct-id
     expect(html).not.toMatch(/<t[dh] class="entry"[^>]*data-struct-id/);
-    // inline cmd is not a structural delete target
-    expect(html).not.toMatch(/<span class="ph cmd"[^>]*data-struct-id/);
+    expect(html).toMatch(/<span class="ph cmd"[^>]*data-struct-id="e\d+" data-struct-kind="cmd"/);
     // mixed-cell text-run spans keep their synthetic edit-only ids, never a struct-id
     expect(html).not.toMatch(/<span[^>]*data-edit-run[^>]*data-struct-id/);
     // table scaffolding containers (tgroup/thead/tbody/colspec) are not separately deletable
     // and never reach a struct-id-bearing tag (they have no dedicated render tag here)
     expect(html).not.toContain('data-struct-kind="entry"');
-    expect(html).not.toContain('data-struct-kind="cmd"');
+    expect(html).toContain('data-struct-kind="cmd"');
   });
 
   test('read-only render does NOT stamp struct ids on table/fig (editable-only, like images)', () => {
