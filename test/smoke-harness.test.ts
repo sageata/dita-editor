@@ -356,17 +356,31 @@ describe('installed VSIX smoke policy', () => {
   test('checks a macOS app through its CLI wrapper instead of launching the GUI', async () => {
     const root = await mkdtemp(join(tmpdir(), 'local-code-app-'));
     const executable = join(root, 'Visual Studio Code.app', 'Contents', 'MacOS', 'Electron');
-    const cli = join(root, 'Visual Studio Code.app', 'Contents', 'Resources', 'app', 'bin', 'code');
     const record = { version: '1.90.0', commit: '8'.repeat(40) };
+    const captures: Array<{ command: string; args: string[] }> = [];
+    const capture = async (command: string, args: string[]) => {
+      captures.push({ command, args });
+      return {
+        exitCode: 0,
+        stdout: `1.90.0\n${'8'.repeat(40)}\narm64\n`,
+        stderr: '',
+      };
+    };
     try {
-      await Promise.all([mkdir(resolve(executable, '..'), { recursive: true }), mkdir(resolve(cli, '..'), { recursive: true })]);
+      await mkdir(resolve(executable, '..'), { recursive: true });
       await writeFile(executable, '#!/bin/sh\nexit 91\n');
-      await writeFile(cli, `#!/bin/sh\nprintf '1.90.0\\n${'8'.repeat(40)}\\narm64\\n'\n`);
-      await Promise.all([chmod(executable, 0o755), chmod(cli, 0o755)]);
-      await expect(inspectExplicitLocalBinary(executable, record)).resolves.toMatchObject({
+      const identity = await inspectExplicitLocalBinary(executable, record, capture);
+      expect(identity).toMatchObject({
         version: record.version,
         commit: record.commit,
       });
+      expect(captures).toHaveLength(1);
+      expect(captures[0]?.command).toBe(resolve(
+        identity.path,
+        '../../../Contents/Resources/app/bin/code',
+      ));
+      expect(captures[0]?.command).not.toBe(identity.path);
+      expect(captures[0]?.args.at(-1)).toBe('--version');
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 

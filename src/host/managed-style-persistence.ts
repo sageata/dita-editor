@@ -40,6 +40,7 @@ export interface ManagedStyleFileStat {
   mode: number;
   dev: number;
   ino: number;
+  birthtimeMs?: number;
   isFile(): boolean;
   isSymbolicLink(): boolean;
 }
@@ -89,6 +90,7 @@ export type ManagedStylePersistenceResult =
 interface FileIdentity {
   dev: number;
   ino: number;
+  birthtimeMs?: number;
 }
 
 interface DocumentSnapshotEntry {
@@ -104,6 +106,7 @@ function nodeStat(value: Awaited<ReturnType<typeof lstat>>): ManagedStyleFileSta
     mode: Number(value.mode),
     dev: Number(value.dev),
     ino: Number(value.ino),
+    birthtimeMs: Number(value.birthtimeMs),
     isFile: () => value.isFile(),
     isSymbolicLink: () => value.isSymbolicLink(),
   };
@@ -138,11 +141,19 @@ function errorCode(error: unknown): string | undefined {
 }
 
 function identityOf(stat: ManagedStyleFileStat): FileIdentity {
-  return { dev: stat.dev, ino: stat.ino };
+  return { dev: stat.dev, ino: stat.ino, birthtimeMs: stat.birthtimeMs };
 }
 
 function sameFile(left: FileIdentity | null, right: ManagedStyleFileStat): boolean {
-  return left !== null && left.dev === right.dev && left.ino === right.ino;
+  if (left === null || left.dev !== right.dev || left.ino !== right.ino) return false;
+  const leftBirthtime = left?.birthtimeMs;
+  const rightBirthtime = right.birthtimeMs;
+  const leftBirthtimeUsable = typeof leftBirthtime === 'number' &&
+    Number.isFinite(leftBirthtime) && leftBirthtime > 0;
+  const rightBirthtimeUsable = typeof rightBirthtime === 'number' &&
+    Number.isFinite(rightBirthtime) && rightBirthtime > 0;
+  if (leftBirthtimeUsable !== rightBirthtimeUsable) return false;
+  return !leftBirthtimeUsable || leftBirthtime === rightBirthtime;
 }
 
 function sameTarget(left: ManagedStyleTarget, right: ManagedStyleTarget): boolean {

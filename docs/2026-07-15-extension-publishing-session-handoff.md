@@ -10,7 +10,7 @@ Publish the latest tested `main` commit to the Visual Studio Marketplace without
 - Branch point: local `main` at `15a197a`, 12 commits ahead of `origin/main`
 - Marketplace extension: `paul-razvan-sarbu.dita-editor`
 - Marketplace version verified before implementation: `0.1.0`
-- Required repository secret: `VSCE_PAT` (not configured as of 2026-07-15)
+- Required repository secret: `VSCE_PAT` (configured on 2026-07-15)
 
 ## Changed files
 
@@ -41,6 +41,15 @@ Publish the latest tested `main` commit to the Visual Studio Marketplace without
 - The expected-version and exact-VSIX-SHA post-publish assertion passed against simulated post-publish metadata.
 - Workflow YAML passed actionlint 1.7.12.
 
-## Open blocker
+## Resolved credential blocker
 
-Do not merge to `main` until the repository has a valid `VSCE_PAT` secret. The workflow deliberately fails before publishing when the secret is absent.
+The repository now has a `VSCE_PAT` Actions secret. The workflow still fails closed before publishing when that credential is absent.
+
+## First main run and Linux CI repair
+
+- `VSCE_PAT` was configured and PR #1 merged as `c71b93110353d245afd6791161cf66073b0bab37`.
+- GitHub Actions run `29388878366` failed in `bun test` before packaging or publishing: 1,619 passed, 1 skipped, and 3 failed.
+- Two managed-style persistence tests proved that Ubuntu can immediately reuse the same device/inode pair after unlink and recreation; the production identity check tracked only those fields.
+- One smoke-harness test proved that a macOS `.app` fixture was executed as a GUI binary on Linux because CLI-wrapper selection depended on the host platform instead of the executable path.
+- The scoped repair compares positive finite birth times when either side exposes one, rejects asymmetric availability, and retains device/inode compatibility when neither adapter exposes a usable birth time. Deterministic regressions cover changed and asymmetric birth times plus successful cleanup through adapters that expose `undefined` or `0`.
+- The macOS CLI wrapper is selected from the `.app` executable shape. Its cross-platform regression injects command capture and proves the resolved `Resources/app/bin/code` CLI receives `--version` without launching a temporary executable.
