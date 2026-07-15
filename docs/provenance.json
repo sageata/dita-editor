@@ -78,7 +78,7 @@
   },
   {
     "path": ".vscodeignore",
-    "sha256": "884119df29f8ec3067d85debfd3a3c0ebed455ec7c7103d9305bf316aa3f6979",
+    "sha256": "f6bb35cedd2dc750f673b597f81be58f160087bda7b51e495e54f7c28caf4d08",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -144,7 +144,7 @@
   },
   {
     "path": "docs/public-export.json",
-    "sha256": "6a3603824c9f3c4e16bef32207d5c6feeaf2e3c13413064083d7c7df97225f55",
+    "sha256": "8f77022201602c4fe2ef8831b33968e17ffe43e0af4b8ce9b25513aa53baa948",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -221,7 +221,7 @@
   },
   {
     "path": "media/canvas-command-bar-ui.js",
-    "sha256": "9a26270f083348d7ef82eb112e5b2f4564152839893256f1cb71d5bcdc175f6f",
+    "sha256": "c67bc0ccd856012d140466556306dcd4da036b212c2718b5adb014315e2e45fe",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -232,7 +232,7 @@
   },
   {
     "path": "media/canvas-command-bar.js",
-    "sha256": "d44ebc199fd3d9e94532cdfa44bb4668e0580e79292450db9de2be980b597251",
+    "sha256": "3add1d1ad49e61bd2d1569f0f97d054af9ae7747c2888a2c657930e209761de6",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -419,7 +419,7 @@
   },
   {
     "path": "media/canvas-image-bar.js",
-    "sha256": "5a907d1d48139bb7e51e844b10b2e76def4cd6770535a1d7f1e1d70c92e6aaf4",
+    "sha256": "11e52810cdb790f82bb9265293b2b9984946de612e80422ae7c075fd38178a11",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -606,7 +606,7 @@
   },
   {
     "path": "media/canvas-selection.js",
-    "sha256": "0563532d3c2521307a790ca09662aa8db207505e1df4622a7915a790edf155a8",
+    "sha256": "00be2472375b719917e888f3227d4fa488d9d0edd846bf4c4fdeabebe221cbba",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -727,7 +727,7 @@
   },
   {
     "path": "media/content-theme.css",
-    "sha256": "4cb3cf228694ccbb236a9ccc9a64d18b1d807f70784f36d5a2013b53bb8b57ba",
+    "sha256": "fe7b841fb4a62c4220a1f584e2abc1b6ec70124245522043c27535955b4a2644",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -759,19 +759,19 @@
     "approved": true
   },
   {
-    "path": "media/redline.css",
-    "sha256": "f7b745bbcaa3d0aafe3d2d6148b365cc575f572e8f9c71e8d721b64519e008dc",
+    "path": "media/redline-review.js",
+    "sha256": "21bef5cc6fc3722d1ee718cfae84f4ce6786a5beb105e4abaede8b1389762e31",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
     "disposition": "public-export",
     "reviewer": "Paul Razvan Sarbu",
-    "reviewDate": "2026-07-11",
+    "reviewDate": "2026-07-15",
     "approved": true
   },
   {
-    "path": "media/redline.js",
-    "sha256": "a6de2d60fca3219bce6b78c2e9cc5b44ff299bccccd6f6a7482db1f8493b3ff3",
+    "path": "media/redline.css",
+    "sha256": "14df1740bfb4c82c16a73061d052b6db083fb327f8485bf8c4e62886ca5e402e",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -815,7 +815,7 @@
   },
   {
     "path": "package.json",
-    "sha256": "0962a1beb54f758e7ae6b09bf3e922b60a8632de2680ef7eead3c88cc4561797",
+    "sha256": "068933273dbe930773cd932f75a260b217563b705d0f979a690bb2473648cad0",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -859,7 +859,7 @@
   },
   {
     "path": "scripts/inspect-vsix.mjs",
-    "sha256": "c8c02f3cab6e8bcd24022ca4a4952fe6576eb054d26ea666957c99253d17e09f",
+    "sha256": "a4c7229946f06822941533a60de06ec1fd89055d24d8c19309256a1c0ee2ace7",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -903,7 +903,7 @@
   },
   {
     "path": "scripts/run-vsix-smoke.mjs",
-    "sha256": "3ad70eff08e2481e6b68de8aa79ec55a6c8379f3137f388a8e2c9642cb116b75",
+    "sha256": "cbbf54cee0ef056e51d0cc31781e1bccb836b8a8b6f472fdf6a55dc6e1b9f134",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1068,7 +1068,7 @@
   },
   {
     "path": "src/compare/block-diff.ts",
-    "sha256": "402e320de9e74990ffc23b134f167472253c0681a407411ceae5b85d4b38490f",
+    "sha256": "8018173cf0fee33119d974642e47c0e9c66fbfefdfafeaf9d0e4009ca07d8f28",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1079,7 +1079,7 @@
   },
   {
     "path": "src/compare/render-redline.ts",
-    "sha256": "a4b49690e894d3b7a2fe43e3ffea8530a7aa67e0aa56088669276b53decdbaeb",
+    "sha256": "674bc503594157a66e150eaf8a8fe4c11f3c2e214996c995d177e385e23692eb",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1365,7 +1365,7 @@
   },
   {
     "path": "src/extension.ts",
-    "sha256": "26a687e774f3007dd5ea38a6643e14d75889a5dea686c6c2b15f5aa1ece11c6b",
+    "sha256": "1d16bbd910244a510ac638376dfdcda125f1ad43dc8e7e31ef7fc8ed55e4562a",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1398,7 +1398,7 @@
   },
   {
     "path": "src/host/attribute-authorization.ts",
-    "sha256": "529e23561e264f5ae978c83abd3e5dab517a9555272d150011f808d4588a332b",
+    "sha256": "8238d7803be8a24b79722b7445706b6cc5668fb3f178e799eaf7576c423dd7dd",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1497,7 +1497,7 @@
   },
   {
     "path": "src/host/managed-style-persistence.ts",
-    "sha256": "5b7d904e678bc97b7d4ae16e3c15207f3b716b9c4241fba38a7558a6c561e880",
+    "sha256": "5fef35534ce9a45825a859298c797fd8dd2c05dee033a6c7be3f83f649a79126",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1552,7 +1552,7 @@
   },
   {
     "path": "src/host/redline-panel.ts",
-    "sha256": "08ea940f814893eae7ac2a8f2f04c5ff75ed679dae17d810f0c1339e92eaee06",
+    "sha256": "ffad301e235e0fc3eb436fbcdc7ca778b0232ea126c1bbc37eeedb72b651098b",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1607,7 +1607,7 @@
   },
   {
     "path": "src/host/scm-intercept.ts",
-    "sha256": "d02e0bde8586e39bda09876e95bb7d7d1e4671fb4378305fe6b7dd5041ea0c0c",
+    "sha256": "efc25f28b5cbfbb94f2935710fff147fd6644bd46f399284ce573c5d5121eff8",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1673,7 +1673,7 @@
   },
   {
     "path": "src/host/visual-editor-provider.ts",
-    "sha256": "a083fada65432643ebcf7e37b4f1e2f9329bc9f0ac02e81322432df25d6ba590",
+    "sha256": "e866a110cc8c82539383a50519054ba8c026de7b1409d83634bd0df5bb8f4311",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1684,7 +1684,7 @@
   },
   {
     "path": "src/host/webview-resources.ts",
-    "sha256": "b290b54cd2064426e7e59e75215e13ba6372d5f18058106bb2b434ba069e0935",
+    "sha256": "c3deb137106c953d5afa5c75586fda59c02a96cc94ecd305d7d9aeec6178bf46",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1728,7 +1728,7 @@
   },
   {
     "path": "src/render/to-html.ts",
-    "sha256": "ec1a0acbcbbf825cebacdc37d6973d17171ca6d6776c984c56131f420bf9a8f1",
+    "sha256": "406b2380bd50d8f0b6b1890c23fe0cee51165b38a80bd5af045c878d2c919dbf",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1783,7 +1783,7 @@
   },
   {
     "path": "src/webview/canvas-messages.ts",
-    "sha256": "386c2e877886fe06fc6d239ce753037542ed8b020646e514ea6094beca1ecdac",
+    "sha256": "31d1c321ffd7612551d87fe25dec4cfc8bd9d059dcb4ed8d33a2a3f3c6caac57",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1926,7 +1926,7 @@
   },
   {
     "path": "test/block-diff.test.ts",
-    "sha256": "6dd2dda7a1e1f973612878734941b1d5905fc87434ea23bdf2056fe10c7ba02e",
+    "sha256": "67095ab941f1b4c2bb3c4061002f733a0186ce0f71d6d3b45d7692b49004ef41",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1959,7 +1959,7 @@
   },
   {
     "path": "test/canvas-command-bar-table-transform.test.ts",
-    "sha256": "91550d1ed8002f059625592a1ebb1de3da46782d9255ade68f0df7f21e4b881d",
+    "sha256": "351f69f8286692281b0d4c0161d8ac98c76ef2b85e7e1d95532035c5335105ef",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1970,7 +1970,7 @@
   },
   {
     "path": "test/canvas-command-bar-ui.test.ts",
-    "sha256": "cdfc8219be47548616d35584d77a5ccb51110ba4de72a39291a495b172d181b3",
+    "sha256": "fb530a8d524dc291321db82679fe34d9010881e7f1cb7f03b5d0ef94b1a8c0e7",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -2080,7 +2080,7 @@
   },
   {
     "path": "test/canvas-image-bar.test.ts",
-    "sha256": "af150d5caa34cd9f09825f7322e615a49be660320fbab511af8827a2ee25bb39",
+    "sha256": "19f8282a8aa65e30636f5dc70440cdfa60f753752089fcf3bad8cadc33edbf3b",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -2113,7 +2113,7 @@
   },
   {
     "path": "test/canvas-messages.test.ts",
-    "sha256": "d07fc4f8ba10d063c930088014eecd131d913f8615ebf5da3f5278af81cfe7e8",
+    "sha256": "b550e484c62278dcebc6eb010dc351fe233dd5a1cbc848b7dd824d3d311b7a87",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -2223,7 +2223,7 @@
   },
   {
     "path": "test/canvas-selection.test.ts",
-    "sha256": "1c95838f005ab1c4ada1cb91f572118377643a694d1f184da72e21e4e0291d62",
+    "sha256": "a7bd9f68692c5898b57d54909d95d876d30a31144c667b50f6d608d427939344",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -2399,7 +2399,7 @@
   },
   {
     "path": "test/editor-css.test.ts",
-    "sha256": "e4b2769f76e1cbfe624118017eb80750f91c23cef40acee7bd466df3e27d5e1a",
+    "sha256": "dda98bcb659c4f990986a56d7ffb4cfea1dfc1c6f42c7cf2c1cb92aa5f959d34",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -2861,7 +2861,7 @@
   },
   {
     "path": "test/managed-style-host.test.ts",
-    "sha256": "07acad131226dba582572db912fbb7c48d660fc5a448cd297c655b19a2cd2017",
+    "sha256": "cbbcfc16bd7fd77147d602c927ce2a4afc7528dc36099294229c2834437ca2ba",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -2883,7 +2883,7 @@
   },
   {
     "path": "test/managed-style-surface-matrix.test.ts",
-    "sha256": "121bbcc2ef0a6d6ad6e9ca0af96be99046d40b3e9a0555273dacbbfb09d8172f",
+    "sha256": "24f8e564b62fd8811127b370ced595f495d6c4a094743029c0fb048fcbfb43f1",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3026,7 +3026,7 @@
   },
   {
     "path": "test/public-style-assets.test.ts",
-    "sha256": "bff0e66dfc71f6bea75790c63c10e81f701455d00675a6eca40f1d1e8ba04b86",
+    "sha256": "74c6747c2271b255cbb074cd6838890c68cf0073b609ad80f3ef8faaa4a4466a",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3081,7 +3081,7 @@
   },
   {
     "path": "test/real-webview.e2e.test.ts",
-    "sha256": "60b7820f55542833af562674f09189ee42ffb1d7c443c15fff65b1bbfc752ae1",
+    "sha256": "2645a4c791ad000c6621d25b970695f31610ff86743d150c319fa1fe1993968b",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3092,7 +3092,7 @@
   },
   {
     "path": "test/redline-script.test.ts",
-    "sha256": "bbccecc2da4cef494ff3707e030401b107c7e52c0f87689c767565217f77ed9b",
+    "sha256": "25bbe220b8d7610970c88d55a9fc373a445cbe76b928ca88043d3f16f2c23c68",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3103,7 +3103,7 @@
   },
   {
     "path": "test/redline-webview-resources.test.ts",
-    "sha256": "b3c5c3e8ca02e6ca93102bf168935dca4ab78221f4be32a24b9f41169e041142",
+    "sha256": "3e85280aa69e05ae468a1cb3600f2d7991c536d30c5697ad3de467b6bb972858",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3125,7 +3125,7 @@
   },
   {
     "path": "test/release-hygiene.test.ts",
-    "sha256": "d30481e973a6b89fa9307838ea220e40f91722d9a79920ddf81c9ee81d5a5804",
+    "sha256": "c660ca26ccf6ba8a2cf0de8ac7f58f6e60dcf45c3e4a1da10a0c518866f131f1",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3136,7 +3136,7 @@
   },
   {
     "path": "test/release-tooling.test.ts",
-    "sha256": "d08b1de31cf376421ac0c391634651fe24de224f3bae7b998bb2f8ca63b364a3",
+    "sha256": "fb4e8bf661306ee428abe4675ee002557567b20d2ea420b78c3f2ebd989edfe5",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3158,7 +3158,7 @@
   },
   {
     "path": "test/render-redline.test.ts",
-    "sha256": "cc48ecd9155bf5963124fc212e7b63934fc7dafdb36ae39b20d14f3443ace7e4",
+    "sha256": "55ae6db4d2a8734d786c51ea6b317a52622331461393fc83fea0f6208cee22f8",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3180,7 +3180,7 @@
   },
   {
     "path": "test/render.test.ts",
-    "sha256": "dcd9cc0d2eb2cf8bb9f07c565176e280b7a51ef31a10c6de8648880c8c4bf5d9",
+    "sha256": "e79c38024c868e2498b5644b21136eff92d094c3b6d37223314087e0d3a9e724",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3224,7 +3224,7 @@
   },
   {
     "path": "test/scm-intercept.test.ts",
-    "sha256": "4fbd6d7cc80ef758a2ed638dcdd5f6e5f27195ebc7af658c30e0b279f612cbbc",
+    "sha256": "b88dc3df222b5237136be29dccb11cd3ae41f603de8504902cae28a1457c316a",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3257,7 +3257,7 @@
   },
   {
     "path": "test/smoke-harness.test.ts",
-    "sha256": "9d8c70b692cd110b0213f8c63ca10b8584bab653cf880624068a6ee67a8b9ec8",
+    "sha256": "8bfc8ecf9740b72eb893f15d0aa142485b4ffb0574a5531eb257128f94175d51",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3521,7 +3521,7 @@
   },
   {
     "path": "test/z-layers.test.ts",
-    "sha256": "3b8b71c3ed876d594bd87b2d78d75af079cae149619a4146194005610a8811da",
+    "sha256": "8c3374cbaa4cd7ea7501af03f42f702b57c49edb74525deb62a22d775a7d3121",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",

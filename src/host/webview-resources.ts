@@ -2,6 +2,8 @@ import type * as vscode from 'vscode';
 import { CANVAS_SCRIPT_FILES } from '../webview/canvas-scripts';
 import type { ResolvedWorkspaceFile } from './workspace-files';
 
+const REDLINE_RESOURCE_REVISION = 'navigation-3';
+
 export interface VisualWebviewResourceUris {
   contentStyleUris: string[];
   surfaceStyleUri: string;
@@ -53,7 +55,7 @@ export interface RedlineWebviewResourceUris {
 
 /** Resource wiring for the read-only Review Changes panel. Same
  *  corpus sheets as the canvas, but redline.css instead of editor.css (no editing
- *  chrome on this surface). The ONLY script is media/redline.js — persisted
+ *  chrome on this surface). The ONLY script is media/redline-review.js — persisted
  *  mode/scroll state plus comparison navigation; it never edits anything. */
 export function configureRedlineWebviewResources(params: {
   webview: vscode.Webview;
@@ -77,14 +79,15 @@ export function configureRedlineWebviewResources(params: {
   const contentStyleUris = [neutralThemeUri, ...configuredStyleUris];
   const surfaceStyleUri = webview
     .asWebviewUri(joinPath(extensionUri, 'media', 'redline.css'))
-    .toString();
+    .toString() + `?v=${REDLINE_RESOURCE_REVISION}`;
   // Same file:-scheme guard as the canvas; the panel always receives the
   // working-copy uri, so this holds in practice.
   const baseHref = folder && documentUri.scheme === 'file'
     ? `${webview.asWebviewUri(joinPath(documentUri, '..')).toString()}/`
     : '';
   const scriptUris = [
-    webview.asWebviewUri(joinPath(extensionUri, 'media', 'redline.js')).toString(),
+    webview.asWebviewUri(joinPath(extensionUri, 'media', 'redline-review.js')).toString()
+      + `?v=${REDLINE_RESOURCE_REVISION}`,
   ];
 
   return { contentStyleUris, surfaceStyleUri, baseHref, scriptUris };

@@ -39,6 +39,7 @@ export function renderReviewShell(options: ReviewShellOptions): string {
   const navigation = '<div class="redline-change-nav" data-redline-side-only hidden>'
     + '<button type="button" class="redline-banner-btn" data-redline-nav="previous" title="Previous change">Previous</button>'
     + '<button type="button" class="redline-banner-btn" data-redline-nav="next" title="Next change">Next</button>'
+    + '<span class="redline-change-position" data-redline-position aria-live="polite"></span>'
     + '</div>';
   const banner = `<div class="redline-banner"><span>${compared}</span>${noteHtml}${modes}${navigation}${sourceDiff}`
     + `<span class="redline-banner-count">${count}</span></div>`;

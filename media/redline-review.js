@@ -1,4 +1,4 @@
-// Persisted layout + navigation for the read-only Review Changes panel.
+// Persisted layout and navigation for the read-only Review Changes panel.
 //
 // The ONLY script this webview loads. Auto-refresh reassigns webview.html,
 // which reloads the page and would drop the reading position mid-review; the
@@ -56,9 +56,9 @@
     all('[data-redline-side-only]').forEach(function (control) {
       control.hidden = mode !== 'side-by-side';
     });
-    if (document.body && typeof document.body.setAttribute === 'function') {
-      document.body.setAttribute('data-redline-mode', mode);
-    }
+    // NEVER stamp the mode on <body>: the delegated click handler matches
+    // closest('[data-redline-mode]'), and body is an ancestor of every click —
+    // a body stamp swallows all nav/expand/action clicks. Nothing styles on it.
     saveState({ mode: mode });
   }
 
@@ -99,16 +99,47 @@
     });
   }
 
+  function viewportStartIndex(changes, direction) {
+    if (typeof window.innerHeight !== 'number') return direction === 'previous' ? changes.length - 1 : 0;
+    const anchor = window.innerHeight / 2;
+    if (direction === 'previous') {
+      for (let index = changes.length - 1; index >= 0; index -= 1) {
+        if (typeof changes[index].getBoundingClientRect !== 'function'
+          || changes[index].getBoundingClientRect().top < anchor) return index;
+      }
+      return changes.length - 1;
+    }
+    for (let index = 0; index < changes.length; index += 1) {
+      if (typeof changes[index].getBoundingClientRect !== 'function'
+        || changes[index].getBoundingClientRect().top > anchor) return index;
+    }
+    return 0;
+  }
+
+  function markActiveChange(changes, index) {
+    changes.forEach(function (row, rowIndex) {
+      row.setAttribute('data-redline-active', String(rowIndex === index));
+      if (rowIndex === index) row.setAttribute('aria-current', 'true');
+      else if (typeof row.removeAttribute === 'function') row.removeAttribute('aria-current');
+    });
+    all('[data-redline-position]').forEach(function (status) {
+      status.textContent = 'Change ' + (index + 1) + ' of ' + changes.length;
+    });
+  }
+
   function navigate(direction) {
     const changes = visibleChanges();
     if (changes.length === 0) return;
-    if (direction === 'previous') {
+    if (activeChange < 0 || activeChange >= changes.length) {
+      activeChange = viewportStartIndex(changes, direction);
+    } else if (direction === 'previous') {
       activeChange = activeChange <= 0 ? changes.length - 1 : activeChange - 1;
     } else {
       activeChange = activeChange >= changes.length - 1 ? 0 : activeChange + 1;
     }
     const target = changes[activeChange];
-    if (typeof target.scrollIntoView === 'function') target.scrollIntoView({ block: 'center' });
+    markActiveChange(changes, activeChange);
+    if (typeof target.scrollIntoView === 'function') target.scrollIntoView({ block: 'center', behavior: 'auto' });
     if (typeof target.focus === 'function') target.focus({ preventScroll: true });
   }
 

@@ -28,6 +28,11 @@ export function renderMultiReviewShell(options: MultiReviewShellOptions): string
   const skipped = options.skippedFileCount > 0
     ? `<span class="redline-banner-note">${options.skippedFileCount} non-DITA file${options.skippedFileCount === 1 ? '' : 's'} omitted</span>`
     : '';
+  const navigation = '<div class="redline-change-nav" role="group" aria-label="Change navigation">'
+    + '<button type="button" class="redline-banner-btn" data-redline-nav="previous" title="Previous change">Previous</button>'
+    + '<button type="button" class="redline-banner-btn" data-redline-nav="next" title="Next change">Next</button>'
+    + '<span class="redline-change-position" data-redline-position aria-live="polite"></span>'
+    + '</div>';
   const sections = options.files.map((file) => {
     const count = file.changeCount === 0
       ? 'No content changes'
@@ -39,6 +44,6 @@ export function renderMultiReviewShell(options: MultiReviewShellOptions): string
       + '</section>';
   }).join('');
   return `<div class="redline-banner redline-multi-banner"><span><strong>${escapeHtml(options.title)}</strong></span>`
-    + `${skipped}<span class="redline-banner-count">${options.files.length} DITA file${options.files.length === 1 ? '' : 's'} · ${totalChanges} change${totalChanges === 1 ? '' : 's'}</span></div>`
+    + `${skipped}${navigation}<span class="redline-banner-count">${options.files.length} DITA file${options.files.length === 1 ? '' : 's'} · ${totalChanges} change${totalChanges === 1 ? '' : 's'}</span></div>`
     + `<div class="redline-multi-files">${sections}</div>`;
 }

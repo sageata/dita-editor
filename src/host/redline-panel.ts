@@ -8,7 +8,7 @@
 // git:-scheme editor, so the workspace's git→text editorAssociations rule is
 // never engaged. Working-copy panels re-render (trailing 300ms debounce) while
 // the topic is edited or saved; historical panels retain their exact immutable
-// source URIs. The only script the panel loads is media/redline.js (scroll
+// source URIs. The only script the panel loads is media/redline-review.js (scroll
 // persistence across the html swaps).
 
 import * as vscode from 'vscode';

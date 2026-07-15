@@ -11,6 +11,8 @@ bun.lock
 .node-version
 .gitattributes
 AGENTS.md
+CLAUDE.md
+CLAUDE_HANDOVER_REVIEW_NAVIGATION.md
 .github/**
 SECURITY.md
 SUPPORT.md

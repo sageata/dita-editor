@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 describe('redline managed stylesheet script', () => {
   test('uses only the pre-existing slot for embedded and live CSS', () => {
-    const source = readFileSync(new URL('../media/redline.js', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../media/redline-review.js', import.meta.url), 'utf8');
     const listeners = new Map<string, Array<(event: { data?: unknown }) => void>>();
     const posted: unknown[] = [];
     const appended: unknown[] = [];
@@ -65,7 +65,7 @@ describe('redline managed stylesheet script', () => {
   });
 
   test('restores mode, toggles groups and views, and navigates visible changes', () => {
-    const source = readFileSync(new URL('../media/redline.js', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../media/redline-review.js', import.meta.url), 'utf8');
     const documentListeners = new Map<string, Array<(event: { target: FakeElement }) => void>>();
     const windowListeners = new Map<string, Array<(event: { data?: unknown }) => void>>();
     const posted: unknown[] = [];
@@ -78,6 +78,8 @@ describe('redline managed stylesheet script', () => {
       hiddenAncestor = false;
       scrolled = 0;
       focused = 0;
+      rectTop = 0;
+      parent: FakeElement | null = null;
       private attrs = new Map<string, string>();
 
       constructor(attrs: Record<string, string> = {}) {
@@ -86,14 +88,26 @@ describe('redline managed stylesheet script', () => {
 
       getAttribute(name: string): string | null { return this.attrs.get(name) ?? null; }
       setAttribute(name: string, value: string): void { this.attrs.set(name, value); }
+      removeAttribute(name: string): void { this.attrs.delete(name); }
       hasAttribute(name: string): boolean { return this.attrs.has(name); }
+      private matchesFake(selector: string): boolean {
+        if (selector === '[hidden]') return this.hidden || this.hiddenAncestor;
+        return this.hasAttribute(selector.slice(1, -1));
+      }
+      // Like the real Element.closest: checks self, then walks ANCESTORS. The
+      // live bug this guards against (body carrying a matched attribute
+      // swallowing every delegated click) is invisible without the walk.
       closest(selector: string): FakeElement | null {
-        if (selector === '[hidden]') return this.hidden || this.hiddenAncestor ? this : null;
-        const name = selector.slice(1, -1);
-        return this.hasAttribute(name) ? this : null;
+        let node: FakeElement | null = this;
+        while (node) {
+          if (node.matchesFake(selector)) return node;
+          node = node.parent;
+        }
+        return null;
       }
       scrollIntoView(): void { this.scrolled += 1; }
       focus(): void { this.focused += 1; }
+      getBoundingClientRect(): { top: number } { return { top: this.rectTop }; }
     }
 
     const liveStyle = new FakeElement();
@@ -112,17 +126,25 @@ describe('redline managed stylesheet script', () => {
     const unchangedRows = new FakeElement({ 'data-redline-unchanged-rows': 'unchanged-1' });
     unchangedRows.hidden = true;
     const firstChange = new FakeElement({ 'data-redline-change': '' });
+    firstChange.rectTop = 100;
     const hiddenChange = new FakeElement({ 'data-redline-change': '' });
     hiddenChange.hiddenAncestor = true;
     const secondChange = new FakeElement({ 'data-redline-change': '' });
+    secondChange.rectTop = 800;
+    const positionStatus = new FakeElement({ 'data-redline-position': '' });
     const nextButton = new FakeElement({ 'data-redline-nav': 'next' });
     const previousButton = new FakeElement({ 'data-redline-nav': 'previous' });
     const xmlButton = new FakeElement({ 'data-redline-action': 'openSourceDiff' });
     const body = new FakeElement();
     const elements = [
       inlineView, sideView, inlineButton, sideButton, sideControls, expandButton,
-      unchangedRows, firstChange, hiddenChange, secondChange,
+      unchangedRows, firstChange, hiddenChange, secondChange, positionStatus,
     ];
+    // Every element lives under <body>, as in the real webview DOM — so any
+    // attribute the script stamps on body is visible to closest() from a click.
+    for (const element of [...elements, nextButton, previousButton, xmlButton]) {
+      element.parent = body;
+    }
 
     const document = {
       body,
@@ -143,6 +165,7 @@ describe('redline managed stylesheet script', () => {
     };
     const window = {
       scrollY: 44,
+      innerHeight: 1000,
       scrollTo(_x: number, y: number) { scrolledWindow.push(y); },
       addEventListener(type: string, listener: (event: { data?: unknown }) => void) {
         const listeners = windowListeners.get(type) ?? [];
@@ -185,10 +208,16 @@ describe('redline managed stylesheet script', () => {
     click(nextButton);
     click(nextButton);
     click(previousButton);
-    expect(firstChange.scrolled).toBe(2);
-    expect(firstChange.focused).toBe(2);
-    expect(secondChange.scrolled).toBe(1);
+    expect(firstChange.scrolled).toBe(1);
+    expect(firstChange.focused).toBe(1);
+    expect(secondChange.scrolled).toBe(2);
+    expect(secondChange.focused).toBe(2);
     expect(hiddenChange.scrolled).toBe(0);
+    expect(firstChange.getAttribute('data-redline-active')).toBe('false');
+    expect(firstChange.getAttribute('aria-current')).toBeNull();
+    expect(secondChange.getAttribute('data-redline-active')).toBe('true');
+    expect(secondChange.getAttribute('aria-current')).toBe('true');
+    expect(positionStatus.textContent).toBe('Change 2 of 2');
 
     click(expandButton);
     expect(unchangedRows.hidden).toBe(false);

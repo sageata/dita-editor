@@ -15,6 +15,11 @@ describe('renderMultiReviewShell', () => {
     expect(html.match(/data-redline-file/g)?.length).toBe(2);
     expect(html).toContain('2 DITA files · 3 changes');
     expect(html).toContain('4 non-DITA files omitted');
+    expect(html.match(/data-redline-nav="previous"/g)?.length).toBe(1);
+    expect(html.match(/data-redline-nav="next"/g)?.length).toBe(1);
+    expect(html).toContain('aria-label="Change navigation"');
+    expect(html).toContain('data-redline-position');
+    expect(html).not.toContain('data-redline-side-only');
     expect(html).toContain('one comparison');
     expect(html).toContain('two comparison');
   });

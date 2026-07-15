@@ -85,7 +85,7 @@ function runCanvas(payload: string): { cssText: string; styleCount: number } {
 }
 
 function runRedline(payload: string): { cssText: string; appended: number } {
-  const source = readFileSync(new URL('../media/redline.js', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../media/redline-review.js', import.meta.url), 'utf8');
   const liveStyle = { textContent: '' };
   const data = { textContent: payload };
   let appended = 0;

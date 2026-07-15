@@ -82,7 +82,7 @@ const RUNTIME_MEDIA_FILES = new Set([
   'extension/media/content-theme.css',
   'extension/media/editor.css',
   'extension/media/redline.css',
-  'extension/media/redline.js',
+  'extension/media/redline-review.js',
 ]);
 const OWNER_IDENTITY_KEYS = new Set([
   'name', 'displayName', 'version', 'publisher', 'repository', 'homepage', 'bugs', 'icon', 'license',

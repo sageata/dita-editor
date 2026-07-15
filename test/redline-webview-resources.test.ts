@@ -53,7 +53,7 @@ function workspaceStyles(...paths: string[]) {
 }
 
 describe('configureRedlineWebviewResources', () => {
-  test('loads corpus sheets + redline.css (never editor.css) and only redline.js', () => {
+  test('loads corpus sheets + redline.css (never editor.css) and only redline-review.js', () => {
     const { webview, seen } = makeWebview();
     const extensionUri = uri('/extension');
     const folder = { uri: uri('/workspace') };
@@ -73,8 +73,8 @@ describe('configureRedlineWebviewResources', () => {
       'webview:/workspace/css/brand.css',
       'webview:/workspace/themes/print.css',
     ]);
-    expect(result.surfaceStyleUri).toBe('webview:/extension/media/redline.css');
-    expect(result.scriptUris).toEqual(['webview:/extension/media/redline.js']);
+    expect(result.surfaceStyleUri).toBe('webview:/extension/media/redline.css?v=navigation-3');
+    expect(result.scriptUris).toEqual(['webview:/extension/media/redline-review.js?v=navigation-3']);
     expect(result.baseHref).toBe('webview:/workspace/topic/');
     expect(seen).not.toContain('/extension/media/editor.css');
   });
@@ -94,7 +94,7 @@ describe('configureRedlineWebviewResources', () => {
     });
 
     expect(result.baseHref).toBe('');
-    expect(result.scriptUris).toEqual(['webview:/extension/media/redline.js']);
+    expect(result.scriptUris).toEqual(['webview:/extension/media/redline-review.js?v=navigation-3']);
   });
 
   test('still loads redline.css without a workspace folder', () => {
@@ -112,8 +112,8 @@ describe('configureRedlineWebviewResources', () => {
 
     expect(webview.options).toEqual({ enableScripts: true, localResourceRoots: [extensionUri] });
     expect(result.contentStyleUris).toEqual(['webview:/extension/media/content-theme.css']);
-    expect(result.surfaceStyleUri).toBe('webview:/extension/media/redline.css');
-    expect(result.scriptUris).toEqual(['webview:/extension/media/redline.js']);
+    expect(result.surfaceStyleUri).toBe('webview:/extension/media/redline.css?v=navigation-3');
+    expect(result.scriptUris).toEqual(['webview:/extension/media/redline-review.js?v=navigation-3']);
     expect(result.baseHref).toBe('');
   });
 
@@ -170,7 +170,7 @@ describe('redline managed stylesheet bridge', () => {
     );
     expect(presentation.message).toEqual({ type: 'managedStyles', cssText: completeCss });
 
-    const source = readFileSync(new URL('../media/redline.js', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../media/redline-review.js', import.meta.url), 'utf8');
     const postedMessages: unknown[] = [];
     const windowListeners = new Map<string, Array<(event: { data?: unknown }) => void>>();
     class FakeElement {

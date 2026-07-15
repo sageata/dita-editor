@@ -140,3 +140,50 @@ Make horizontal alignment available for eligible topic content and images, not o
 ## Owner/manual actions
 
 - Confirm final toolbar appearance in the live editor if the automated real-WebView check cannot establish visual fidelity.
+
+---
+
+# Redline navigation release addendum
+
+## Intent
+
+Ship the verified fix for inert Previous/Next controls in rendered DITA Review views, package the exact runtime payload, commit the scoped release, push `main`, and verify the Visual Studio Marketplace exposes the newly published extension version.
+
+## Decisions and trade-offs
+
+- Remove the unused `data-redline-mode` stamp from `<body>` so delegated click routing cannot match a mode ancestor for every control.
+- Keep the viewport-relative navigation, active-row marker, position status, multi-file controls, and cache-distinct `media/redline-review.js` resource path already introduced in the working tree.
+- Preserve the automated release line in `package.json` (`0.1.0`); the established GitHub workflow derives the immutable patch version from `github.run_number` without modifying the repository manifest.
+- Publish through the existing push-to-`main` workflow, not a second local `vsce publish` path.
+- Exclude repository-only Claude/handover documents from the VSIX payload. Preserve the unrelated `.anti-hall/history/INDEX.md` file without staging it.
+
+## Blast radius
+
+- Review webview script, resource cache revision, single-file and multi-file review shells, navigation styling, VSIX runtime inventory, regression tests, and release-only documentation.
+- No dev server, dependency, schema, API, or DITA source changes.
+
+## Phases and acceptance checks
+
+1. **Verify the root cause and fix.** Source inspection must prove the delegated handler can reach navigation controls and the test harness walks ancestor chains like real `Element.closest()`.
+2. **Verify the extension.** `node --check`, focused tests, typecheck, production build, full suite, metadata verification, and the real WebView check must pass. The owner-reported live acceptance remains recorded in the handover.
+3. **Harden the release.** Independent correctness, regression/coupling, and adversarial reviews must converge with zero unresolved P0/P1 findings.
+4. **Package and inspect.** Refresh required provenance, package a VSIX using the repository tooling, and pass the strict VSIX inspector.
+5. **Commit and publish.** Commit only intended files, push `main`, wait for the publish workflow, and verify the exact new Marketplace version and successful workflow conclusion.
+
+## Goal coverage
+
+| Goal | Acceptance evidence |
+| --- | --- |
+| Previous/Next controls work | Ancestor-aware regression test + real WebView/live acceptance |
+| No stale webview bytes | `navigation-3` resource URI assertions + packaged inventory |
+| Commit the fix | Clean intended diff and successful commit |
+| Publish a new extension version | Successful GitHub publish workflow + Marketplace version verification |
+
+## Progress
+
+- [x] Claude resolution and exact source diff inspected.
+- [x] Fresh focused/full verification complete.
+- [x] Three-lens hardening converged with zero unresolved P0/P1 findings.
+- [x] Provenance refreshed and VSIX `0.1.8` candidate inspected.
+- [ ] Release committed and pushed.
+- [ ] Marketplace publication verified.
