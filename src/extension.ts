@@ -15,7 +15,12 @@ import { formatDitaSource, lintDitaSource, type DitaLintIssue } from './cst/dita
 import { minimalEdit } from './cst/edit-bridge';
 import { DitaVisualEditorProvider, VIEW_TYPE, type VisualHost } from './host/visual-editor-provider';
 import { openRedlinePanel } from './host/redline-panel';
-import { isManualSourceDiff, shouldInterceptScmDiff, unmarkManualSourceDiff } from './host/scm-intercept';
+import {
+  isManualSourceDiff,
+  reviewPairFromDiffTab,
+  shouldInterceptScmDiff,
+  unmarkManualSourceDiff,
+} from './host/scm-intercept';
 
 // Resolve the .dita document a command should act on: an explicit arg (passed by
 // the editor-title button), else the active custom/text tab, else the active text
@@ -26,6 +31,12 @@ function activeDitaUri(arg?: vscode.Uri): vscode.Uri | undefined {
   if (input instanceof vscode.TabInputCustom && input.viewType === VIEW_TYPE) return input.uri;
   if (input instanceof vscode.TabInputText) return input.uri;
   return vscode.window.activeTextEditor?.document.uri;
+}
+
+function activeDitaDiff(): { document: vscode.Uri; base: vscode.Uri } | undefined {
+  const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+  if (!(input instanceof vscode.TabInputTextDiff)) return undefined;
+  return reviewPairFromDiffTab(input);
 }
 
 // Toggle a .dita file between the visual editor and its XML source IN PLACE: open the
@@ -262,7 +273,9 @@ export function activate(context: vscode.ExtensionContext): void {
         arg && typeof arg === 'object' && 'resourceUri' in arg && arg.resourceUri instanceof vscode.Uri
           ? arg.resourceUri
           : undefined;
-      const target = fromScm ?? activeDitaUri(arg instanceof vscode.Uri ? arg : undefined);
+      const explicit = fromScm ?? (arg instanceof vscode.Uri ? arg : undefined);
+      const comparison = explicit ? undefined : activeDitaDiff();
+      const target = explicit ?? comparison?.document ?? activeDitaUri();
       if (!target || !isDitaUri(target)) {
         void vscode.window.showInformationMessage(
           'Open a .dita file first, then run "DITA Editor: Review Changes (Track Changes)".',
@@ -270,7 +283,7 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
       try {
-        await openRedlinePanel(context, target, debug);
+        await openRedlinePanel(context, target, debug, comparison?.base);
       } catch (err) {
         const detail = err instanceof Error ? err.message : String(err);
         debug.appendLine(`compareRevision failed for ${target.fsPath}: ${detail}`);

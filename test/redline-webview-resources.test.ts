@@ -119,9 +119,9 @@ describe('configureRedlineWebviewResources', () => {
 
   test('redline tracks document-scoped configuration and edit/create/delete path changes', () => {
     const source = readFileSync(new URL('../src/host/redline-panel.ts', import.meta.url), 'utf8');
-    expect(source).toContain("getConfiguration('ditaeditor.visual', uri)");
-    expect(source).toContain("event.affectsConfiguration('ditaeditor.visual', uri)");
-    expect(source).toContain('retargetManagedStyleWatcher(context, uri, entry, debug, folder, target)');
+    expect(source).toContain("getConfiguration('ditaeditor.visual', selection.workspace)");
+    expect(source).toContain("event.affectsConfiguration('ditaeditor.visual', selection.workspace)");
+    expect(source).toContain('retargetManagedStyleWatcher(context, selection, entry, debug, folder, target)');
     expect(source).toContain('watcher.onDidChange(refresh)');
     expect(source).toContain('watcher.onDidCreate(refresh)');
     expect(source).toContain('watcher.onDidDelete(refresh)');

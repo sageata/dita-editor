@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import {
   isManualSourceDiff,
   markManualSourceDiff,
+  resolveReviewSelection,
+  reviewPairFromDiffTab,
   shouldInterceptScmDiff,
   unmarkManualSourceDiff,
 } from '../src/host/scm-intercept';
@@ -32,6 +34,63 @@ describe('shouldInterceptScmDiff', () => {
 
   test('gitlens-scheme original does not intercept (only git does)', () => {
     expect(shouldInterceptScmDiff(diffTab('gitlens', 'file', '/ws/topics/01-intro.dita'))).toBe(false);
+  });
+});
+
+describe('resolveReviewSelection', () => {
+  const fileUri = (fsPath: string) => ({ scheme: 'file', fsPath });
+  const isInWorkspace = (uri: { fsPath: string }) => uri.fsPath.startsWith('/ws/');
+
+  test('preserves both Graph revisions and uses the working copy only for workspace resources', () => {
+    for (const scheme of ['git', 'gitlens', 'vscode-local-history']) {
+      const older = { scheme, fsPath: '/ws/topics/01-intro.dita', query: 'ref=older' };
+      const newer = { scheme, fsPath: '/ws/topics/01-intro.dita', query: 'ref=newer' };
+
+      expect(resolveReviewSelection(newer, { fileUri, isInWorkspace }, older)).toEqual({
+        document: newer,
+        base: older,
+        workspace: { scheme: 'file', fsPath: '/ws/topics/01-intro.dita' },
+      });
+    }
+  });
+
+  test('uses an existing working-copy file as both document and workspace target', () => {
+    const workingCopy = { scheme: 'file', fsPath: '/ws/topics/01-intro.dita' };
+
+    expect(resolveReviewSelection(workingCopy, { fileUri, isInWorkspace })).toEqual({
+      document: workingCopy,
+      base: undefined,
+      workspace: workingCopy,
+    });
+  });
+
+  test('does not invent a workspace target for a historical resource outside the workspace', () => {
+    const historical = { scheme: 'git', fsPath: '/other/topics/01-intro.dita' };
+
+    expect(resolveReviewSelection(historical, { fileUri, isInWorkspace })).toEqual({
+      document: historical,
+      base: undefined,
+      workspace: historical,
+    });
+  });
+});
+
+describe('reviewPairFromDiffTab', () => {
+  test('keeps the native diff left/right documents as base/newer review content', () => {
+    const older = { scheme: 'git', fsPath: '/ws/topics/01-intro.dita', query: 'ref=older' };
+    const newer = { scheme: 'git', fsPath: '/ws/topics/01-intro.dita', query: 'ref=newer' };
+
+    expect(reviewPairFromDiffTab({ original: older, modified: newer })).toEqual({
+      document: newer,
+      base: older,
+    });
+  });
+
+  test('ignores a native diff that is not a DITA topic', () => {
+    const older = { scheme: 'git', fsPath: '/ws/README.md' };
+    const newer = { scheme: 'git', fsPath: '/ws/README.md' };
+
+    expect(reviewPairFromDiffTab({ original: older, modified: newer })).toBeUndefined();
   });
 });
 
