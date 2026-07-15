@@ -410,6 +410,10 @@
     announceNav: announceNav,
     showError: showError,
     getStructVersion: () => structVersion,
+    getSelection: getCanvasSelection,
+    currentSelectionIds: currentSelectionIds,
+    rangeActionForSelection: rangeActionForSelection,
+    rangeAvailFor: rangeAvailFor,
   });
 
   // ==================== IX-6 markdown-style autoformat (marker + Space → list transform) ====================
@@ -441,6 +445,7 @@
     controls: canvasControls,
     menuIcons: MENU_ICN,
     barIcons: canvasIcons.bar,
+    menu: window.DitaEditorCanvasMenu,
     getSelection: getCanvasSelection,
     getStructVersion: () => structVersion,
     structTarget: structTarget,
@@ -504,6 +509,7 @@
     makeBtn: canvasControls.makeBtn,
     getSelection: getCanvasSelection,
     resolveMember: resolveMember,
+    getStructVersion: () => structVersion,
   });
   const hideImageBar = imageBar.hide;
 

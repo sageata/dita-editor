@@ -69,6 +69,8 @@ const ALPHA_NESTED =
   '<topic><body>\n  <ul>\n    <li>A\n      <ol outputclass="lower-alpha">\n        <li>B</li>\n        <li>C</li>\n      </ol>\n    </li>\n  </ul>\n</body></topic>';
 const BULLET_WITH_ALPHA_CHILD =
   '<topic><body>\n  <ul>\n    <li>A\n      <ol outputclass="lower-alpha">\n        <li>B</li>\n      </ol>\n    </li>\n    <li>C</li>\n  </ul>\n</body></topic>';
+const BULLET_WITH_NUMBERED_CHILD =
+  '<topic><body>\n  <ul>\n    <li>A\n      <ol>\n        <li>B</li>\n      </ol>\n    </li>\n    <li>C</li>\n  </ul>\n</body></topic>';
 const NUMBERED_NESTED =
   '<topic><body>\n  <ol outputclass="lower-alpha">\n    <li>A\n      <ol>\n        <li>B</li>\n        <li>C</li>\n      </ol>\n    </li>\n  </ol>\n</body></topic>';
 
@@ -78,8 +80,8 @@ describe('list indent (Tab)', () => {
     expect(outerLiTexts(r.source)).toEqual(['A', 'C']); // B left the top level
     expect(subTexts(r.source, 'A')).toEqual(['B']); // ...and is nested under A
     const sub = subList(r.source, 'A');
-    expect(sub?.name).toBe('ol');
-    expect(outputclass(sub)).toBe('lower-alpha');
+    expect(sub?.name).toBe('ul');
+    expect(outputclass(sub)).toBeUndefined();
     expect(serialize(parse(r.source))).toBe(r.source);
   });
 
@@ -94,6 +96,24 @@ describe('list indent (Tab)', () => {
     expect(outerLiTexts(r.source)).toEqual(['A']); // C left the top level
     expect(subTexts(r.source, 'A')).toEqual(['B', 'C']); // appended after B in A's sublist
     expect(outputclass(subList(r.source, 'A'))).toBe('lower-alpha');
+    expect(serialize(parse(r.source))).toBe(r.source);
+  });
+
+  test('preserves an existing bulleted sublist when appending another indented item', () => {
+    const r = applyStructuralEdit(NESTED, 'indentItem', liId(NESTED, 'C'));
+    const sub = subList(r.source, 'A');
+    expect(sub?.name).toBe('ul');
+    expect(outputclass(sub)).toBeUndefined();
+    expect(subTexts(r.source, 'A')).toEqual(['B', 'C']);
+    expect(serialize(parse(r.source))).toBe(r.source);
+  });
+
+  test('preserves an existing numbered sublist when appending another indented item', () => {
+    const r = applyStructuralEdit(BULLET_WITH_NUMBERED_CHILD, 'indentItem', liId(BULLET_WITH_NUMBERED_CHILD, 'C'));
+    const sub = subList(r.source, 'A');
+    expect(sub?.name).toBe('ol');
+    expect(outputclass(sub)).toBeUndefined();
+    expect(subTexts(r.source, 'A')).toEqual(['B', 'C']);
     expect(serialize(parse(r.source))).toBe(r.source);
   });
 

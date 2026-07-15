@@ -187,14 +187,15 @@ function strictReadyEntries(options: {
   publisher?: string;
   repositoryOwner?: string;
   manifestComment?: string;
+  version?: string;
 } = {}): FixtureEntry[] {
   const name = options.name ?? 'dita-editor';
-  const publisher = options.publisher ?? 'neutral-publisher';
+  const publisher = options.publisher ?? 'paul-razvan-sarbu';
   const repositoryOwner = options.repositoryOwner ?? 'neutral-owner';
   const pkg = {
     name,
     displayName: 'DITA Editor',
-    version: '0.1.0',
+    version: options.version ?? '0.1.0',
     publisher,
     preview: true,
     main: './dist/extension.js',
@@ -698,6 +699,27 @@ describe('VSIX runtime inventory and pre-metadata gate', () => {
     const neutralPath = writeZip('strict-neutral.vsix', strictReadyEntries());
     const neutral = await modules.inspectVsix({ vsixPath: neutralPath });
     expect(neutral.ok, JSON.stringify(neutral.findings)).toBe(true);
+
+    for (const version of ['0.1.1', '0.2.42', '1.0.1']) {
+      const patchPath = writeZip(`strict-preview-${version}.vsix`, strictReadyEntries({ version }));
+      const patch = await modules.inspectVsix({ vsixPath: patchPath });
+      expect(patch.ok, JSON.stringify(patch.findings)).toBe(true);
+    }
+    for (const version of ['0.1.01', '0.1.1-beta.1']) {
+      const invalidPath = writeZip(`strict-invalid-${version}.vsix`, strictReadyEntries({ version }));
+      const invalid = await modules.inspectVsix({ vsixPath: invalidPath });
+      expect(invalid.ok, version).toBe(false);
+      expect(rules(invalid), version).toContain('owner-gated-metadata');
+    }
+    for (const [label, entries] of [
+      ['name', strictReadyEntries({ name: 'another-extension' })],
+      ['publisher', strictReadyEntries({ publisher: 'another-publisher' })],
+    ] as const) {
+      const wrongIdentityPath = writeZip(`strict-wrong-${label}.vsix`, entries);
+      const wrongIdentity = await modules.inspectVsix({ vsixPath: wrongIdentityPath });
+      expect(wrongIdentity.ok, label).toBe(false);
+      expect(rules(wrongIdentity), label).toContain('owner-gated-metadata');
+    }
 
     const organization = ['eti', 'had'].join('');
     const cases: Array<[string, FixtureEntry[]]> = [

@@ -4,6 +4,12 @@ import { parse } from '../cst/parse';
 import { childrenNamed } from '../cst/query';
 import { isElement, type Document, type ElementNode } from '../cst/types';
 import {
+  isHorizontalAlignment,
+  isHorizontalAlignmentElement,
+  type HorizontalAlignment,
+  wholeEditableElementSet,
+} from './horizontal-alignment-actions';
+import {
   isTaxonomyAttributeName,
   isXmlSafeString,
   type TaxonomyConfig,
@@ -42,6 +48,11 @@ export type AuthorizedAttributeAction =
       styleTarget: 'tableCell' | 'tableRow';
       label: string;
       managedClassNames: string[];
+    }
+  | {
+      kind: 'horizontalAlign';
+      ids: string[];
+      align: HorizontalAlignment;
     };
 
 export type AttributeAuthorizationResult =
@@ -67,6 +78,7 @@ const MESSAGE_KEYS: Record<string, ReadonlySet<string>> = {
   setCalsAttr: new Set(['type', 'id', 'attrName', 'attrValue', 'baseStructVersion']),
   setCalsAttrMulti: new Set(['type', 'ids', 'attrName', 'attrValue', 'baseStructVersion']),
   setTgroupAttr: new Set(['type', 'id', 'attrs', 'baseStructVersion']),
+  setHorizontalAlign: new Set(['type', 'ids', 'align', 'baseStructVersion']),
   applyStyle: new Set(['type', 'ids', 'className', 'baseStructVersion']),
   clearStyle: new Set(['type', 'ids', 'styleTarget', 'baseStructVersion']),
   applyShade: new Set(['type', 'ids', 'color', 'sourceHash', 'targetToken', 'baseStructVersion']),
@@ -217,6 +229,25 @@ function authorizeTgroup(doc: Document, message: Record<string, unknown>): Attri
     attrs.push({ name: raw.name, value: raw.value });
   }
   return { ok: true, action: { kind: 'tgroup', tableId, attrs } };
+}
+
+function authorizeHorizontalAlignment(
+  doc: Document,
+  message: Record<string, unknown>,
+): AttributeAuthorizationResult {
+  const ids = idsValue(message.ids);
+  if (!ids) return reject('The horizontal alignment request has no valid targets.');
+  if (!isHorizontalAlignment(message.align)) return reject('The horizontal alignment value is not supported.');
+  const elements = elementIds(doc, ids);
+  if (!elements) return reject('One or more horizontal alignment targets are stale.');
+  const wholeEditable = wholeEditableElementSet(doc);
+  if (!elements.every((element) => isHorizontalAlignmentElement(element, wholeEditable))) {
+    return reject('Horizontal alignment is not supported for one or more selected elements.');
+  }
+  if (message.align === 'justify' && elements.some((element) => element.name === 'image')) {
+    return reject('Images cannot use justified alignment.');
+  }
+  return { ok: true, action: { kind: 'horizontalAlign', ids, align: message.align } };
 }
 
 function ancestorNamed(element: ElementNode, names: readonly string[]): ElementNode | null {
@@ -394,6 +425,7 @@ export function authorizeAttributeMessage(params: {
   if (type === 'setExistingPropertyAttr') return authorizeRootAttribute(doc, params.message, params.taxonomy, 'existing');
   if (type === 'setCalsAttr' || type === 'setCalsAttrMulti') return authorizeCals(doc, params.message);
   if (type === 'setTgroupAttr') return authorizeTgroup(doc, params.message);
+  if (type === 'setHorizontalAlign') return authorizeHorizontalAlignment(doc, params.message);
   if (type === 'applyStyle' || type === 'clearStyle') return authorizeStyle(doc, params.message, params.styles);
   if (type === 'applyShade' || type === 'clearShade') return authorizeShade(doc, params.message, params.styles);
   return reject('The attribute message family is not supported.');

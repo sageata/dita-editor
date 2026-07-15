@@ -30,6 +30,9 @@
     const vscode = opts.vscode;
     const getStyleState = opts.getStyleState || function () { return {}; };
     const getStructVersion = opts.getStructVersion || function () { return 0; };
+    const rangeActionForSelection = opts.rangeActionForSelection || function () { return null; };
+    const rangeAvailFor = opts.rangeAvailFor || function () { return null; };
+    const currentSelectionIds = opts.currentSelectionIds || function () { return []; };
 
     function createMenu(ariaLabel, onToggle) {
       return menu.createMenu(ariaLabel, onToggle, {
@@ -364,11 +367,11 @@
       const defs = [
         { elementHeader: { label: 'Table cell', icon: menuIcons.tableCell || menuIcons.table, tag: '<entry>' } },
         { separator: true },
-        { header: 'TRANSFORM' },
       ];
+      const transforms = [];
       const tf = (label, transform, icon) => {
         const a = transformAvailFor(cellEntryId, transform);
-        defs.push({
+        transforms.push({
           label: label,
           icon: icon,
           enabled: a.status === 'ok',
@@ -383,34 +386,34 @@
       tf('Convert content to lines', 'entryToLines', menuIcons.lines);
       tf('Convert content to note', 'entryToNote', menuIcons.note);
       tf('Convert content to code block', 'entryToCodeblock', menuIcons.codeblock);
-      defs.push(
-        { separator: true },
-        { header: 'ROW' },
-      );
-      const op = (label, icon, opName, id, av) => {
-        defs.push({
+      defs.push({ label: 'Convert content', icon: menuIcons.convert, enabled: true, submenu: transforms, submenuWidth: 250 });
+
+      const makeOp = (label, icon, opName, id, av, kind) => ({
           label: label,
           icon: icon,
           enabled: av.enabled,
           reason: av.reason,
-          onActivate: () => postConfirmedStructural(opName, id, 'row'),
+          onActivate: () => postConfirmedStructural(opName, id, kind),
         });
-      };
-      op('Add row above', menuIcons.rowAdd, 'addRowBefore', rowId, availFor(rowId, 'addRowBefore'));
-      op('Add row below', menuIcons.rowAdd, 'addRowAfter', rowId, availFor(rowId, 'addRowAfter'));
+      const rowDefs = [
+        makeOp('Add row above', menuIcons.rowAdd, 'addRowBefore', rowId, availFor(rowId, 'addRowBefore'), 'row'),
+        makeOp('Add row below', menuIcons.rowAdd, 'addRowAfter', rowId, availFor(rowId, 'addRowAfter'), 'row'),
+      ];
       // F6 header toggle: the item matches the row's CURRENT section.
       const inHeader = !!(tr.closest && tr.closest('thead'));
       if (inHeader) {
-        op('Move header row into body', menuIcons.table, 'demoteRowFromHeader', rowId, availFor(rowId, 'demoteRowFromHeader'));
+        rowDefs.push(makeOp('Move header row into body', menuIcons.table, 'demoteRowFromHeader', rowId, availFor(rowId, 'demoteRowFromHeader'), 'row'));
       } else {
-        op('Make this the header row', menuIcons.table, 'promoteRowToHeader', rowId, availFor(rowId, 'promoteRowToHeader'));
+        rowDefs.push(makeOp('Make this the header row', menuIcons.table, 'promoteRowToHeader', rowId, availFor(rowId, 'promoteRowToHeader'), 'row'));
       }
-      op('Delete row', menuIcons.rowDelete, 'deleteRow', rowId, availFor(rowId, 'deleteRow'));
-      defs.push({ header: 'COLUMN' });
+      rowDefs.push(makeOp('Delete row', menuIcons.rowDelete, 'deleteRow', rowId, availFor(rowId, 'deleteRow'), 'row'));
+      defs.push({ label: 'Row', icon: menuIcons.rowAdd, enabled: true, submenu: rowDefs, submenuWidth: 230 });
+
       const anchorOk = !!colAnchorId;
+      const columnDefs = [];
       const colOp = (label, icon, opName) => {
         const av = availFor(cellEntryId, opName);
-        defs.push({
+        columnDefs.push({
           label: label,
           icon: icon,
           enabled: anchorOk && av.enabled,
@@ -423,20 +426,42 @@
       colOp('Move column left', menuIcons.insertBefore, 'moveColumnLeft');
       colOp('Move column right', menuIcons.insertAfter, 'moveColumnRight');
       colOp('Delete column', menuIcons.columnDelete, 'deleteColumn');
-      defs.push({ header: 'MERGE' });
-      op('Merge with the cell on the right', menuIcons.mergeRight, 'mergeRight', cellEntryId, availFor(cellEntryId, 'mergeRight'));
-      op('Merge with the cell on the left', menuIcons.mergeRight, 'mergeLeft', cellEntryId, availFor(cellEntryId, 'mergeLeft'));
-      op('Merge with the cell below', menuIcons.mergeDown, 'mergeDown', cellEntryId, availFor(cellEntryId, 'mergeDown'));
-      op('Merge with the cell above', menuIcons.mergeDown, 'mergeUp', cellEntryId, availFor(cellEntryId, 'mergeUp'));
-      if (cellMerged) op('Split this merged cell', menuIcons.splitCell, 'splitCell', cellEntryId, availFor(cellEntryId, 'splitCell'));
-      defs.push({ separator: true });
-      defs.push({ header: 'PRESENTATION' });
+      defs.push({ label: 'Column', icon: menuIcons.columnAdd, enabled: true, submenu: columnDefs, submenuWidth: 230 });
+
+      const selectedIds = currentSelectionIds();
+      if (rangeActionForSelection() === 'cellRectMerge' && selectedIds.length > 1) {
+        const availability = rangeAvailFor('cellRectMerge');
+        defs.push({
+          label: 'Merge selected cells',
+          icon: menuIcons.mergeRight,
+          enabled: !!(availability && availability.enabled),
+          reason: availability && availability.reason ? availability.reason : 'Checking selection…',
+          onActivate: () => vscode.postMessage({ type: 'rangeExecute', action: 'cellRectMerge', ids: selectedIds }),
+        });
+      }
+      if (cellMerged) defs.push(makeOp('Split merged cell', menuIcons.splitCell, 'splitCell', cellEntryId, availFor(cellEntryId, 'splitCell'), 'entry'));
+
       pushPresentation(defs, tr, cell, rowId, cellEntryId);
+      const cellShade = shadeSubmenu(cellEntryId).map((item) => item.separator ? item : { ...item, label: 'Cell: ' + (item.label === 'Clear shading' ? 'Clear' : item.label) });
+      const rowShade = shadeSubmenu(rowId).map((item) => item.separator ? item : { ...item, label: 'Row: ' + (item.label === 'Clear shading' ? 'Clear' : item.label) });
+      for (let i = defs.length - 1; i >= 0; i--) {
+        if (defs[i].label === 'Cell shading' || defs[i].label === 'Row shading') defs.splice(i, 1);
+      }
+      defs.push({ label: 'Shading', icon: menuIcons.tableCell || menuIcons.table, enabled: true, submenu: [...cellShade, { separator: true }, ...rowShade], submenuWidth: 220 });
+
+      const tableSettings = [];
+      pushTableTitle(tableSettings, cell);
+      const tablePresentation = [];
+      pushTablePresentation(tablePresentation, cell);
+      for (const group of tablePresentation) {
+        if (!group.submenu) continue;
+        tableSettings.push({ separator: true });
+        for (const item of group.submenu) {
+          tableSettings.push(item.separator ? item : { ...item, label: group.label + ': ' + item.label });
+        }
+      }
+      defs.push({ label: 'Table settings', icon: menuIcons.table, enabled: true, submenu: tableSettings, submenuWidth: 240 });
       defs.push({ separator: true });
-      defs.push({ header: 'TABLE' });
-      pushTableTitle(defs, cell);
-      pushTablePresentation(defs, cell);
-      defs.push({ header: 'DELETE' });
       pushContainerDelete(defs, cell);
 
       const interactive = defs.filter((d) => d.onActivate).length;
@@ -704,6 +729,15 @@
             announceNav('Edit image alt text…');
           },
         },
+        {
+          label: 'Resize image…',
+          icon: menuIcons.convert,
+          enabled: true,
+          onActivate: () => {
+            vscode.postMessage({ type: 'resizeImage', id: ctx.id });
+            announceNav('Resize image…');
+          },
+        },
       ];
       const entries = resolveInsertEntries(ctx);
       if (entries.length) {
@@ -787,6 +821,13 @@
     document.addEventListener('contextmenu', (e) => {
       const node = e.target;
       const reach = node && node.closest ? node : null;
+      const img = reach ? reach.closest('img[data-struct-id][data-struct-kind="image"]') : null;
+      if (img) {
+        e.preventDefault();
+        ctxMenu.close(false);
+        const pt = visualXY(img, e.clientX, e.clientY);
+        if (openImageMenuFor(img, pt.x, pt.y)) return;
+      }
       const cell = reach ? reach.closest('td[data-cell-id], th[data-cell-id]') : null;
       const tr = cell ? cell.closest('tr[data-struct-id][data-struct-kind="row"]') : null;
       if (cell && tr) {
@@ -795,13 +836,6 @@
         const pt = visualXY(cell, e.clientX, e.clientY);
         openCellMenuFor(tr, cell, pt.x, pt.y, editableTarget(e.target));
         return;
-      }
-      const img = reach ? reach.closest('img[data-struct-id][data-struct-kind="image"]') : null;
-      if (img) {
-        e.preventDefault();
-        ctxMenu.close(false);
-        const pt = visualXY(img, e.clientX, e.clientY);
-        if (openImageMenuFor(img, pt.x, pt.y)) return;
       }
       const sEl = reach ? reach.closest('[data-struct-id]') : null;
       if (sEl) {

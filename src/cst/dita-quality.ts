@@ -4,7 +4,7 @@ import { walk } from './query';
 import type { CstNode, ElementNode, TextNode } from './types';
 import { isElement } from './types';
 
-export type DitaLintCode = 'raw-prose-newline' | 'literal-bullet' | 'invalid-table-grid';
+export type DitaLintCode = 'raw-prose-newline' | 'literal-bullet' | 'invalid-table-grid' | 'empty-list';
 
 export interface DitaLintIssue {
   code: DitaLintCode;
@@ -101,9 +101,38 @@ export function lintDitaSource(source: string): DitaLintIssue[] {
         ));
       }
     }
+
+    if (isElement(node) && isEmptyList(node)) {
+      issues.push(issue(
+        'empty-list',
+        `<${node.name}> must contain at least one <li>; this empty list is not visible in the editor.`,
+        node,
+        node,
+      ));
+    }
   }
 
   return issues;
+}
+
+function isEmptyList(el: ElementNode): boolean {
+  return (el.name === 'ul' || el.name === 'ol')
+    && !el.children.some((child) => isElement(child) && child.name === 'li');
+}
+
+export function countEmptyLists(source: string): number {
+  const doc = parse(source);
+  let count = 0;
+  for (const node of walk(doc.children)) {
+    if (isElement(node) && isEmptyList(node)) count++;
+  }
+  return count;
+}
+
+/** Prevent a clean document from acquiring an invisible invalid list while still
+ * allowing an already-corrupt document to be edited toward a valid state. */
+export function introducesEmptyList(previousSource: string, nextSource: string): boolean {
+  return countEmptyLists(nextSource) > countEmptyLists(previousSource);
 }
 
 function openTag(el: ElementNode, source: string): string {

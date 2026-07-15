@@ -100,12 +100,14 @@
 
     function postLineBreak(el, lineBreakCaretOffset) {
       clearTimer();
-      vscode.postMessage({
+      const message = {
         type: 'lineBreak',
         id: el.getAttribute('data-edit-id'),
         text: el.textContent,
         caretOffset: typeof lineBreakCaretOffset === 'number' ? lineBreakCaretOffset : caretOffset(el),
-      });
+      };
+      if (el.hasAttribute('data-inline-html')) message.html = el.innerHTML;
+      vscode.postMessage(message);
     }
 
     function caretOffset(el) {

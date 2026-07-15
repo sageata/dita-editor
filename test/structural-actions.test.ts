@@ -107,6 +107,21 @@ describe('structural host actions', () => {
     expect(ctx.version()).toBe(2);
   });
 
+  test('applyStructuralAction rejects a stale cross-kind join without applying bytes', async () => {
+    const src = '<topic><body><note>one</note><p>two</p></body></topic>';
+    const ctx = makeContext(src, 4);
+
+    await applyStructuralAction(ctx, 'join', idOf(src, 'p'), {
+      prevId: idOf(src, 'note'),
+      merged: 'onetwo',
+      boundary: 3,
+    }, 3);
+
+    expect(ctx.applied).toEqual([]);
+    expect(ctx.pushed).toEqual([[null, null]]);
+    expect(ctx.version()).toBe(4);
+  });
+
   test('applyStructuralAction surfaces refused operations as diagnostics, announcements, and visible errors', async () => {
     const src = '<topic id="t"><title>T</title><body><p>x</p></body></topic>';
     const ctx = makeContext(src);
@@ -241,6 +256,18 @@ describe('structural host actions', () => {
     expect(ctx.cleared).toBe(1);
     expect(ctx.version()).toBe(1);
     expect(ctx.announced).toEqual(['Cell content converted to bulleted list.']);
+  });
+
+  test('applyTransformAction converts the clicked mixed-note run in place', async () => {
+    const list = '<ul outputclass="keep"><li>Existing</li></ul>';
+    const src = `<body><note>Lead ${list} Tail</note></body>`;
+    const noteId = idOf(src, 'note');
+    const ctx = makeContext(src);
+
+    await applyTransformAction(ctx, 'noteContentToParagraph', `${noteId}:t0`);
+
+    expect(ctx.applied).toEqual([`<body><note><p>Lead </p>${list} Tail</note></body>`]);
+    expect(ctx.announced).toEqual(['Note content converted to paragraph.']);
   });
 
   test('applyTransformAction converts focused lines into a paragraph', async () => {

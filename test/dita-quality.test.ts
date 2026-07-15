@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { formatDitaSource, lintDitaSource } from '../src/cst/dita-quality';
+import {
+  countEmptyLists,
+  formatDitaSource,
+  introducesEmptyList,
+  lintDitaSource,
+} from '../src/cst/dita-quality';
 
 describe('lintDitaSource', () => {
   test('flags raw internal newlines in normal prose as source wrapping, not authored breaks', () => {
@@ -31,6 +36,24 @@ describe('lintDitaSource', () => {
     const issues = lintDitaSource(src);
 
     expect(issues.map((issue) => issue.code)).toContain('invalid-table-grid');
+  });
+
+  test('flags empty lists that have no visual list item representation', () => {
+    const src = '<body><note><p>Visible note text</p><ul>\n</ul><ol></ol></note></body>';
+
+    const issues = lintDitaSource(src).filter((issue) => issue.code === 'empty-list');
+
+    expect(issues.map((issue) => issue.element)).toEqual(['ul', 'ol']);
+    expect(countEmptyLists(src)).toBe(2);
+  });
+
+  test('detects only edits that increase the number of empty lists', () => {
+    const clean = '<body><note><p>Text</p></note></body>';
+    const corrupt = '<body><note><p>Text</p><ul></ul></note></body>';
+
+    expect(introducesEmptyList(clean, corrupt)).toBe(true);
+    expect(introducesEmptyList(corrupt, corrupt.replace('Text', 'Edited'))).toBe(false);
+    expect(introducesEmptyList(corrupt, clean)).toBe(false);
   });
 });
 

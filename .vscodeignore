@@ -15,9 +15,12 @@ AGENTS.md
 SECURITY.md
 SUPPORT.md
 .anti-hall-progress.md
+.anti-hall/**
+PLAN.md
 .claude/**
 .gitignore
 .vscodeignore
+.vscode/**
 artifacts/**
 coverage/**
 **/*.map

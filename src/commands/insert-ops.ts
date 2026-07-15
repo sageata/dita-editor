@@ -22,7 +22,7 @@
 // Content model (grounded in the corpus tag inventory + DITA topic content model):
 //   • A list item (<li>) is permitted ONLY inside a list (<ul>/<ol>).
 //   • A paragraph / list / table is block-level content, permitted inside a block
-//     container (<body>/<conbody>/<refbody>/<li>/<entry>) — NOT inside a list (whose
+//     container (<body>/<conbody>/<refbody>/<section>/<note>/<li>/<entry>) — NOT inside a list (whose
 //     children are <li> only) and NOT inside a <p> (inline content only).
 // A content-model violation is reported enabled:false, ditaValid:false (performing it
 // would yield non-conformant DITA). Operational refusals (nothing/unknown in focus) are
@@ -87,13 +87,13 @@ export interface InsertResult {
 // ---- content model ----------------------------------------------------------
 
 const LIST_CONTAINERS = new Set(['ul', 'ol']);
-// Block-content containers (body + specialization bodies, sections, list items, table
-// cells). All follow the DITA "body content" model (p / ul / ol / table), so they accept
+// Block-content containers (body + specialization bodies, sections, notes, list items,
+// table cells). These accept the block insert kinds supported by this editor.
 // these inserts. <section> is included to match the editor's other lanes — W6 transform-ops
 // allows itemToParagraph into <section> and render-a11y has a table-inside-section fixture,
 // so refusing inserts there would strand a valid, expected context. Kept conservative on
 // purpose: containers not on this list are refused rather than guessed at.
-const BLOCK_CONTAINERS = new Set(['body', 'conbody', 'refbody', 'section', 'li', 'entry']);
+const BLOCK_CONTAINERS = new Set(['body', 'conbody', 'refbody', 'section', 'note', 'li', 'entry']);
 // A <section> is a direct child of a topic body only — never nested in a list item, table cell,
 // or another section. Stricter than BLOCK_CONTAINERS so the editor never produces invalid nesting.
 const SECTION_CONTAINERS = new Set(['body', 'conbody', 'refbody']);
@@ -114,6 +114,9 @@ const KIND_NOUN: Record<InsertKind, string> = {
 function containerAllows(container: ElementNode, kind: InsertKind): boolean {
   if (kind === 'listItem') return LIST_CONTAINERS.has(container.name);
   if (kind === 'section') return SECTION_CONTAINERS.has(container.name);
+  // The DITA note grammar accepts normal blocks but uses basic.block.nonote,
+  // so a note must never be inserted inside another note.
+  if (container.name === 'note' && kind === 'note') return false;
   return BLOCK_CONTAINERS.has(container.name);
 }
 

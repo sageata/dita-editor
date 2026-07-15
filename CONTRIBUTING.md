@@ -18,6 +18,24 @@ bun run inspect:vsix -- artifacts/dita-editor-0.1.0.vsix
 
 For clickable editor changes, also run the installed-VSIX smoke workflow described by the current release tooling and manually verify the behavior in a real local DITA topic. Never start a development server for this extension.
 
+For a fast source-development loop against a separate local DITA workspace, build once and launch an Extension Development Host with that workspace:
+
+```sh
+bun run build
+code --new-window --extensionDevelopmentPath="$PWD" /path/to/consumer-workspace
+```
+
+Run `bun run watch` in a separate terminal while editing, then use **Developer: Reload Window** in the Extension Development Host after each rebuild. The normally installed Marketplace extension remains available in regular VS Code windows; the development host loads this source checkout.
+
+Before release, package the VSIX and exercise the installed artifact against an isolated copy of a real consumer workspace:
+
+```sh
+bun run package:vsix
+bun run smoke:private -- artifacts/dita-editor-0.1.0.vsix --consumer-root /path/to/consumer-workspace --retain
+```
+
+The private-consumer smoke accepts `DITAEDITOR_PRIVATE_CONSUMER_ROOT` instead of `--consumer-root` when a stable path is configured in the shell.
+
 ## Pull requests
 
 Use Bun rather than npm. Keep strict TypeScript, two-space indentation, single quotes, and named exports. Include the commands run and results in the pull request. Link the issue and include screenshots for visual changes.

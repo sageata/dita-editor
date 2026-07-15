@@ -18,7 +18,8 @@ import {
 import { buildCanvasHtml } from '../webview/canvas-html';
 import { applyElementAttribute, applyElementAttributeToIds, applyTgroupAttributes } from './attribute-actions';
 import { authorizeAttributeMessage, type AuthorizedAttributeAction } from './attribute-authorization';
-import { pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt } from './image-actions';
+import { applyImageWidth, pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt, promptAndApplyImageWidth } from './image-actions';
+import { applyHorizontalAlignmentToIds } from './horizontal-alignment-actions';
 import {
   editInlineText,
   formatInlineBlocks,
@@ -33,7 +34,7 @@ import { applyInsertAction } from './insert-actions';
 import { applyLineBreakAction } from './line-break-actions';
 import { insertDitaFragment, sliceElements } from './dita-clipboard';
 import { openSiblingTopic } from './topic-nav';
-import { lintDitaSource } from '../cst/dita-quality';
+import { introducesEmptyList, lintDitaSource } from '../cst/dita-quality';
 import { mapLintToIds } from '../webview/lint-map';
 import { executeRangeAction, queryRangeActions } from './range-actions';
 import { createVisualRenderState } from './render-state';
@@ -703,6 +704,13 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
     // a change was actually written (false when newSource === current text).
     const applyMinimal = async (newSource: string, history?: ApplyMinimalHistory): Promise<boolean> => {
       const previousSource = document.getText();
+      if (introducesEmptyList(previousSource, newSource)) {
+        const message = 'That action would create an empty DITA list, so nothing was changed.';
+        console.error('dita-editor: refusing edit that would create an empty <ul>/<ol>');
+        postError(message);
+        void vscode.window.showErrorMessage('DITA Editor: refused an invalid empty list.');
+        return false;
+      }
       const span = minimalEdit(previousSource, newSource);
       if (!span) return false;
       const edit = new vscode.WorkspaceEdit();
@@ -1120,6 +1128,12 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         refuseAttributeMessage(msg.type, 'The legacy generic attribute channel is disabled.');
         return;
       }
+      if (msg && msg.type === 'setImageAlign') {
+        const reason = 'Image alignment controls changed. Reload the editor and try again.';
+        refuseAttributeMessage(msg.type, reason);
+        pushBody(null, null);
+        return;
+      }
       if (msg && isAuthorizedAttributeMessageType(msg.type)) {
         queue = queue
           .then(async () => {
@@ -1152,6 +1166,12 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
                   structVersion++;
                 },
               }, action.ids, action.className, action.managedClassNames, action.styleTarget);
+              return;
+            }
+            if (action.kind === 'horizontalAlign') {
+              await applyHorizontalAlignmentToIds(
+                attributeActionContext(), action.ids, action.align,
+              );
               return;
             }
             await applyAuthorizedShade(action, msg);
@@ -1332,9 +1352,10 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
           });
       } else if (msg.type === 'lineBreak') {
         const text = typeof msg.text === 'string' ? msg.text : '';
+        const html = typeof msg.html === 'string' ? msg.html : undefined;
         const caretOffset = typeof msg.caretOffset === 'number' ? msg.caretOffset : undefined;
         queue = queue
-          .then(() => applyLineBreakAction(lineBreakActionContext(), id, text, caretOffset))
+          .then(() => applyLineBreakAction(lineBreakActionContext(), id, text, caretOffset, html))
           .catch((err) => {
             console.error('dita-editor: line break edit failed', err);
             postError('The line break could not be applied. See the developer console for details.');
@@ -1507,6 +1528,20 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
           .catch((err) => {
             console.error('dita-editor: image alt edit failed', err);
             postError('The image alt text could not be changed. See the developer console for details.');
+          });
+      } else if (msg.type === 'resizeImage') {
+        queue = queue
+          .then(() => promptAndApplyImageWidth(imageActionContext(), id))
+          .catch((err) => {
+            console.error('dita-editor: image resize failed', err);
+            postError('The image could not be resized. See the developer console for details.');
+          });
+      } else if (msg.type === 'setImageWidth' && typeof msg.width === 'string') {
+        queue = queue
+          .then(() => applyImageWidth(imageActionContext(), id, msg.width!))
+          .catch((err) => {
+            console.error('dita-editor: image drag resize failed', err);
+            postError('The image could not be resized. See the developer console for details.');
           });
       }
     });

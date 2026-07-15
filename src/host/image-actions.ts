@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import { applyImageAlt, imageAltText } from '../cst/image-alt';
 import { parse } from '../cst/parse';
 import { serialize } from '../cst/serialize';
-import { setAttr } from '../cst/edit';
+import { removeAttrs, setAttr } from '../cst/edit';
+import { imageDimensionError } from '../commands/attr-validity';
 import { findElementById } from '../cst/element-ids';
 import type { Document } from '../cst/types';
 import { findElements } from '../cst/query';
@@ -214,4 +215,106 @@ export async function promptAndApplyImageAlt(ctx: ImageActionContext, structId: 
     ctx.pushBody(null, null); // re-render so the image alt attribute reflects the DITA <alt>
     ctx.announce(result === 'cleared' ? 'Image alt text cleared.' : 'Image alt text updated.');
   }
+}
+
+export async function applyImageWidth(
+  ctx: ImageActionContext,
+  structId: string,
+  requestedWidth: string,
+): Promise<void> {
+  const source = ctx.document.getText();
+  let doc: Document;
+  try {
+    doc = parse(source);
+  } catch {
+    ctx.pushBody(null, null);
+    return;
+  }
+  const el = findElementById(doc, structId);
+  if (!el || el.name !== 'image') {
+    ctx.pushBody(null, null);
+    return;
+  }
+  const current = el.attrs.find((attr) => attr.name === 'width')?.value ?? '';
+  const next = requestedWidth.trim();
+  const reason = imageDimensionError(next);
+  if (reason) {
+    ctx.announce(reason);
+    return;
+  }
+  if (next === current) {
+    ctx.announce('Image width unchanged.');
+    return;
+  }
+  if (next === '') removeAttrs(el, ['width'], source);
+  else setAttr(el, 'width', next, source);
+  const ok = await ctx.applyMinimal(serialize(doc));
+  if (ok) {
+    ctx.clearDiagnostics();
+    ctx.pushBody(null, null);
+    ctx.announce(next === '' ? 'Image width cleared.' : `Image width updated to ${next}.`);
+  }
+}
+
+export async function applyImageAlignment(
+  ctx: ImageActionContext,
+  structId: string,
+  requestedAlign: string,
+): Promise<void> {
+  if (!['left', 'center', 'right'].includes(requestedAlign)) {
+    ctx.announce('Image alignment must be left, center, or right.');
+    return;
+  }
+  const source = ctx.document.getText();
+  let doc: Document;
+  try {
+    doc = parse(source);
+  } catch {
+    ctx.pushBody(null, null);
+    return;
+  }
+  const el = findElementById(doc, structId);
+  if (!el || el.name !== 'image') {
+    ctx.pushBody(null, null);
+    return;
+  }
+  const currentAlign = el.attrs.find((attr) => attr.name === 'align')?.value ?? '';
+  const currentPlacement = el.attrs.find((attr) => attr.name === 'placement')?.value ?? '';
+  if (currentAlign === requestedAlign && currentPlacement === 'break') {
+    ctx.announce(`Image already aligned ${requestedAlign}.`);
+    return;
+  }
+  setAttr(el, 'placement', 'break', source);
+  setAttr(el, 'align', requestedAlign, source);
+  const ok = await ctx.applyMinimal(serialize(doc));
+  if (ok) {
+    ctx.clearDiagnostics();
+    ctx.pushBody(null, null);
+    ctx.announce(`Image aligned ${requestedAlign}.`);
+  }
+}
+
+export async function promptAndApplyImageWidth(ctx: ImageActionContext, structId: string): Promise<void> {
+  const source = ctx.document.getText();
+  let doc: Document;
+  try {
+    doc = parse(source);
+  } catch {
+    ctx.pushBody(null, null);
+    return;
+  }
+  const el = findElementById(doc, structId);
+  if (!el || el.name !== 'image') {
+    ctx.pushBody(null, null);
+    return;
+  }
+  const current = el.attrs.find((attr) => attr.name === 'width')?.value ?? '';
+  const entered = await vscode.window.showInputBox({
+    title: 'Resize image',
+    value: current,
+    prompt: 'Set the DITA image width (for example 320px or 12.5cm). Clear it to restore intrinsic size.',
+    placeHolder: '320px',
+  });
+  if (entered === undefined) return;
+  await applyImageWidth(ctx, structId, entered);
 }

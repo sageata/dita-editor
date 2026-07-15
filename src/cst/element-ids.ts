@@ -13,7 +13,7 @@ import { isElement } from './types';
 //
 // DELIBERATELY EXCLUDED (they have their own, separate addressing — keep it that way):
 //   • entry / table cells — addressed via data-cell-id (the table-grid path);
-//   • cmd / codeph and other inline phrases — not block-level, not deletable units;
+//   • codeph and other inline phrases — not independently removable structural units;
 //   • topic/concept/task/reference roots + body/conbody/… containers + tgroup/
 //     thead/tbody/colspec table scaffolding — deleting one orphans the document/table,
 //     so they are not standalone delete targets;
@@ -27,6 +27,9 @@ const DELETABLE_STRUCT_KINDS = new Set<string>([
   'lines',
   'codeblock',
   'note',
+  // <cmd> is inline-rendered but is an independently editable task text element.
+  // It is addressable specifically so Backspace can join compatible sibling cmds.
+  'cmd',
   'ul',
   'ol',
   'row',

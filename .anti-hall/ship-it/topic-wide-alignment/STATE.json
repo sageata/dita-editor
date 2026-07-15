@@ -1,0 +1,11 @@
+{
+  "plan_hash": "26316821c659a0d2bb853029b7faeccf7523d1f5ba2db13ac76b2ab0f41af70c",
+  "phases": [
+    { "label": "plan-hardening", "status": "done", "gate": "locked" },
+    { "label": "editor-action", "status": "done", "gate": "locked" },
+    { "label": "editor-ui", "status": "done", "gate": "locked" },
+    { "label": "publisher", "status": "done", "gate": "locked" },
+    { "label": "full-verification", "status": "done-with-external-exceptions", "gate": "locked" }
+  ],
+  "escalations": 1
+}

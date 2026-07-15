@@ -11,7 +11,7 @@ import { assignElementIds, findElementById } from './element-ids';
 import { mergeRight, mergeDown, mergeLeft, mergeUp, splitCell } from './table-merge';
 import { computeGrid, gridCellFor, isGridValid } from './table-grid';
 import { joinTextBlocks, pasteBlocksIntoTextBlock, splitTextBlock } from './text-block-structural';
-import { listAttrsForStyle, listNameForStyle, listStyle, nextNestedListStyle, type ListStyle } from './list-style';
+import { listAttrsForStyle, listNameForStyle, listStyle, nextNestedListStyle } from './list-style';
 import {
   appendChild,
   insertAfter,
@@ -84,9 +84,9 @@ const TOPIC_ROOTS = new Set([
 
 /** Parents whose only child of a given kind is required: a list keeps ≥1 <li>. */
 const LIST_PARENTS = new Set(['ul', 'ol']);
-/** Mixed-content parents that do NOT require a block-level child — a <li>/<entry> may hold
- *  just text (or be empty), so deleting its only block is allowed (no sole-block guard). */
-const OPTIONAL_BLOCK_PARENTS = new Set(['li', 'entry']);
+/** Mixed-content parents that do NOT require a block-level child — a <li>, <entry>, or
+ *  <note> may hold just text (or be empty), so deleting its only block is allowed. */
+const OPTIONAL_BLOCK_PARENTS = new Set(['li', 'entry', 'note']);
 /** CALS row sections that keep ≥1 <row> (thead/tbody are (row)+). */
 const ROW_SECTIONS = new Set(['thead', 'tbody']);
 /** Block-level element names: a (block)+ container (body/section/conbody/cell/…)
@@ -112,6 +112,66 @@ const BLOCK_LEVEL = new Set([
 export interface DeleteCheck {
   canDelete: boolean;
   reason?: string;
+}
+
+const INLINE_JOIN_TARGETS = new Set(['p', 'li', 'title', 'shortdesc', 'note', 'cmd']);
+const PLAIN_JOIN_TARGETS = new Set(['lines', 'codeblock']);
+const JOIN_INLINE_CHILDREN = new Set(['b', 'i', 'u', 'codeph', 'sub', 'sup', 'tt', 'line-through', 'overline', 'xref', 'ph']);
+
+function hasJoinableInlineContent(el: ElementNode): boolean {
+  return el.children.every((child) => child.type === 'text' || (child.type === 'element' && (
+    JOIN_INLINE_CHILDREN.has(child.name) || (el.name === 'li' && (child.name === 'ul' || child.name === 'ol'))
+  )));
+}
+
+function hasPlainTextContent(el: ElementNode): boolean {
+  return el.children.every((child) => child.type === 'text');
+}
+
+function soleItemListWrapperBefore(current: ElementNode, previous: ElementNode): ElementNode | null {
+  const list = current.parent;
+  if (!list || (list.name !== 'ul' && list.name !== 'ol') || childElements(list).length !== 1) return null;
+  if (list.attrs.length > 0 || current.attrs.length > 0) return null;
+  if (list.children.some((child) => child !== current && (
+    child.type !== 'text' || (child.newText ?? child.raw).trim() !== ''
+  ))) return null;
+  if (current.children.some((child) => child.type === 'element' && (child.name === 'ul' || child.name === 'ol'))) return null;
+  const container = list.parent;
+  if (!container || previous.parent !== container) return null;
+  const siblings = childElements(container);
+  return siblings[siblings.indexOf(list) - 1] === previous ? list : null;
+}
+
+export function canJoinTextBlocks(current: ElementNode, previous: ElementNode | null): DeleteCheck {
+  const parent = current.parent ?? null;
+  if (!parent || !previous) {
+    return { canDelete: false, reason: 'The previous text element is not an adjacent sibling' };
+  }
+  const wrapper = soleItemListWrapperBefore(current, previous);
+  const siblings = childElements(parent);
+  if (!wrapper && (previous.parent !== parent || siblings[siblings.indexOf(current) - 1] !== previous)) {
+    return { canDelete: false, reason: 'The previous text element is not an adjacent sibling' };
+  }
+  const currentInline = INLINE_JOIN_TARGETS.has(current.name);
+  const previousInline = INLINE_JOIN_TARGETS.has(previous.name);
+  const currentPlain = PLAIN_JOIN_TARGETS.has(current.name);
+  const previousPlain = PLAIN_JOIN_TARGETS.has(previous.name);
+  if ((!currentInline && !currentPlain) || (!previousInline && !previousPlain)) {
+    return { canDelete: false, reason: 'These element types cannot be joined as text' };
+  }
+  if (!wrapper && (current.name === 'li' || previous.name === 'li') && (current.name !== 'li' || previous.name !== 'li')) {
+    return { canDelete: false, reason: 'A list item can only join the preceding item in the same list' };
+  }
+  if ((currentPlain || previousPlain) && (!hasPlainTextContent(current) || !hasPlainTextContent(previous))) {
+    return { canDelete: false, reason: 'Rich inline content cannot be merged into a plain-text block' };
+  }
+  if (!currentPlain && !hasJoinableInlineContent(current)) {
+    return { canDelete: false, reason: 'The current element contains content that cannot be joined safely' };
+  }
+  if (!previousPlain && !hasJoinableInlineContent(previous)) {
+    return { canDelete: false, reason: 'The previous element contains content that cannot be joined safely' };
+  }
+  return wrapper ? canDeleteElement(wrapper, wrapper.parent ?? null) : canDeleteElement(current, parent);
 }
 
 /** Can `el` (with the given `parent`) be deleted on its own without violating the
@@ -324,16 +384,29 @@ export function applyStructuralEdit(
     case 'join': {
       const target = payload.prevId ? findElementById(doc, payload.prevId) : null;
       if (!target) throw new Error(`join target not found: ${payload.prevId}`);
-      const result = joinTextBlocks(el, target, payload);
+      const check = canJoinTextBlocks(el, target);
+      if (!check.canDelete) throw new Error(check.reason ?? 'These text elements cannot be joined');
+      const result = joinTextBlocks(el, target, payload, soleItemListWrapperBefore(el, target) ?? el);
       focusEl = result.focusEl;
       caretOffset = result.caretOffset;
       break;
     }
     case 'deleteRow':
-    case 'deleteItem':
     case 'deletePara':
       removeWithLeadingWs(el);
       break;
+    case 'deleteItem': {
+      if (el.name !== 'li') throw new Error(`deleteItem target is <${el.name}>, not <li>`);
+      const check = canDeleteElement(el, el.parent ?? null);
+      if (!check.canDelete) throw new Error(check.reason ?? 'Cannot delete this list item');
+      // Deleting the final item must be one atomic edit: remove its list as well,
+      // never serialize the transient invalid shape <ul/> / <ol/>.
+      const target = deleteTargetFor(el);
+      focusEl = nextOrPrevBlock(target);
+      removeWithLeadingWs(target);
+      caretOffset = focusEl ? 0 : null;
+      break;
+    }
     case 'deleteTable':
     case 'deleteList':
     case 'deleteFig': {
@@ -940,14 +1013,6 @@ function indentOf(el: ElementNode): string {
   return '';
 }
 
-/** A <li>'s trailing child list of the given style, or null. A list item's own
- *  sublist is its last element child; we only merge into one of the same marker style. */
-function trailingSublist(li: ElementNode, style: ListStyle): ElementNode | null {
-  const kids = childElements(li);
-  const last = kids[kids.length - 1];
-  return last && (last.name === 'ul' || last.name === 'ol') && listStyle(last) === style ? last : null;
-}
-
 function clonedAttrs(el: ElementNode): Array<{ name: string; value: string; quote?: '"' | "'" }> {
   return el.attrs.map((attr) => ({ name: attr.name, value: attr.value, quote: attr.quote }));
 }
@@ -966,17 +1031,21 @@ function indentItem(li: ElementNode): ElementNode {
     throw new Error('Cannot indent the first item — there is no item above to nest it under.');
   }
   const prevLi = items[pos - 1];
-  const nestedStyle = nextNestedListStyle(listStyle(list));
+  const prevKids = childElements(prevLi);
+  const trailing = prevKids[prevKids.length - 1];
+  const existingSublist = trailing && (trailing.name === 'ul' || trailing.name === 'ol') ? trailing : null;
+  const nestedStyle = existingSublist ? listStyle(existingSublist) : nextNestedListStyle(listStyle(list));
   const nestedKind = listNameForStyle(nestedStyle);
-  const existing = trailingSublist(prevLi, nestedStyle);
+  const existing = existingSublist;
   removeWithLeadingWs(li); // detach from the current list (+ its leading whitespace)
 
   if (existing) {
-    // Merge into prevLi's existing sublist of the same marker style: append as its last item.
+    // Preserve prevLi's authored trailing sublist style and append as its last item.
     const subItems = childrenNamed(existing, 'li');
     insertAfter(subItems[subItems.length - 1], li);
   } else {
-    // Create a fresh nested list one marker level deeper: bullet -> alpha -> numbered.
+    // Create a fresh nested list one marker level deeper. Bullets stay bullets;
+    // alphabetic lists nest as numbered, and numbered lists nest as bullets.
     const inner = indentOf(prevLi) + '  ';
     const nested = makeElement(nestedKind, listAttrsForStyle(nestedStyle), [
       makeRawText('\n' + inner + '  '),

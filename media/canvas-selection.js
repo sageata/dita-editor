@@ -10,6 +10,8 @@
     function unitOf(node) {
       if (node && node.nodeType === 3) node = node.parentElement;
       if (!node || !node.closest) return null;
+      const image = node.closest('img[data-struct-id][data-struct-kind="image"]');
+      if (image) return { type: 'image', el: image };
       const cell = node.closest('td[data-cell-id], th[data-cell-id]');
       if (cell) return { type: 'cell', el: cell };
 
@@ -211,7 +213,12 @@
       const units = els.map((el) => unitDesc(el)).filter(Boolean);
       if (units.length === 0) return null;
       if (units.length === 1) return singleSel(els[0]);
-      return { mode: 'multiSet', units: units };
+      // Document drags may cross structural wrapper elements (for example a
+      // <section>) that are useful selection boundaries but are not themselves
+      // formatting targets. Preserve the origin so feature-specific target
+      // resolvers can ignore only those range artifacts without weakening
+      // explicit Cmd-click multi-selection validation.
+      return { mode: 'multiSet', origin: 'documentRange', units: units };
     }
 
     function buildSelection(anchorEl, focusEl) {

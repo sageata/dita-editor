@@ -11,6 +11,7 @@ function loadHelper() {
     DitaEditorCanvasCommandStructure: {
       hasMultiListItemSelection(selection: unknown): boolean;
       isCaretBeforeEnd(current: unknown): boolean;
+      isSameStructureInNote(op: string, current: unknown): boolean;
       isEditingBeforeEnd(current: unknown): boolean;
       listKindTransformForCurrent(transform: string, current: unknown): string;
       selectedListItemIds(selection: unknown): string[];
@@ -64,6 +65,36 @@ describe('canvas-command-structure', () => {
     expect(helper.structureTransformFor('section', selectedParagraph)).toBe('paragraphToSection');
   });
 
+  test('maps direct and mixed note prose to in-place content transforms', () => {
+    const helper = loadHelper();
+    const direct = { id: 'e1', editId: 'e1', kind: 'note', isCollapsed: true, caretOffset: 11, textLength: 11 };
+    const mixed = { id: 'e1', editId: 'e1:t0', kind: 'note', isCollapsed: true, caretOffset: 3, textLength: 11 };
+
+    for (const note of [direct, mixed]) {
+      expect(helper.structureTransformFor('paragraph', note)).toBe('noteContentToParagraph');
+      expect(helper.structureTransformFor('unorderedList', note)).toBe('noteContentToUnorderedList');
+      expect(helper.structureTransformFor('alphabeticList', note)).toBe('noteContentToAlphabeticList');
+      expect(helper.structureTransformFor('orderedList', note)).toBe('noteContentToOrderedList');
+      expect(helper.structureTransformFor('lines', note)).toBe('noteContentToLines');
+      expect(helper.structureTransformFor('codeblock', note)).toBe('noteContentToCodeblock');
+    }
+  });
+
+  test('keeps structure actions on the current paragraph at the end caret inside a note', () => {
+    const helper = loadHelper();
+    const noteParagraph = {
+      id: 'e2', kind: 'p', insideNote: true,
+      isCollapsed: true, caretOffset: 8, textLength: 8,
+    };
+
+    expect(helper.structureTransformFor('unorderedList', noteParagraph)).toBe('paragraphToUnorderedList');
+    expect(helper.structureTransformFor('alphabeticList', noteParagraph)).toBe('paragraphToAlphabeticList');
+    expect(helper.structureTransformFor('orderedList', noteParagraph)).toBe('paragraphToOrderedList');
+    expect(helper.structureTransformFor('codeblock', noteParagraph)).toBe('paragraphToCodeblock');
+    expect(helper.isSameStructureInNote('paragraph', noteParagraph)).toBe(true);
+    expect(helper.isSameStructureInNote('paragraph', { ...noteParagraph, insideNote: false })).toBe(false);
+  });
+
   test('does not transform when the caret is at the end or the target is unsupported', () => {
     const helper = loadHelper();
 
@@ -108,6 +139,12 @@ describe('canvas-command-structure', () => {
     expect(helper.structureTransformLabel('note', 'entryToNote')).toBe('Convert to note');
     expect(helper.structureTransformLabel('codeblock', 'paragraphToCodeblock')).toBe('Convert to code block');
     expect(helper.structureTransformLabel('codeblock', 'entryToCodeblock')).toBe('Convert to code block');
+    expect(helper.structureTransformLabel('paragraph', 'noteContentToParagraph')).toBe('Convert to paragraph');
+    expect(helper.structureTransformLabel('unorderedList', 'noteContentToUnorderedList')).toBe('Convert to bulleted list');
+    expect(helper.structureTransformLabel('alphabeticList', 'noteContentToAlphabeticList')).toBe('Convert to alphabetic list');
+    expect(helper.structureTransformLabel('orderedList', 'noteContentToOrderedList')).toBe('Convert to numbered list');
+    expect(helper.structureTransformLabel('lines', 'noteContentToLines')).toBe('Convert to lines');
+    expect(helper.structureTransformLabel('codeblock', 'noteContentToCodeblock')).toBe('Convert to code block');
   });
 
   test('resolves convert-list buttons to paragraph wrapping transforms for paragraph targets', () => {

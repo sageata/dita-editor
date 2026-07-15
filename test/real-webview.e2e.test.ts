@@ -20,15 +20,26 @@ const FIXTURE_SOURCE = `<?xml version="1.0" encoding="UTF-8"?>
   <body>
     <table>
       <title>Transform target</title>
-      <tgroup cols="1">
+      <tgroup cols="2">
         <colspec colname="c1"/>
+        <colspec colname="c2"/>
         <tbody>
           <row>
             <entry>Alpha beta gamma</entry>
+            <entry>Keep separate</entry>
+          </row>
+          <row>
+            <entry><image href="diagram.svg"/></entry>
+            <entry>Merge partner</entry>
           </row>
         </tbody>
       </tgroup>
     </table>
+    <note>Backspace lead</note>
+    <p>Backspace tail</p>
+    <p>List lead</p>
+    <ul><li>List tail</li></ul>
+    <ul><li>Keep listed</li></ul>
   </body>
 </topic>
 `;
@@ -195,10 +206,16 @@ async function evaluate(client: CdpClient, expression: string, contextId = clien
     ...(contextId ? { contextId } : {}),
   });
   if (result.exceptionDetails) {
-    const text = result.exceptionDetails.text || result.exceptionDetails.exception?.description || 'Runtime.evaluate failed';
+    const text = result.exceptionDetails.exception?.description || result.exceptionDetails.text || 'Runtime.evaluate failed';
     throw new Error(text);
   }
   return result.result?.value;
+}
+
+async function pointerClick(client: CdpClient, point: { x: number; y: number }): Promise<void> {
+  await client.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y });
+  await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+  await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
 }
 
 async function saveActiveEditor(client: CdpClient): Promise<void> {
@@ -279,6 +296,10 @@ async function createTempProject(): Promise<{ root: string; fixture: string }> {
   }, null, 2));
   const fixture = join(workspaceDir, 'real-webview-table-transform.dita');
   await writeFile(fixture, FIXTURE_SOURCE);
+  await writeFile(
+    join(workspaceDir, 'diagram.svg'),
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="#0b6bcb"/></svg>',
+  );
   return { root, fixture };
 }
 
@@ -493,6 +514,251 @@ async function runRealWebviewSmoke(): Promise<void> {
       })()`, webviewContextId);
     }, 20_000);
 
+    console.log('[real-webview-e2e] aligning the image from the top command bar');
+    await evaluate(webview, `(() => {
+      const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
+      if (!image) throw new Error('No rendered image found');
+      image.click();
+      const button = document.querySelector('[aria-label^="Horizontal alignment"]');
+      if (!button || getComputedStyle(button).display === 'none') throw new Error('Top-bar horizontal alignment control is not visible');
+      button.click();
+      const choice = Array.from(document.querySelectorAll('[role="menu"] [role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Right' && item.closest('[role="menu"]').style.display === 'flex');
+      if (!choice) throw new Error('Right alignment choice is not visible');
+      choice.click();
+    })()`, webviewContextId);
+    await waitFor('image rerendered with native right alignment', async () => {
+      return evaluate(webview!, `document.querySelector('img[data-struct-kind="image"][data-authored-align="right"][data-authored-placement="break"]') ? true : null`, webviewContextId);
+    }, 20_000);
+    console.log('[real-webview-e2e] undoing and redoing image alignment as one history entry');
+    await evaluate(webview, `(() => {
+      const button = document.querySelector('[aria-label="Undo"]');
+      if (!button) throw new Error('Undo button is not visible');
+      button.click();
+    })()`, webviewContextId);
+    await waitFor('one undo restored default image alignment', async () => {
+      return evaluate(webview!, `(() => {
+        const image = document.querySelector('img[data-struct-kind="image"]');
+        return image && image.getAttribute('data-authored-align') === '' && image.getAttribute('data-authored-placement') === '' ? true : null;
+      })()`, webviewContextId);
+    }, 20_000);
+    await evaluate(webview, `(() => {
+      const button = document.querySelector('[aria-label="Redo"]');
+      if (!button) throw new Error('Redo button is not visible');
+      button.click();
+    })()`, webviewContextId);
+    await waitFor('one redo restored native image alignment', async () => {
+      return evaluate(webview!, `document.querySelector('img[data-struct-kind="image"][data-authored-align="right"][data-authored-placement="break"]') ? true : null`, webviewContextId);
+    }, 20_000);
+    await evaluate(webview, `(() => {
+      const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
+      if (!image) throw new Error('No rendered image found after horizontal alignment');
+      image.click();
+      const button = document.querySelector('[aria-label^="Vertical alignment"]');
+      if (!button || getComputedStyle(button).display === 'none') throw new Error('Top-bar vertical alignment control is not visible');
+      button.click();
+      const choice = Array.from(document.querySelectorAll('[role="menu"] [role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Middle' && item.closest('[role="menu"]').style.display === 'flex');
+      if (!choice) throw new Error('Middle alignment choice is not visible');
+      choice.click();
+    })()`, webviewContextId);
+    await waitFor('table image cell rerendered vertically middle', async () => {
+      return evaluate(webview!, `document.querySelector('td[data-valign="middle"] img[data-struct-kind="image"]') ? true : null`, webviewContextId);
+    }, 20_000);
+
+    console.log('[real-webview-e2e] applying table frame and grid settings from the compact context menu');
+    const frameCases = [
+      { label: 'All', value: 'all', widths: ['1px', '1px', '1px', '1px'] },
+      { label: 'Top and bottom', value: 'topbot', widths: ['1px', '0px', '1px', '0px'] },
+      { label: 'Top', value: 'top', widths: ['1px', '0px', '0px', '0px'] },
+      { label: 'Bottom', value: 'bottom', widths: ['0px', '0px', '1px', '0px'] },
+      { label: 'None', value: 'none', widths: ['0px', '0px', '0px', '0px'] },
+    ];
+    for (const frameCase of frameCases) {
+      await evaluate(webview, `(() => {
+        const cell = document.querySelectorAll('tbody tr')[0].children[0];
+        cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 600, clientY: 400, view: window }));
+        const settings = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Table settings');
+        if (!settings) throw new Error('Table settings is not visible');
+        settings.click();
+        const choice = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === ${JSON.stringify('Table frame: ')} + ${JSON.stringify(frameCase.label)});
+        if (!choice) throw new Error('Table frame choice is not visible');
+        choice.click();
+      })()`, webviewContextId);
+      await waitFor(`WebView rendered frame ${frameCase.value}`, async () => evaluate(webview!, `(() => {
+        const table = document.querySelector('table[data-struct-id]');
+        if (!table?.classList.contains(${JSON.stringify(`frame-${frameCase.value}`)})) return null;
+        const style = getComputedStyle(table);
+        return [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth].join(',') === ${JSON.stringify(frameCase.widths.join(','))} ? true : null;
+      })()`, webviewContextId), 20_000);
+    }
+    const settingsPoint = await evaluate(webview, `(() => {
+      const cell = document.querySelectorAll('tbody tr')[0].children[0];
+      cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 600, clientY: 400, view: window }));
+      const settings = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Table settings');
+      if (!settings) throw new Error('Table settings is not visible after title rerender');
+      const rect = settings.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    })()`, webviewContextId);
+    await pointerClick(webview, settingsPoint);
+    const sidesPoint = await evaluate(webview, `(() => {
+      const sides = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Table frame: Sides');
+      if (!sides) throw new Error('Table frame: Sides is not visible');
+      const rect = sides.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    })()`, webviewContextId);
+    await pointerClick(webview, sidesPoint);
+    await waitFor('WebView rerendered table frame setting', async () => {
+      return evaluate(webview!, `(() => {
+        const table = document.querySelector('table[data-struct-id]');
+        if (!table?.classList.contains('frame-sides')) return null;
+        const style = getComputedStyle(table);
+        return style.borderTopWidth === '0px' && style.borderRightWidth === '1px' && style.borderBottomWidth === '0px' && style.borderLeftWidth === '1px' ? true : null;
+      })()`, webviewContextId);
+    }, 20_000);
+    await evaluate(webview, `(() => {
+      const cell = document.querySelectorAll('tbody tr')[0].children[0];
+      cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 600, clientY: 400, view: window }));
+      const settings = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Table settings');
+      if (!settings) throw new Error('Table settings is not visible after frame rerender');
+      settings.click();
+      const grid = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Grid lines: No grid lines');
+      if (!grid) throw new Error('Grid lines: No grid lines is not visible');
+      grid.click();
+    })()`, webviewContextId);
+    await waitFor('WebView rerendered table grid setting', async () => {
+      return evaluate(webview!, `(() => {
+        const cell = document.querySelectorAll('tbody tr')[0].children[0];
+        if (cell?.getAttribute('data-colsep') !== '0' || cell?.getAttribute('data-rowsep') !== '0') return null;
+        const style = getComputedStyle(cell);
+        return style.borderRightWidth === '0px' && style.borderBottomWidth === '0px' ? true : null;
+      })()`, webviewContextId);
+    }, 20_000);
+
+    console.log('[real-webview-e2e] selecting and drag-resizing the real rendered image');
+    const resizeResult = await evaluate(webview, `(() => {
+      const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
+      if (!image) throw new Error('No rendered image found');
+      image.click();
+      const handle = document.querySelector('[aria-label="Drag to resize image"]');
+      if (!handle || getComputedStyle(handle).display === 'none') throw new Error('Image resize handle is not visible');
+      const rect = image.getBoundingClientRect();
+      handle.dispatchEvent(new MouseEvent('mousedown', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: rect.right,
+        clientY: rect.bottom,
+        view: window,
+      }));
+      window.dispatchEvent(new MouseEvent('mousemove', {
+        bubbles: true,
+        cancelable: true,
+        clientX: rect.right + 60,
+        clientY: rect.bottom,
+        view: window,
+      }));
+      window.dispatchEvent(new MouseEvent('mouseup', {
+        bubbles: true,
+        cancelable: true,
+        clientX: rect.right + 60,
+        clientY: rect.bottom,
+        view: window,
+      }));
+      return { before: Math.round(rect.width), preview: image.style.width, handle: handle.getAttribute('aria-label') };
+    })()`, webviewContextId);
+    expect(resizeResult.handle).toBe('Drag to resize image');
+    expect(resizeResult.preview).toBe(`${resizeResult.before + 60}px`);
+
+    await waitFor('WebView rerendered image from authored width', async () => {
+      return evaluate(webview!, `(() => {
+        const image = document.querySelector('img[data-struct-id][data-struct-kind="image"]');
+        if (!image || !image.style.width) return null;
+        const authoredAttrs = decodeURIComponent(image.getAttribute('data-attrs') || '');
+        return authoredAttrs.includes('"width"') ? { width: image.style.width, authoredAttrs } : null;
+      })()`, webviewContextId);
+    }, 20_000);
+
+    console.log('[real-webview-e2e] merging a selected cell rectangle from the compact context menu');
+    const selectedCellCount = await evaluate(webview, `(() => {
+      const row = document.querySelectorAll('tbody tr')[1];
+      if (!row || row.children.length !== 2) throw new Error('Expected two cells in the image row');
+      const first = row.children[0];
+      const second = row.children[1];
+      first.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, view: window }));
+      second.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, button: 0, view: window }));
+      second.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, button: 0, view: window }));
+      return document.querySelectorAll('td.is-selected, th.is-selected').length;
+    })()`, webviewContextId);
+    expect(selectedCellCount).toBe(2);
+    await waitFor('Merge selected cells availability in compact context menu', async () => evaluate(webview!, `(() => {
+      const first = document.querySelectorAll('tbody tr')[1].children[0];
+      first.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 600, clientY: 500, view: window }));
+      const merge = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Merge selected cells');
+      return merge && merge.getAttribute('aria-disabled') !== 'true' ? true : null;
+    })()`, webviewContextId), 20_000);
+    await evaluate(webview, `(() => {
+      const merge = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Merge selected cells');
+      if (!merge) throw new Error('Merge selected cells disappeared before activation');
+      merge.click();
+    })()`, webviewContextId);
+    await waitFor('selected image row merged into one spanning cell', async () => {
+      return evaluate(webview!, `(() => {
+        const row = document.querySelectorAll('tbody tr')[1];
+        const cell = row && row.children[0];
+        return row && row.children.length === 1 && cell && cell.getAttribute('colspan') === '2' ? cell.textContent : null;
+      })()`, webviewContextId);
+    }, 20_000);
+
+    console.log('[real-webview-e2e] joining a paragraph into the preceding note with Backspace');
+    await evaluate(webview, `(() => {
+      const paragraph = Array.from(document.querySelectorAll('p[data-edit-id][contenteditable]'))
+        .find((element) => element.textContent === 'Backspace tail');
+      if (!paragraph) throw new Error('Backspace target paragraph is not rendered');
+      paragraph.scrollIntoView({ block: 'center' });
+      paragraph.focus();
+      const range = document.createRange();
+      range.selectNodeContents(paragraph);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    })()`, webviewContextId);
+    await dispatchKey(webview, 'Backspace', 'Backspace', 8);
+    await waitFor('paragraph joined into preceding note', async () => {
+      return evaluate(webview!, `(() => {
+        const note = Array.from(document.querySelectorAll('[data-struct-kind="note"]'))
+          .find((element) => element.textContent === 'Backspace leadBackspace tail');
+        const tail = Array.from(document.querySelectorAll('p[data-edit-id][contenteditable]'))
+          .find((element) => element.textContent === 'Backspace tail');
+        return note && !tail ? true : null;
+      })()`, webviewContextId);
+    }, 20_000);
+
+    console.log('[real-webview-e2e] joining a sole list item across its list wrapper');
+    await evaluate(webview, `(() => {
+      const item = Array.from(document.querySelectorAll('li[data-edit-id][contenteditable]'))
+        .find((element) => element.textContent === 'List tail');
+      if (!item) throw new Error('Single-item list Backspace target is not rendered');
+      item.focus();
+      const range = document.createRange();
+      range.selectNodeContents(item);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    })()`, webviewContextId);
+    await dispatchKey(webview, 'Backspace', 'Backspace', 8);
+    await waitFor('sole list item joined into preceding paragraph', async () => {
+      return evaluate(webview!, `(() => {
+        const paragraph = Array.from(document.querySelectorAll('p[data-edit-id][contenteditable]'))
+          .find((element) => element.textContent === 'List leadList tail');
+        const kept = Array.from(document.querySelectorAll('li[data-edit-id][contenteditable]'))
+          .find((element) => element.textContent === 'Keep listed');
+        return paragraph && kept ? true : null;
+      })()`, webviewContextId);
+    }, 20_000);
+
     console.log('[real-webview-e2e] saving active editor');
     await saveActiveEditor(workbench);
 
@@ -501,11 +767,27 @@ async function runRealWebviewSmoke(): Promise<void> {
       const source = await readFile(project.fixture, 'utf8');
       return source.includes('<entry><ol outputclass="lower-alpha">') && source.includes('<li>Alpha beta gamma</li>') ? source : null;
     }, 20_000);
+    await waitFor('saved file bytes contain nested image width', async () => {
+      const source = await readFile(project.fixture, 'utf8');
+      return source.includes('frame="sides"') && source.includes('colsep="0"') && source.includes('rowsep="0"') && source.includes('valign="middle"') && source.includes('namest="c1"') && source.includes('nameend="c2"') && /<image(?=[^>]*\bhref="diagram\.svg")(?=[^>]*\bplacement="break")(?=[^>]*\balign="right")(?=[^>]*\bwidth="\d+px")[^>]*\/>/.test(source) ? source : null;
+    }, 20_000);
 
     const saved = await readFile(project.fixture, 'utf8');
     expect(saved).toContain('<entry><ol outputclass="lower-alpha">');
     expect(saved).toContain('<li>Alpha beta gamma</li>');
     expect(saved).not.toContain('<entry>Alpha beta gamma</entry>');
+    expect(saved).toContain('frame="sides"');
+    expect(saved).toContain('colsep="0"');
+    expect(saved).toContain('rowsep="0"');
+    expect(saved).toContain('valign="middle"');
+    expect(saved).toContain('namest="c1"');
+    expect(saved).toContain('nameend="c2"');
+    expect(saved).toMatch(/<image(?=[^>]*\bhref="diagram\.svg")(?=[^>]*\bplacement="break")(?=[^>]*\balign="right")(?=[^>]*\bwidth="\d+px")[^>]*\/>/);
+    expect(saved).toContain('<note>Backspace leadBackspace tail</note>');
+    expect(saved).not.toContain('<p>Backspace tail</p>');
+    expect(saved).toContain('<p>List leadList tail</p>');
+    expect(saved).not.toContain('<li>List tail</li>');
+    expect(saved).toContain('<ul><li>Keep listed</li></ul>');
   } finally {
     console.log('[real-webview-e2e] cleanup');
     if (proc) await quitCode(proc, browser);

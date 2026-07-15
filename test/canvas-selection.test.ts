@@ -21,6 +21,7 @@ function installSelectionHelpers() {
       createSelectionHelpers(options?: Record<string, unknown>): {
         buildSelection(anchorEl: TestElement, focusEl: TestElement): unknown;
         unitFromPoint(root: TestElement, clientY: number): { type: string; el: TestElement } | null;
+        unitOf(node: TestElement): { type: string; el: TestElement } | null;
       };
     };
   };
@@ -29,6 +30,15 @@ function installSelectionHelpers() {
 }
 
 describe('canvas selection helpers', () => {
+  test('a directly targeted image inside a table cell is an image selection unit', () => {
+    const cell = new TestElement('td');
+    cell.setAttribute('data-cell-id', 'cell1');
+    const image = cell.appendChild(block('img', 'image1'));
+    image.setAttribute('data-struct-kind', 'image');
+
+    expect(installSelectionHelpers().unitOf(image)).toEqual({ type: 'image', el: image });
+  });
+
   test('dragging from a paragraph across an indented list creates a document-order multi-selection', () => {
     const main = new TestElement('main');
     const p1 = main.appendChild(block('p', 'e1', 'Intro'));
@@ -42,6 +52,7 @@ describe('canvas selection helpers', () => {
 
     expect(helpers.buildSelection(p1, p2)).toEqual({
       mode: 'multiSet',
+      origin: 'documentRange',
       units: [
         { unit: 'block', id: 'e1', kind: 'p', text: 'Intro' },
         { unit: 'block', id: 'e3', kind: 'li', text: 'Parent item' },
@@ -63,6 +74,7 @@ describe('canvas selection helpers', () => {
 
     expect(helpers.buildSelection(p1, nested)).toEqual({
       mode: 'multiSet',
+      origin: 'documentRange',
       units: [
         { unit: 'block', id: 'e1', kind: 'p', text: 'Intro' },
         { unit: 'block', id: 'e3', kind: 'li', text: 'Parent item' },
@@ -83,6 +95,7 @@ describe('canvas selection helpers', () => {
 
     expect(helpers.buildSelection(p2, nested)).toEqual({
       mode: 'multiSet',
+      origin: 'documentRange',
       units: [
         { unit: 'block', id: 'e2', kind: 'li', text: 'Parent item' },
         { unit: 'block', id: 'e4', kind: 'li', text: 'Nested item' },
@@ -108,6 +121,7 @@ describe('canvas selection helpers', () => {
     expect(hit).toEqual({ type: 'block', el: li1 });
     expect(helpers.buildSelection(p1, hit!.el)).toEqual({
       mode: 'multiSet',
+      origin: 'documentRange',
       units: [
         { unit: 'block', id: 'e1', kind: 'p', text: 'Intro' },
         { unit: 'block', id: 'e3', kind: 'li', text: 'Indented item' },

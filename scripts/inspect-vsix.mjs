@@ -87,6 +87,9 @@ const RUNTIME_MEDIA_FILES = new Set([
 const OWNER_IDENTITY_KEYS = new Set([
   'name', 'displayName', 'version', 'publisher', 'repository', 'homepage', 'bugs', 'icon', 'license',
 ]);
+const MARKETPLACE_EXTENSION_NAME = 'dita-editor';
+const MARKETPLACE_PUBLISHER = 'paul-razvan-sarbu';
+const MARKETPLACE_PREVIEW_VERSION = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
 
 export const PRE_METADATA_DEFERRED_KEYS = Object.freeze([
   'extension/CHANGELOG.md|owner-gated-document',
@@ -991,11 +994,12 @@ function metadataReady(packageJson) {
   const repositoryUrl = typeof packageJson.repository === 'string'
     ? packageJson.repository
     : packageJson.repository?.url;
-  return packageJson.version === '0.1.0'
+  return typeof packageJson.version === 'string'
+    && MARKETPLACE_PREVIEW_VERSION.test(packageJson.version)
     && packageJson.preview === true
     && !Object.hasOwn(packageJson, 'private')
-    && typeof packageJson.publisher === 'string' && packageJson.publisher.length > 0
-    && typeof packageJson.name === 'string' && packageJson.name.length > 0
+    && packageJson.publisher === MARKETPLACE_PUBLISHER
+    && packageJson.name === MARKETPLACE_EXTENSION_NAME
     && typeof packageJson.displayName === 'string' && packageJson.displayName.length > 0
     && packageJson.icon === 'media/icon.png'
     && typeof packageJson.license === 'string' && packageJson.license.length > 0

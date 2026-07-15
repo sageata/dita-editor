@@ -28,11 +28,11 @@ describe('block + inline element class contract', () => {
   test('generic topic body, lists', () => {
     const src =
       '<topic id="t"><title>T</title><body>' +
-      '<ul><li>one</li><li>two</li></ul>' +
+      '<ul><li>one<ul><li>nested bullet</li></ul></li><li>two</li></ul>' +
       '<ol><li>a</li></ol><ol outputclass="lower-alpha"><li>b</li></ol></body></topic>';
     const html = render(src);
     expect(html).toContain('<div class="body">');
-    expect(html).toContain('<ul class="ul"><li class="li">one</li><li class="li">two</li></ul>');
+    expect(html).toContain('<ul class="ul"><li class="li">one<ul class="ul"><li class="li">nested bullet</li></ul></li><li class="li">two</li></ul>');
     expect(html).toContain('<ol class="ol"><li class="li">a</li></ol>');
     expect(html).toContain('<ol class="ol lower-alpha"><li class="li">b</li></ol>');
   });
@@ -129,6 +129,33 @@ describe('CALS table -> HTML', () => {
       '<td class="entry" data-align="center" data-valign="bottom" style="text-align:center;vertical-align:bottom">A</td>',
     );
     expect(html).toContain('<td class="entry">B</td>'); // untouched neighbour stays clean
+  });
+
+  test('editable entries expose authored alignment separately from effective CALS inheritance', () => {
+    const html = renderEditable(parse(
+      '<table><tgroup cols="2" align="center">' +
+        '<colspec colname="c1" colnum="1"/><colspec colname="c2" colnum="2"/>' +
+        '<tbody><row><entry>A</entry><entry align="right">B</entry></row></tbody>' +
+        '</tgroup></table>',
+    ));
+
+    expect(html).toMatch(/<td class="entry" data-authored-align=""[^>]*data-align="center" style="text-align:center"/);
+    expect(html).toMatch(/<td class="entry" data-authored-align="right"[^>]*data-align="right" style="text-align:right"/);
+  });
+
+  test('break image @align renders visibly in the editor', () => {
+    const html = render('<topic><body><image href="diagram.svg" placement="break" align="center"/></body></topic>');
+
+    expect(html).toContain('style="display:block;margin-left:auto;margin-right:auto"');
+  });
+
+  test('editable images expose authored alignment and placement even when inline placement suppresses alignment rendering', () => {
+    const html = renderEditable(parse(
+      '<topic><body><image href="diagram.svg" placement="inline" align="center"/></body></topic>',
+    ));
+
+    expect(html).toContain('data-authored-align="center" data-authored-placement="inline"');
+    expect(html).not.toContain('style="display:block');
   });
 
   test('colspec @align inherits to its column; entry-level wins (CALS precedence)', () => {
@@ -417,6 +444,19 @@ describe('renderEditable', () => {
     expect(html).toContain('Hello\ntail</pre>');
   });
 
+  test('direct-text notes are editable while block notes delegate editing to their children', () => {
+    const html = renderEditable(
+      parse('<topic><body><note type="note">Direct note</note><note><p>Block note</p></note></body></topic>'),
+    );
+
+    expect(html).toMatch(
+      /<div class="note note_note" contenteditable="true" data-edit-id="e\d+" spellcheck="false" data-struct-id="e\d+" data-struct-kind="note">Direct note<\/div>/,
+    );
+    expect(html).toMatch(
+      /<div class="note note_note" data-struct-id="e\d+" data-struct-kind="note"><p class="p" contenteditable="true"/,
+    );
+  });
+
   test('marks mixed text runs as autofocus targets by full run id', () => {
     const doc = parse('<topic><body><li>Intro<ul><li>Nested</li></ul></li></body></topic>');
     const html = renderEditable(doc, 'e2:t0');
@@ -431,7 +471,7 @@ describe('renderEditable', () => {
         '</tbody></tgroup></table></body></topic>',
     );
     const html = renderEditable(doc);
-    expect(html).toMatch(/<td class="entry" data-selectable data-selection-kind="cell" data-cell-id="e\d+" contenteditable="true" data-edit-id="e\d+" data-inline-html="true" spellcheck="false">a<img/);
+    expect(html).toMatch(/<td class="entry" data-authored-align="" data-selectable data-selection-kind="cell" data-cell-id="e\d+" contenteditable="true" data-edit-id="e\d+" data-inline-html="true" spellcheck="false">a<img/);
     expect(html).toMatch(/<img class="image" src="i\.jpg" alt="i\.jpg"[^>]*data-dita="image"[^>]*data-href="i\.jpg"[^>]*data-attrs=/);
     expect(html).toMatch(/<img class="image"[^>]*data-struct-id="e\d+" data-struct-kind="image" data-selectable data-selection-kind="image">/);
     expect(html).not.toContain('data-edit-run');
@@ -550,7 +590,7 @@ describe('renderEditable', () => {
     expect(html.match(/data-struct-kind="title"/g)?.length).toBe(2);
   });
 
-  test('excluded kinds are NEVER stamped: table cells (entry), inline cmd, and text-run spans', () => {
+  test('excluded kinds are never stamped while editable cmd is addressable for Backspace joins', () => {
     const doc = parse(
       '<topic><body>' +
         '<table><tgroup cols="1"><colspec colname="c1" colnum="1"/><tbody>' +
@@ -562,14 +602,13 @@ describe('renderEditable', () => {
     const html = renderEditable(doc);
     // cells use data-cell-id, not data-struct-id
     expect(html).not.toMatch(/<t[dh] class="entry"[^>]*data-struct-id/);
-    // inline cmd is not a structural delete target
-    expect(html).not.toMatch(/<span class="ph cmd"[^>]*data-struct-id/);
+    expect(html).toMatch(/<span class="ph cmd"[^>]*data-struct-id="e\d+" data-struct-kind="cmd"/);
     // mixed-cell text-run spans keep their synthetic edit-only ids, never a struct-id
     expect(html).not.toMatch(/<span[^>]*data-edit-run[^>]*data-struct-id/);
     // table scaffolding containers (tgroup/thead/tbody/colspec) are not separately deletable
     // and never reach a struct-id-bearing tag (they have no dedicated render tag here)
     expect(html).not.toContain('data-struct-kind="entry"');
-    expect(html).not.toContain('data-struct-kind="cmd"');
+    expect(html).toContain('data-struct-kind="cmd"');
   });
 
   test('read-only render does NOT stamp struct ids on table/fig (editable-only, like images)', () => {

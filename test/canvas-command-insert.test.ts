@@ -76,6 +76,14 @@ describe('canvas-command-insert', () => {
     expect(placement).toEqual({ mode: 'into', idField: 'containerId', id: 'e12', label: 'inside this cell' });
   });
 
+  test('does not append blocks to the bottom of a direct-text note', () => {
+    const helper = loadHelper();
+
+    const placement = helper.blockInsertPlacement({ kind: 'note', id: 'e6' });
+
+    expect(placement).toBeNull();
+  });
+
   test('refuses unsupported anchors instead of relying on host refusal', () => {
     const helper = loadHelper();
 

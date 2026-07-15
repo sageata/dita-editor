@@ -29,7 +29,7 @@ const REGISTRY: Record<string, number[]> = {
   'media/canvas-command-bar-ui.js': [75],
   'media/canvas-context-toolbar.js': [50],
   'media/canvas-find-replace.js': [105],
-  'media/canvas-image-bar.js': [50],
+  'media/canvas-image-bar.js': [48, 50],
   'media/canvas-insert-menu.js': [55],
   'media/canvas-menu.js': [55, 56],
   'media/canvas-move-block.js': [46, 47],

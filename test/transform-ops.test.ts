@@ -224,6 +224,16 @@ describe('li → p transform', () => {
     expect(r.mode).toBe('dissolve-list');
   });
 
+  test('sole item inside a note can dissolve back into a paragraph', () => {
+    const idx = indexDocument('<body><note><ul><li><b>Business</b> A350</li></ul></note></body>');
+    const r = planTransform('itemToParagraph', { id: idOf(idx, 'li', 'A350') }, idx);
+
+    expect(r.status).toBe('ok');
+    if (r.status !== 'ok' || r.transform !== 'itemToParagraph') return;
+    expect(r.mode).toBe('dissolve-list');
+    expect(r.parentId).toBe(idOf(idx, 'note'));
+  });
+
   test('middle item splits the list around the paragraph', () => {
     const idx = indexDocument('<body><ul><li>a</li><li>b</li><li>c</li></ul></body>');
     const r = planTransform('itemToParagraph', { id: idOf(idx, 'li', 'b') }, idx);
@@ -274,6 +284,36 @@ describe('li → p transform', () => {
     expect(r.status).toBe('invalid');
     if (r.status !== 'invalid') return;
     expect(r.code).toBe('unsupported-parent');
+  });
+});
+
+describe('note direct and mixed content transforms', () => {
+  test('direct note prose offers the same text-block transforms as normal prose', () => {
+    const idx = indexDocument('<body><note>Direct note</note></body>');
+    const noteId = idOf(idx, 'note', 'Direct note');
+
+    expect(availableTransforms({ id: noteId }, idx)).toEqual(expect.arrayContaining([
+      'noteContentToParagraph',
+      'noteContentToUnorderedList',
+      'noteContentToOrderedList',
+      'noteContentToAlphabeticList',
+      'noteContentToLines',
+      'noteContentToCodeblock',
+    ]));
+  });
+
+  test('a note-content transform plans against the note container', () => {
+    const idx = indexDocument('<body><note>Direct note</note></body>');
+    const noteId = idOf(idx, 'note', 'Direct note');
+    const result = planTransform('noteContentToUnorderedList', { id: noteId }, idx);
+
+    expect(result).toMatchObject({
+      status: 'ok',
+      transform: 'noteContentToUnorderedList',
+      noteId,
+      blockKind: 'ul',
+      listStyle: 'unordered',
+    });
   });
 });
 

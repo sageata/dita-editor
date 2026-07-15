@@ -67,7 +67,7 @@ mock.module('vscode', () => ({
   },
 }));
 
-const { pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt } = await import('../src/host/image-actions');
+const { applyImageAlignment, applyImageWidth, pickAndApplyImageHref, pickImageHrefForInsert, promptAndApplyImageAlt, promptAndApplyImageWidth } = await import('../src/host/image-actions');
 
 function imageId(source = SRC): string {
   const doc = parse(source);
@@ -136,6 +136,15 @@ beforeEach(() => {
 });
 
 describe('image host actions', () => {
+  test('applies DITA horizontal alignment and break placement to an image', async () => {
+    const fixture = makeCtx();
+
+    await applyImageAlignment(fixture.ctx, imageId(), 'center');
+
+    expect(fixture.applied[0]).toContain('<image href="images/img_005.jpeg" placement="break" align="center"/>');
+    expect(fixture.announced).toEqual(['Image aligned center.']);
+  });
+
   test('picks a real image href for insertion before mutating the document', async () => {
     const fixture = makeCtx();
 
@@ -277,5 +286,55 @@ describe('image host actions', () => {
     expect(fixture.pushed).toEqual([]);
     expect(fixture.announced).toEqual([]);
     expect(fixture.source).toBe(SRC);
+  });
+
+  test('writes a valid DITA image width and re-renders the preview', async () => {
+    inputBoxChoice = '320px';
+    const fixture = makeCtx();
+
+    await promptAndApplyImageWidth(fixture.ctx, imageId());
+
+    expect(inputBoxCalls).toEqual([expect.objectContaining({ title: 'Resize image', value: '' })]);
+    expect(fixture.applied).toEqual([
+      SRC.replace(' placement="break"', ' placement="break" width="320px"'),
+    ]);
+    expect(fixture.pushed).toEqual([[null, null]]);
+    expect(fixture.announced).toEqual(['Image width updated to 320px.']);
+  });
+
+  test('persists a drag-resize width without opening a prompt', async () => {
+    const fixture = makeCtx();
+
+    await applyImageWidth(fixture.ctx, imageId(), '438px');
+
+    expect(inputBoxCalls).toEqual([]);
+    expect(fixture.applied).toEqual([
+      SRC.replace(' placement="break"', ' placement="break" width="438px"'),
+    ]);
+    expect(fixture.announced).toEqual(['Image width updated to 438px.']);
+  });
+
+  test('clears image width to restore intrinsic size', async () => {
+    const source = SRC.replace(' placement="break"', ' placement="break" width="320px"');
+    inputBoxChoice = '';
+    const fixture = makeCtx(source);
+
+    await promptAndApplyImageWidth(fixture.ctx, imageId(source));
+
+    expect(fixture.applied).toEqual([SRC]);
+    expect(fixture.announced).toEqual(['Image width cleared.']);
+  });
+
+  test('rejects invalid image widths without writing', async () => {
+    inputBoxChoice = 'wide';
+    const fixture = makeCtx();
+
+    await promptAndApplyImageWidth(fixture.ctx, imageId());
+
+    expect(fixture.applied).toEqual([]);
+    expect(fixture.pushed).toEqual([]);
+    expect(fixture.announced).toEqual([
+      'Image width must be a positive number, optionally followed by cm, em, in, mm, pc, pt, or px.',
+    ]);
   });
 });

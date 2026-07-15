@@ -22,6 +22,7 @@
 
 import type { CstNode, Document, ElementNode } from '../cst/types';
 import { isElement } from '../cst/types';
+import { imageDimensionError } from '../commands/attr-validity';
 import { childrenNamed, firstChildNamed } from '../cst/query';
 import {
   editableElementIds,
@@ -67,6 +68,7 @@ interface TablePresentation {
 
 const SEP_VALUES = new Set(['0', '1']);
 const ALIGN_VALUES = new Set(['left', 'right', 'center', 'justify']);
+const IMAGE_ALIGN_VALUES = new Set(['left', 'center', 'right']);
 const VALIGN_VALUES = new Set(['top', 'middle', 'bottom']);
 
 /** The value when it is a member of the closed CALS set, else undefined (an
@@ -147,6 +149,12 @@ function escapeAttrValue(value: string): string {
 
 function escapeRawAttrValue(value: string): string {
   return value.replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+
+function ditaImageDimensionCss(value: string | undefined): string | null {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed || imageDimensionError(trimmed)) return null;
+  return /[A-Za-z]$/.test(trimmed) ? trimmed : `${trimmed}px`;
 }
 
 export function escapeTextValue(value: string): string {
@@ -471,9 +479,9 @@ class HtmlRenderer {
         // Wired with the same edit/struct/selection attrs as <p>/<lines> so it is editable + addressable.
         return `<pre${this.classAttr(el, 'pre codeblock')}${ed}${this.structAttr(el)}${this.selectionAttr('block')}>${this.children(el)}</pre>`;
       case 'note':
-        // DITA note/callout. A block container (not a text leaf): its children (a <p>, etc.) render and
-        // carry their own edit/struct attrs. structAttr makes the whole note an addressable/insert anchor.
-        return `<div${this.classAttr(el, 'note note_note')}${this.structAttr(el)}>${this.children(el)}</div>`;
+        // A note may contain direct text or block children. Direct text notes use the note itself as
+        // the editable leaf; block notes keep their child <p>, etc. as the editable surfaces.
+        return `<div${this.classAttr(el, 'note note_note')}${ed}${this.structAttr(el)}>${this.children(el)}</div>`;
       case 'fig':
         // P1-2b: data-struct-id + data-struct-kind="fig" (editable render) make a figure an insert anchor.
         return `<figure${this.classAttr(el, 'fig fignone')}${this.structAttr(el)}>${this.children(el)}</figure>`;
@@ -490,7 +498,7 @@ class HtmlRenderer {
       case 'step':
         return `<li${this.classAttr(el, 'li step stepexpand')}>${this.children(el)}</li>`;
       case 'cmd':
-        return `<span${this.classAttr(el, 'ph cmd')}${ed}>${this.children(el)}</span>`;
+        return `<span${this.classAttr(el, 'ph cmd')}${ed}${this.structAttr(el)}>${this.children(el)}</span>`;
       case 'info':
         return `<div${this.classAttr(el, 'itemgroup info')}>${this.children(el)}</div>`;
       default:
@@ -500,6 +508,11 @@ class HtmlRenderer {
 
   private image(el: ElementNode): string {
     const href = attr(el, 'href') ?? '';
+    const width = ditaImageDimensionCss(attr(el, 'width'));
+    const height = ditaImageDimensionCss(attr(el, 'height'));
+    const placement = attr(el, 'placement');
+    const authoredAlign = presEnum(attr(el, 'align'), IMAGE_ALIGN_VALUES);
+    const align = placement === 'break' ? authoredAlign : undefined;
     const authoredAlt = firstChildNamed(el, 'alt');
     // alt: authored DITA <alt> wins. Without it, a non-empty href falls back to the file's
     // basename (so a broken/missing image has a label), and an empty href becomes "Empty image"
@@ -510,8 +523,19 @@ class HtmlRenderer {
     // structAttr stamps data-struct-id + data-struct-kind="image" (IMG-1) when renderEditable
     // supplies the id, so canvas can re-resolve/restore an image selection after a rerender.
     // Render-only; image() bypasses structAttr otherwise, so without this an image has no id.
-    const data = this.editIds ? ` data-dita="image" data-href="${escapeRawAttrValue(href)}"${atomAttrData(el)}` : '';
-    return `<img${this.classAttr(el, 'image')} src="${escapeAttrValue(src)}" alt="${alt}"${data}${this.structAttr(el)}${this.selectionAttr('image')}>`;
+    const data = this.editIds
+      ? ` data-dita="image" data-href="${escapeRawAttrValue(href)}" data-authored-align="${authoredAlign ?? ''}" data-authored-placement="${escapeAttrValue(placement ?? '')}"${atomAttrData(el)}`
+      : '';
+    const imageStyles: string[] = [];
+    if (align) {
+      imageStyles.push('display:block');
+      if (align === 'left') imageStyles.push('margin-right:auto');
+      if (align === 'center') imageStyles.push('margin-left:auto', 'margin-right:auto');
+      if (align === 'right') imageStyles.push('margin-left:auto');
+    }
+    if (width || height) imageStyles.push(`width:${escapeAttrValue(width ?? 'auto')}`, `height:${escapeAttrValue(height ?? 'auto')}`);
+    const size = imageStyles.length ? ` style="${imageStyles.join(';')}"` : '';
+    return `<img${this.classAttr(el, 'image')} src="${escapeAttrValue(src)}" alt="${alt}"${size}${data}${this.structAttr(el)}${this.selectionAttr('image')}>`;
   }
 
   private table(el: ElementNode): string {
@@ -639,6 +663,9 @@ class HtmlRenderer {
     let attrs = this.classAttr(entry, 'entry');
     const outputclass = attr(entry, 'outputclass');
     if (outputclass && this.editIds) attrs += ` data-outputclass="${escapeAttrValue(outputclass)}"`;
+    if (this.editIds) {
+      attrs += ` data-authored-align="${presEnum(attr(entry, 'align'), ALIGN_VALUES) ?? ''}"`;
+    }
     const cell = grid ? gridCellFor(grid, entry) : undefined;
 
     const colspan = cell ? cell.colEnd - cell.colStart + 1 : 1;

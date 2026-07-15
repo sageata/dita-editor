@@ -74,7 +74,10 @@
     const fmtSub = makeBarBtn('<span style="font-weight:600;font-size:13px">X<sub style="font-size:9px">2</sub></span>', 'Subscript', true);
     const fmtSup = makeBarBtn('<span style="font-weight:600;font-size:13px">X<sup style="font-size:9px">2</sup></span>', 'Superscript', true);
     const fmtClear = makeBarBtn(barIcons.clearFormat, 'Remove all styles', true);
-    fmtGroup.row.append(fmtBold, fmtItalic, fmtUnderline, fmtStrike, fmtCode, fmtSub, fmtSup, fmtClear);
+    const cAlignHorizontal = makeBarBtn('H↔', 'Horizontal alignment', false);
+    cAlignHorizontal.setAttribute('aria-haspopup', 'menu');
+    cAlignHorizontal.setAttribute('aria-expanded', 'false');
+    fmtGroup.row.append(fmtBold, fmtItalic, fmtUnderline, fmtStrike, fmtCode, fmtSub, fmtSup, fmtClear, cAlignHorizontal);
     const fmtBtns = [fmtBold, fmtItalic, fmtUnderline, fmtStrike, fmtCode, fmtSub, fmtSup];
     const fmtActionBtns = [fmtBold, fmtItalic, fmtUnderline, fmtStrike, fmtCode, fmtSub, fmtSup, fmtClear];
     const fmtOp = { Bold: 'b', Italic: 'i', Underline: 'u', Strikethrough: 'line-through', 'Inline code': 'codeph', Subscript: 'sub', Superscript: 'sup' };
@@ -116,7 +119,10 @@
     const cRowDel = makeBarBtn('−▭', 'Delete this row', false);
     const cColAdd = makeBarBtn('+|', 'Add column to the right', false);
     const cColDel = makeBarBtn('−|', 'Delete this column', false);
-    tableGroup.row.append(cRowAdd, cRowDel, cColAdd, cColDel);
+    const cAlignVertical = makeBarBtn('V↕', 'Vertical alignment', false);
+    cAlignVertical.setAttribute('aria-haspopup', 'menu');
+    cAlignVertical.setAttribute('aria-expanded', 'false');
+    tableGroup.row.append(cRowAdd, cRowDel, cColAdd, cColDel, cAlignVertical);
 
     const viewGroup = makeBarGroup('View');
     const vZoomOut = makeBarBtn('−', 'Zoom out', false);
@@ -159,7 +165,7 @@
       hUndo, hRedo, hFind, hReplace,
       fmtBold, fmtItalic, fmtUnderline, fmtStrike, fmtCode, fmtSub, fmtSup, fmtClear,
       biParagraph, biSection, biList, aiList, niList, biLines, biNote, biCode, biIndent, biOutdent, biTable, biImage, biXref, biConref,
-      cRowAdd, cRowDel, cColAdd, cColDel,
+      cRowAdd, cRowDel, cColAdd, cColDel, cAlignHorizontal, cAlignVertical,
       vZoomOut, vZoomPct, vZoomIn, vSpell, vHelp,
     ];
 
@@ -217,6 +223,8 @@
       cRowDel: cRowDel,
       cColAdd: cColAdd,
       cColDel: cColDel,
+      cAlignHorizontal: cAlignHorizontal,
+      cAlignVertical: cAlignVertical,
       viewGroup: viewGroup,
       viewDivider: viewDivider,
       vZoomOut: vZoomOut,

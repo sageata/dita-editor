@@ -267,6 +267,7 @@
     "test/managed-style-refresh.test.ts",
     "test/managed-style-surface-matrix.test.ts",
     "test/mixed-li-editable.test.ts",
+    "test/mixed-note-editable.test.ts",
     "test/multi-command.test.ts",
     "test/multi-executor.test.ts",
     "test/new-topic.test.ts",

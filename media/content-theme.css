@@ -39,6 +39,35 @@
   margin-top: 32px;
 }
 
+/* Reserved DITA Editor alignment outputclasses. These rules are shared by the
+ * editable canvas and read-only/review surfaces, so they deliberately depend
+ * only on the persisted class contract rather than editable-only data attrs.
+ * Source order is the malformed-token precedence: justify > right > center > left. */
+main .ditaeditor-align-left {
+  text-align: left !important;
+}
+
+main .ditaeditor-align-center {
+  text-align: center !important;
+}
+
+main .ditaeditor-align-right {
+  text-align: right !important;
+}
+
+main .ditaeditor-align-justify {
+  text-align: justify !important;
+}
+
+/* DITA <cmd> renders as an inline span. Only aligned commands become blocks so
+ * their persisted horizontal alignment has a box to align within. */
+main .cmd.ditaeditor-align-left,
+main .cmd.ditaeditor-align-center,
+main .cmd.ditaeditor-align-right,
+main .cmd.ditaeditor-align-justify {
+  display: block;
+}
+
 :where(body.ditaeditor-canvas h1.title.topictitle1),
 :where(body.ditaeditor-canvas h2.title),
 :where(body.ditaeditor-canvas h3.title),
@@ -199,8 +228,20 @@
 
 :where(body.ditaeditor-canvas table.table th.entry),
 :where(body.ditaeditor-canvas table.table td.entry) {
-  border: 1px solid var(--dc-color-border);
+  border: 0;
+  border-right: 1px solid var(--dc-color-border);
+  border-bottom: 1px solid var(--dc-color-border);
   vertical-align: top;
+}
+
+:where(body.ditaeditor-canvas table.table tr > th.entry:last-child),
+:where(body.ditaeditor-canvas table.table tr > td.entry:last-child) {
+  border-right: 0;
+}
+
+:where(body.ditaeditor-canvas table.table tbody > tr:last-child > th.entry),
+:where(body.ditaeditor-canvas table.table tbody > tr:last-child > td.entry) {
+  border-bottom: 0;
 }
 
 :where(body.ditaeditor-canvas table.table th.entry) {
@@ -237,29 +278,27 @@
 }
 
 :where(body.ditaeditor-canvas table.table.frame-all) {
-  border: 1px solid var(--dc-color-border);
+  border-width: 1px;
 }
 
 :where(body.ditaeditor-canvas table.table.frame-topbot) {
-  border-top: 1px solid var(--dc-color-border);
-  border-bottom: 1px solid var(--dc-color-border);
+  border-width: 1px 0;
 }
 
 :where(body.ditaeditor-canvas table.table.frame-sides) {
-  border-right: 1px solid var(--dc-color-border);
-  border-left: 1px solid var(--dc-color-border);
+  border-width: 0 1px;
 }
 
 :where(body.ditaeditor-canvas table.table.frame-top) {
-  border-top: 1px solid var(--dc-color-border);
+  border-width: 1px 0 0;
 }
 
 :where(body.ditaeditor-canvas table.table.frame-bottom) {
-  border-bottom: 1px solid var(--dc-color-border);
+  border-width: 0 0 1px;
 }
 
 :where(body.ditaeditor-canvas table.table.frame-none) {
-  border: 0;
+  border-width: 0;
 }
 
 @media (max-width: 720px) {

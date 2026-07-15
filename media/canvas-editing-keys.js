@@ -22,6 +22,7 @@
     const inlineHtmlForJoin = opts.inlineHtmlForJoin;
     const getSelectionState = opts.getSelectionState;
     const DEL_OP = opts.DEL_OP;
+    const BACKSPACE_JOIN_KINDS = ['p', 'li', 'title', 'shortdesc', 'note', 'cmd', 'lines', 'codeblock'];
 
     function cellEditTarget(cell) {
       if (cell.hasAttribute('data-edit-id') && cell.hasAttribute('contenteditable')) return cell;
@@ -170,16 +171,26 @@
         return;
       }
 
-      if (e.key === 'Backspace' && !selection && !isRun && (kind === 'li' || kind === 'p')) {
+      if (e.key === 'Backspace' && !selection && !isRun && BACKSPACE_JOIN_KINDS.indexOf(kind) >= 0) {
         const sel = win.getSelection();
         if (!sel || !sel.isCollapsed || caretOffset(el) !== 0) return;
-        const prev = struct.previousElementSibling;
-        if (prev && prev.getAttribute('data-struct-kind') === kind && prev.hasAttribute('data-edit-id')) {
+        let prev = struct.previousElementSibling;
+        if (!prev && kind === 'li') {
+          const list = struct.parentElement;
+          if (list && (list.tagName === 'UL' || list.tagName === 'OL') && list.children.length === 1) {
+            prev = list.previousElementSibling;
+          }
+        }
+        if (prev && prev.hasAttribute('data-edit-id')) {
           e.preventDefault();
+          // Flush the current DOM bytes first. The host queues this edit ahead
+          // of the structural join, so its authoritative CST merge cannot lose
+          // a change that is still inside the input debounce window.
+          commit(el);
           postStructural('join', structId, withStructuralSuccess('join', kind, joinPayload(prev, el)));
           return;
         }
-        if (el.textContent === '') {
+        if (el.textContent === '' && DEL_OP[kind]) {
           e.preventDefault();
           postStructural(DEL_OP[kind], structId, withStructuralSuccess(DEL_OP[kind], kind));
         }

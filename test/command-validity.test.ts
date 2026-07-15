@@ -102,6 +102,14 @@ describe('destructive delete guards (the predicate is the only gate)', () => {
     expect(v).toEqual({ enabled: false, reason: expect.stringMatching(/only item/i), ditaValid: false });
   });
 
+  test('deleteItem allows the only <li> when its whole list can leave a mixed-content note', () => {
+    const idx = indexDocument('<body><note>Keep this warning<ul><li/></ul></note></body>');
+    expect(isValid('deleteItem', { id: idOf(idx, 'li') }, idx)).toEqual({
+      enabled: true,
+      ditaValid: true,
+    });
+  });
+
   test('deletePara refused on the only <p>, but reports ditaValid:true (authoring guard)', () => {
     const multi = indexDocument('<body><p>a</p><p>b</p></body>');
     expect(isValid('deletePara', { id: idOf(multi, 'p', 'a') }, multi).enabled).toBe(true);

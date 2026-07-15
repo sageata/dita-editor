@@ -92,6 +92,8 @@
     let open = false;
     let items = [];
     let closeCb = null;
+    let submenuPanels = [];
+    let submenuCloseTimer = null;
 
     function visibleItems() {
       return items.filter((it) => !it._parentSubmenuItem || it._parentSubmenuItem.getAttribute('aria-expanded') === 'true');
@@ -179,7 +181,7 @@
       // and an optional chevron for fly-out submenus. Built with DOM nodes so a
       // label cannot inject markup.
       b.style.cssText =
-        'display:flex;align-items:center;gap:' + (nested ? '8px' : '9px') + ';width:auto;text-align:left;' +
+        'display:flex;align-items:center;gap:' + (nested ? '8px' : '9px') + ';width:calc(100% - ' + (nested ? '8px' : '10px') + ');box-sizing:border-box;text-align:left;' +
         'padding:' + (nested ? '5px 10px' : '6px 10px') + ';margin:0 ' + (nested ? '4px' : '5px') + ';' +
         'border:0;border-radius:' + (nested ? '6px' : '7px') + ';background:transparent;color:#3a3a3a;' +
         'font:' + (nested ? '12px' : '12.5px') + '/1.35 ' + MENU_FONT + ';cursor:pointer;white-space:nowrap;';
@@ -266,6 +268,12 @@
       }
       function setOpen(isOpen) {
         if (isOpen) {
+          clearTimeout(submenuCloseTimer);
+          for (const other of submenuPanels) {
+            if (other === panel) continue;
+            other.style.display = 'none';
+            if (other._parentButton) other._parentButton.setAttribute('aria-expanded', 'false');
+          }
           panel.style.display = 'flex';
           positionSubmenu(panel, parentButton, def.submenuWidth || 210);
         } else {
@@ -275,6 +283,15 @@
       }
       parentButton._openSubmenu = setOpen;
       parentButton._firstSubmenuItem = first;
+      panel._parentButton = parentButton;
+      panel.addEventListener('keydown', handleMenuKeydown);
+      panel.addEventListener('mouseenter', () => clearTimeout(submenuCloseTimer));
+      panel.addEventListener('mouseleave', () => {
+        clearTimeout(submenuCloseTimer);
+        submenuCloseTimer = setTimeout(() => setOpen(false), 120);
+      });
+      document.body.appendChild(panel);
+      submenuPanels.push(panel);
       return panel;
     }
 
@@ -305,6 +322,8 @@
     }
 
     function build(defs) {
+      for (const panel of submenuPanels) panel.remove();
+      submenuPanels = [];
       menu.innerHTML = '';
       items = [];
       // defs interleave non-interactive chrome (separators / section headers) with command buttons.
@@ -344,9 +363,14 @@
           items.push(b);
           const panel = buildSubmenu(def, b);
           wrap.appendChild(b);
-          wrap.appendChild(panel);
-          wrap.addEventListener('mouseenter', () => b._openSubmenu && b._openSubmenu(true));
-          wrap.addEventListener('mouseleave', () => b._openSubmenu && b._openSubmenu(false));
+          wrap.addEventListener('mouseenter', () => {
+            clearTimeout(submenuCloseTimer);
+            if (b._openSubmenu) b._openSubmenu(true);
+          });
+          wrap.addEventListener('mouseleave', () => {
+            clearTimeout(submenuCloseTimer);
+            submenuCloseTimer = setTimeout(() => b._openSubmenu && b._openSubmenu(false), 120);
+          });
           menu.appendChild(wrap);
           continue;
         }
@@ -387,6 +411,9 @@
     function closeMenu(restore) {
       if (!open && menu.style.display === 'none') return;
       menu.style.display = 'none';
+      clearTimeout(submenuCloseTimer);
+      for (const panel of submenuPanels) panel.remove();
+      submenuPanels = [];
       menu.innerHTML = '';
       items = [];
       open = false;
@@ -396,7 +423,7 @@
       if (cb) cb(!!restore); // cleanup + optional focus restore on every close
     }
 
-    menu.addEventListener('keydown', (e) => {
+    function handleMenuKeydown(e) {
       if (!open) return;
       if (e.key === 'Escape' || e.key === 'Tab') {
         e.preventDefault();
@@ -437,6 +464,7 @@
         if (b && b._parentSubmenuItem) {
           e.preventDefault();
           e.stopPropagation();
+          if (b._parentSubmenuItem._openSubmenu) b._parentSubmenuItem._openSubmenu(false);
           b._parentSubmenuItem.focus();
         }
         return;
@@ -447,14 +475,15 @@
         const b = document.activeElement;
         if (b && visibleItems().indexOf(b) >= 0) activate(b);
       }
-    });
+    }
+    menu.addEventListener('keydown', handleMenuKeydown);
 
     // Left-click outside the menu dismisses it (an item click stopPropagation's above).
     document.addEventListener('click', (e) => {
-      if (open && !menu.contains(e.target)) closeMenu(false);
+      if (open && !menu.contains(e.target) && !submenuPanels.some((panel) => panel.contains(e.target))) closeMenu(false);
     });
 
-    return { openAt: openAt, close: closeMenu, isOpen: () => open, contains: (n) => menu.contains(n) };
+    return { openAt: openAt, close: closeMenu, isOpen: () => open, contains: (n) => menu.contains(n) || submenuPanels.some((panel) => panel.contains(n)) };
   }
 
   window.DitaEditorCanvasMenu = { createMenu: createMenu };

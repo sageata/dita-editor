@@ -56,6 +56,12 @@ describe('applyTextEdit', () => {
     expect(out).toBe('<topic><body><lines>First\nSecond &amp; third</lines></body></topic>');
   });
 
+  test('edits direct note text without changing the note wrapper or attributes', () => {
+    const src = '<topic><body><note type="note">Old note</note></body></topic>';
+    const out = applyTextEdit(src, editId(src, 'note'), 'Updated & editable');
+    expect(out).toBe('<topic><body><note type="note">Updated &amp; editable</note></body></topic>');
+  });
+
   test('clearing an element canonicalizes it to the self-closing empty form', () => {
     const src = '<topic><body><p>x</p></body></topic>';
     const out = applyTextEdit(src, editId(src, 'p'), '');

@@ -93,6 +93,28 @@ describe('release tooling contract', () => {
     expect(ignore.split(/\r?\n/)).not.toContain('dist/');
   });
 
+  test('publishes the latest main commit through the inspected Bun-built VSIX', () => {
+    const workflow = readFileSync(
+      join(root, '.github/workflows/publish-extension.yml'),
+      'utf8',
+    );
+    expect(workflow).toContain('push:');
+    expect(workflow).toContain('- main');
+    expect(workflow).toContain('EXTENSION_ID: paul-razvan-sarbu.dita-editor');
+    expect(workflow).toContain('bun install --frozen-lockfile');
+    expect(workflow).toContain('node-version-file: .node-version');
+    expect(workflow).toContain('bun test');
+    expect(workflow).toContain('bun run typecheck');
+    expect(workflow).toContain('bun run build:production');
+    expect(workflow).toContain('github.run_number');
+    expect(workflow).toContain('bun run inspect:vsix "$VSIX_PATH"');
+    expect(workflow).toContain('secrets.VSCE_PAT');
+    expect(workflow).toContain('bun x vsce publish --packagePath "$VSIX_PATH" --skip-duplicate');
+    expect(workflow).toContain('Microsoft.VisualStudio.Services.VsixSha256');
+    expect(workflow).toContain('data.versions?.[0]?.version !== process.env.RELEASE_VERSION');
+    expect(workflow).not.toContain('npm ');
+  });
+
   test('the real package command never invokes npm and leaves no production source map', async () => {
     const temp = mkdtempSync(join(tmpdir(), 'ditaeditor-no-npm-'));
     const marker = join(temp, 'npm-was-called');

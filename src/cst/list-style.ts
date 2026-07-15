@@ -30,7 +30,7 @@ export function listAttrsForStyle(style: ListStyle): Array<{ name: string; value
 }
 
 export function nextNestedListStyle(style: ListStyle): ListStyle {
-  if (style === 'unordered') return 'alpha';
+  if (style === 'unordered') return 'unordered';
   if (style === 'alpha') return 'ordered';
   return 'unordered';
 }

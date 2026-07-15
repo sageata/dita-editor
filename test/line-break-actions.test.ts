@@ -56,4 +56,21 @@ describe('applyLineBreakAction', () => {
     expect(ctx.cleared).toBe(1);
     expect(ctx.version).toBe(1);
   });
+
+  test('preserves note inline formatting while applying the line break', async () => {
+    const src = '<body><note>Lead <b>bold</b> tail</note></body>';
+    const ctx = makeContext(src);
+
+    await applyLineBreakAction(
+      ctx,
+      idOf(src, 'note'),
+      'Lead bold\n tail',
+      10,
+      'Lead <strong>bold</strong>\n tail',
+    );
+
+    expect(ctx.applied).toEqual([
+      '<body><note><lines>Lead <b>bold</b>\n tail</lines></note></body>',
+    ]);
+  });
 });

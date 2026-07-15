@@ -12,6 +12,7 @@
     const makeBtn = options.makeBtn;
     const getSelection = options.getSelection;
     const resolveMember = options.resolveMember;
+    const getStructVersion = options.getStructVersion || (() => 0);
     const announceNav = options.announceNav || noop;
 
     const imgBar = document.createElement('div');
@@ -22,18 +23,45 @@
       'background:#fff;border:1px solid #bbb;border-radius:6px;padding:2px 4px;box-shadow:0 1px 4px rgba(0,0,0,0.18);';
     const changeImgBtn = makeBtn('⇄', 'Change image');
     const editAltBtn = makeBtn('Alt', 'Edit image alt text');
-    changeImgBtn.tabIndex = -1;
-    editAltBtn.tabIndex = -1;
-    imgBar.append(changeImgBtn, editAltBtn);
-    const buttons = [changeImgBtn, editAltBtn];
+    const resizeBtn = makeBtn('↔', 'Resize image');
+    const alignLeftBtn = makeBtn('L', 'Align image left');
+    const alignCenterBtn = makeBtn('C', 'Align image center');
+    const alignRightBtn = makeBtn('R', 'Align image right');
+    const alignTopBtn = makeBtn('T', 'Align image vertically top');
+    const alignMiddleBtn = makeBtn('M', 'Align image vertically middle');
+    const alignBottomBtn = makeBtn('B', 'Align image vertically bottom');
+    const buttons = [changeImgBtn, editAltBtn, resizeBtn, alignLeftBtn, alignCenterBtn, alignRightBtn, alignTopBtn, alignMiddleBtn, alignBottomBtn];
+    const verticalButtons = [alignTopBtn, alignMiddleBtn, alignBottomBtn];
+    for (const btn of buttons) btn.tabIndex = -1;
+    for (const btn of verticalButtons) btn.style.display = 'none';
+    imgBar.append(...buttons);
     document.body.appendChild(imgBar);
+    const resizeHandle = document.createElement('div');
+    resizeHandle.setAttribute('role', 'separator');
+    resizeHandle.setAttribute('aria-label', 'Drag to resize image');
+    resizeHandle.setAttribute('aria-orientation', 'horizontal');
+    resizeHandle.style.cssText =
+      'position:absolute;display:none;width:14px;height:14px;z-index:48;box-sizing:border-box;' +
+      'background:#0b6bcb;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px #0b6bcb;' +
+      'cursor:nwse-resize;touch-action:none;';
+    resizeHandle.style.display = 'none';
+    document.body.appendChild(resizeHandle);
     let imgBarTargetId = null;
+    let imgBarTarget = null;
+    let imgBarCellId = null;
     let rovingIdx = 0;
+    let drag = null;
+
+    function navigableButtons() {
+      return buttons.filter((btn) => btn.style.display !== 'none');
+    }
 
     function setRoving(idx) {
-      rovingIdx = Math.max(0, Math.min(idx, buttons.length - 1));
-      for (let i = 0; i < buttons.length; i++) buttons[i].tabIndex = i === rovingIdx ? 0 : -1;
-      return buttons[rovingIdx];
+      const available = navigableButtons();
+      rovingIdx = Math.max(0, Math.min(idx, available.length - 1));
+      for (const btn of buttons) btn.tabIndex = -1;
+      available[rovingIdx].tabIndex = 0;
+      return available[rovingIdx];
     }
 
     function focusRoving(idx) {
@@ -45,12 +73,39 @@
     function activateButton(btn) {
       if (btn === changeImgBtn && imgBarTargetId) vscode.postMessage({ type: 'pickImage', id: imgBarTargetId });
       if (btn === editAltBtn && imgBarTargetId) vscode.postMessage({ type: 'editImageAlt', id: imgBarTargetId });
+      if (btn === resizeBtn && imgBarTargetId) vscode.postMessage({ type: 'resizeImage', id: imgBarTargetId });
+      const horizontal = btn === alignLeftBtn ? 'left' : btn === alignCenterBtn ? 'center' : btn === alignRightBtn ? 'right' : null;
+      if (horizontal && imgBarTargetId) {
+        vscode.postMessage({
+          type: 'setHorizontalAlign', ids: [imgBarTargetId], align: horizontal,
+          baseStructVersion: getStructVersion(),
+        });
+      }
+      const vertical = btn === alignTopBtn ? 'top' : btn === alignMiddleBtn ? 'middle' : btn === alignBottomBtn ? 'bottom' : null;
+      if (vertical && imgBarCellId) vscode.postMessage({ type: 'setCalsAttr', id: imgBarCellId, attrName: 'valign', attrValue: vertical, baseStructVersion: getStructVersion() });
     }
 
     function hide() {
       imgBar.style.display = 'none';
+      resizeHandle.style.display = 'none';
       for (const btn of buttons) btn.tabIndex = -1;
       imgBarTargetId = null;
+      imgBarTarget = null;
+      imgBarCellId = null;
+      drag = null;
+    }
+
+    function positionResizeHandle(rect) {
+      const sx = window.scrollX;
+      const sy = window.scrollY;
+      resizeHandle.style.left = rect.right + sx - 7 + 'px';
+      resizeHandle.style.top = rect.bottom + sy - 7 + 'px';
+    }
+
+    function canvasZoom() {
+      const main = document.querySelector('main');
+      const zoom = main ? Number.parseFloat(main.style.zoom || '1') : 1;
+      return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
     }
 
     function update() {
@@ -67,8 +122,13 @@
         return;
       }
       imgBarTargetId = selection.id;
+      imgBarTarget = img;
+      const cell = img.closest('td[data-cell-id], th[data-cell-id]');
+      imgBarCellId = cell ? cell.getAttribute('data-cell-id') : null;
+      for (const btn of verticalButtons) btn.style.display = imgBarCellId ? '' : 'none';
       imgBar.style.display = 'flex';
-      const activeIdx = buttons.indexOf(document.activeElement);
+      resizeHandle.style.display = 'block';
+      const activeIdx = navigableButtons().indexOf(document.activeElement);
       setRoving(activeIdx >= 0 ? activeIdx : 0);
       const geom = window.DitaEditorCanvasGeom;
       const rect = geom ? geom.visualRect(img) : img.getBoundingClientRect();
@@ -80,6 +140,7 @@
       const left = Math.max(sx + MIN_GAP, rect.left + sx);
       imgBar.style.left = left + 'px';
       imgBar.style.top = top + 'px';
+      positionResizeHandle(rect);
     }
 
     function isShown() {
@@ -96,12 +157,53 @@
     editAltBtn.addEventListener('click', () => {
       activateButton(editAltBtn);
     });
+    resizeBtn.addEventListener('click', () => {
+      activateButton(resizeBtn);
+    });
+    for (const btn of [alignLeftBtn, alignCenterBtn, alignRightBtn, alignTopBtn, alignMiddleBtn, alignBottomBtn]) {
+      btn.addEventListener('click', () => activateButton(btn));
+    }
+    resizeHandle.addEventListener('mousedown', (event) => {
+      if (event.button !== 0 || !imgBarTarget || !imgBarTargetId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const geom = window.DitaEditorCanvasGeom;
+      const rect = geom ? geom.visualRect(imgBarTarget) : imgBarTarget.getBoundingClientRect();
+      const zoom = canvasZoom();
+      drag = {
+        id: imgBarTargetId,
+        image: imgBarTarget,
+        startX: event.clientX,
+        zoom: zoom,
+        startWidth: rect.width / zoom,
+        width: Math.round(rect.width / zoom),
+      };
+    });
+    window.addEventListener('mousemove', (event) => {
+      if (!drag || typeof event.clientX !== 'number') return;
+      event.preventDefault();
+      const maxWidth = Math.max(28, ((window.innerWidth || 1200) - 24) / drag.zoom);
+      drag.width = Math.max(28, Math.min(maxWidth, Math.round(drag.startWidth + (event.clientX - drag.startX) / drag.zoom)));
+      drag.image.style.width = drag.width + 'px';
+      drag.image.style.height = 'auto';
+      const geom = window.DitaEditorCanvasGeom;
+      const rect = geom ? geom.visualRect(drag.image) : drag.image.getBoundingClientRect();
+      positionResizeHandle(rect);
+    });
+    window.addEventListener('mouseup', () => {
+      if (!drag) return;
+      const completed = drag;
+      drag = null;
+      vscode.postMessage({ type: 'setImageWidth', id: completed.id, width: completed.width + 'px' });
+      announceNav('Image width ' + completed.width + ' pixels.');
+    });
     imgBar.addEventListener('keydown', (e) => {
-      const currentIdx = buttons.indexOf(document.activeElement);
+      const available = navigableButtons();
+      const currentIdx = available.indexOf(document.activeElement);
       if (e.key === 'ArrowRight') {
         e.preventDefault();
         e.stopPropagation();
-        focusRoving(currentIdx < 0 ? 0 : Math.min(buttons.length - 1, currentIdx + 1));
+        focusRoving(currentIdx < 0 ? 0 : Math.min(available.length - 1, currentIdx + 1));
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         e.stopPropagation();
@@ -113,9 +215,9 @@
       } else if (e.key === 'End') {
         e.preventDefault();
         e.stopPropagation();
-        focusRoving(buttons.length - 1);
+        focusRoving(available.length - 1);
       } else if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
-        const btn = currentIdx >= 0 ? buttons[currentIdx] : null;
+        const btn = currentIdx >= 0 ? available[currentIdx] : null;
         if (!btn) return;
         e.preventDefault();
         e.stopPropagation();
