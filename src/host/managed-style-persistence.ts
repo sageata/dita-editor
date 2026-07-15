@@ -418,8 +418,6 @@ export async function persistManagedAuthorStylesheet(
       lockIdentity = identityOf(await lockHandle.stat());
       await lockHandle.writeFile(lockBytes);
       await lockHandle.sync();
-      await lockHandle.close();
-      lockHandle = null;
     } catch (error) {
       if (errorCode(error) === 'EEXIST') {
         return refuse(
@@ -428,9 +426,6 @@ export async function persistManagedAuthorStylesheet(
         );
       }
       return refuse(dependencies, 'The managed stylesheet lock could not be acquired or flushed.', error);
-    } finally {
-      await closeQuietly(lockHandle, dependencies, 'Managed stylesheet lock');
-      lockHandle = null;
     }
 
     let initialSource: string | null = null;
@@ -473,13 +468,8 @@ export async function persistManagedAuthorStylesheet(
         await temporaryHandle.writeFile(Buffer.from(plan.resultingText, 'utf8'));
         await temporaryHandle.chmod((initialStat?.mode ?? 0o600) & 0o7777);
         await temporaryHandle.sync();
-        await temporaryHandle.close();
-        temporaryHandle = null;
       } catch (error) {
         return refuse(dependencies, 'The managed stylesheet temporary file could not be created exclusively and flushed.', error);
-      } finally {
-        await closeQuietly(temporaryHandle, dependencies, 'Managed stylesheet temporary file');
-        temporaryHandle = null;
       }
       if (dependencies.afterTemporaryFileFlush) {
         try {
@@ -587,6 +577,8 @@ export async function persistManagedAuthorStylesheet(
       } catch (error) {
         return refuse(dependencies, 'The managed stylesheet atomic replacement failed; no direct-write fallback was attempted.', error);
       }
+      await closeQuietly(temporaryHandle, dependencies, 'Managed stylesheet temporary file');
+      temporaryHandle = null;
     } else {
       try {
         await dependencies.files.lstat(target.canonicalPath);
@@ -602,15 +594,12 @@ export async function persistManagedAuthorStylesheet(
         destinationIdentity = identityOf(await destinationHandle.stat());
         await destinationHandle.writeFile(Buffer.from(plan.resultingText, 'utf8'));
         await destinationHandle.sync();
-        await destinationHandle.close();
-        destinationHandle = null;
         destinationComplete = true;
       } catch (error) {
         return refuse(dependencies, 'The managed stylesheet could not be created exclusively and flushed.', error);
-      } finally {
-        await closeQuietly(destinationHandle, dependencies, 'Managed stylesheet destination');
-        destinationHandle = null;
       }
+      await closeQuietly(destinationHandle, dependencies, 'Managed stylesheet destination');
+      destinationHandle = null;
     }
 
     return {
@@ -626,12 +615,18 @@ export async function persistManagedAuthorStylesheet(
         'Managed stylesheet destination',
       );
     }
+    await closeQuietly(destinationHandle, dependencies, 'Managed stylesheet destination');
+    destinationHandle = null;
     await removeOwnedFile(
       temporaryPath,
       temporaryIdentity,
       dependencies,
       'Managed stylesheet temporary file',
     );
+    await closeQuietly(temporaryHandle, dependencies, 'Managed stylesheet temporary file');
+    temporaryHandle = null;
     await removeOwnedLock(lockPath, lockIdentity, nonce, target.canonicalPath, dependencies);
+    await closeQuietly(lockHandle, dependencies, 'Managed stylesheet lock');
+    lockHandle = null;
   }
 }

@@ -92,7 +92,7 @@ function withFiles(
 }
 
 describe('persistManagedAuthorStylesheet', () => {
-  test('node file handles retain one exact nanosecond identity after pathname replacement', async () => {
+  test('an open node file handle anchors its inode across pathname replacement', async () => {
     const { target } = await tempTarget('identity-probe');
     const files = createNodeManagedStyleFiles();
     const handle = await files.open(target.canonicalPath, 'wx', 0o600);
@@ -111,8 +111,7 @@ describe('persistManagedAuthorStylesheet', () => {
       expect(cached.ino).toBe(opened.ino);
       expect(cached.birthtimeNs).toBe(opened.birthtimeNs);
       expect(typeof replacement.birthtimeNs).toBe('bigint');
-      expect(replacement.birthtimeNs).not.toBe(opened.birthtimeNs);
-      expect(cached.birthtimeNs).not.toBe(replacement.birthtimeNs);
+      expect(replacement.dev !== opened.dev || replacement.ino !== opened.ino).toBe(true);
     } finally {
       await handle.close();
     }
@@ -883,11 +882,32 @@ describe('persistManagedAuthorStylesheet', () => {
     const logs: string[] = [];
     const deps = dependencies(logs);
     const files = deps.files;
+    const temporaryPath = `${target.canonicalPath}.ditaeditor-nonce-123.tmp`;
+    const cleanupOrder: string[] = [];
+    let temporaryOpen = false;
+    let temporaryUnlinkAttempts = 0;
     const failing = withFiles(deps, {
       open: async (value, flags, mode) => {
         const handle = await files.open(value, flags, mode);
         if (!value.endsWith('.tmp')) return handle;
-        return { ...handle, sync: async () => { throw new Error('injected temp sync failure'); } };
+        temporaryOpen = true;
+        return {
+          ...handle,
+          sync: async () => { throw new Error('injected temp sync failure'); },
+          close: async () => {
+            cleanupOrder.push('close');
+            temporaryOpen = false;
+            await handle.close();
+          },
+        };
+      },
+      unlink: async (value) => {
+        if (value === temporaryPath) {
+          temporaryUnlinkAttempts += 1;
+          expect(temporaryOpen).toBe(true);
+          cleanupOrder.push('unlink');
+        }
+        await files.unlink(value);
       },
     });
 
@@ -900,8 +920,10 @@ describe('persistManagedAuthorStylesheet', () => {
 
     expect(result.ok).toBe(false);
     expect(await readFile(target.canonicalPath, 'utf8')).toBe(initialSource);
-    expect(await exists(`${target.canonicalPath}.ditaeditor-nonce-123.tmp`)).toBe(false);
+    expect(await exists(temporaryPath)).toBe(false);
     expect(await exists(`${target.canonicalPath}.ditaeditor.lock`)).toBe(false);
+    expect(temporaryUnlinkAttempts).toBe(1);
+    expect(cleanupOrder).toEqual(['unlink', 'close']);
     expect(logs.join('\n')).toContain('injected temp sync failure');
   });
 
@@ -1053,17 +1075,34 @@ describe('persistManagedAuthorStylesheet', () => {
     const logs: string[] = [];
     const deps = dependencies(logs);
     const files = deps.files;
+    const cleanupOrder: string[] = [];
+    let destinationOpen = false;
+    let destinationUnlinkAttempts = 0;
     const failing = withFiles(deps, {
       open: async (value, flags, mode) => {
         const handle = await files.open(value, flags, mode);
         if (value !== target.canonicalPath) return handle;
+        destinationOpen = true;
         return {
           ...handle,
           writeFile: async (data) => {
             await handle.writeFile(data.subarray(0, Math.min(12, data.length)));
             throw new Error('injected mid-create write failure');
           },
+          close: async () => {
+            cleanupOrder.push('close');
+            destinationOpen = false;
+            await handle.close();
+          },
         };
+      },
+      unlink: async (value) => {
+        if (value === target.canonicalPath) {
+          destinationUnlinkAttempts += 1;
+          expect(destinationOpen).toBe(true);
+          cleanupOrder.push('unlink');
+        }
+        await files.unlink(value);
       },
     });
 
@@ -1077,6 +1116,8 @@ describe('persistManagedAuthorStylesheet', () => {
     expect(result.ok).toBe(false);
     expect(await exists(target.canonicalPath)).toBe(false);
     expect(await exists(`${target.canonicalPath}.ditaeditor.lock`)).toBe(false);
+    expect(destinationUnlinkAttempts).toBe(1);
+    expect(cleanupOrder).toEqual(['unlink', 'close']);
     expect(logs.join('\n')).toContain('injected mid-create write failure');
   });
 
@@ -1391,30 +1432,46 @@ describe('persistManagedAuthorStylesheet', () => {
     expect(logs).toEqual([]);
   });
 
-  test('lock metadata and temp bytes are flushed and both handles close before the after-flush hook', async () => {
+  test('lock and temp descriptors stay open through after-flush and close after their final pathname operations', async () => {
     const { target } = await tempTarget();
     const initialSource = await createManagedSource(target);
     const next = { ...STYLE, name: 'Metadata checked' };
     const logs: string[] = [];
     const deps = dependencies(logs);
     const files = deps.files;
+    const lockPath = `${target.canonicalPath}.ditaeditor.lock`;
+    const temporaryPath = `${target.canonicalPath}.ditaeditor-nonce-123.tmp`;
+    const openHandles = new Set<string>();
     let closes = 0;
     deps.files = {
       ...files,
-      open: async (...args) => {
-        const handle = await files.open(...args);
+      open: async (value, flags, mode) => {
+        const handle = await files.open(value, flags, mode);
+        openHandles.add(value);
         return {
           ...handle,
           close: async () => {
             closes += 1;
+            expect(openHandles.delete(value)).toBe(true);
             await handle.close();
           },
         };
       },
+      rename: async (from, to) => {
+        expect(from).toBe(temporaryPath);
+        expect(openHandles.has(temporaryPath)).toBe(true);
+        await files.rename(from, to);
+      },
+      unlink: async (value) => {
+        if (value === lockPath) expect(openHandles.has(lockPath)).toBe(true);
+        await files.unlink(value);
+      },
     };
     deps.afterTemporaryFileFlush = async () => {
-      expect(closes).toBe(2);
-      const lock = JSON.parse(await readFile(`${target.canonicalPath}.ditaeditor.lock`, 'utf8'));
+      expect(closes).toBe(0);
+      expect(openHandles.has(lockPath)).toBe(true);
+      expect(openHandles.has(temporaryPath)).toBe(true);
+      const lock = JSON.parse(await readFile(lockPath, 'utf8'));
       expect(lock).toEqual({
         schemaVersion: 1,
         canonicalTarget: target.canonicalPath,
@@ -1423,7 +1480,7 @@ describe('persistManagedAuthorStylesheet', () => {
         startedAt: '2026-07-10T08:00:00.000Z',
         nonce: 'nonce-123',
       });
-      const tempSource = await readFile(`${target.canonicalPath}.ditaeditor-nonce-123.tmp`, 'utf8');
+      const tempSource = await readFile(temporaryPath, 'utf8');
       expect(inspectManagedAuthorStylesheet(tempSource).styles
         .find((entry) => entry.className === next.className)?.name).toBe(next.name);
     };
@@ -1437,6 +1494,7 @@ describe('persistManagedAuthorStylesheet', () => {
 
     expect(result.ok).toBe(true);
     expect(closes).toBe(2);
+    expect(openHandles.size).toBe(0);
     expect(logs).toEqual([]);
   });
 
