@@ -24,6 +24,27 @@
   font-size: 14px;
 }
 
+.redline-mode-toggle,
+.redline-change-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.redline-mode-toggle {
+  margin-left: auto;
+}
+
+.redline-mode-toggle .redline-banner-btn,
+.redline-change-nav .redline-banner-btn {
+  margin-left: 0;
+}
+
+.redline-mode-toggle .redline-banner-btn[aria-pressed="true"] {
+  background: #fff;
+  color: var(--dc-color-accent-strong, #1d4ed8);
+}
+
 .redline-banner .redline-banner-count {
   margin-left: auto;
   font-weight: 600;
@@ -36,7 +57,7 @@
 
 /* One-click switch to the native side-by-side git diff. */
 .redline-banner .redline-banner-btn {
-  margin-left: auto;
+  margin-left: 0;
   padding: 3px 10px;
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 4px;
@@ -52,9 +73,195 @@
   background: rgba(255, 255, 255, 0.14);
 }
 
-/* The count hugs the button once one is present. */
-.redline-banner .redline-banner-btn + .redline-banner-count {
-  margin-left: 0;
+.redline-review-view[hidden],
+[data-redline-side-only][hidden],
+.redline-compare-group-rows[hidden] {
+  display: none !important;
+}
+
+/* ── Side-by-side rendered comparison ──────────────────────────────────────
+ * Each pair is one grid row in the normal document flow. There are no nested
+ * vertical scroll containers, so Earlier and Newer always move on the same
+ * real webview scrollbar. */
+
+.redline-side-by-side {
+  min-width: 720px;
+  border: 1px solid var(--dc-color-border, #d7dce2);
+  border-radius: 6px;
+  background: var(--dc-color-surface, #fff);
+}
+
+.redline-compare-header,
+.redline-compare-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.redline-compare-header {
+  background: var(--dc-color-surface-subtle, #f5f7f9);
+  border-bottom: 1px solid var(--dc-color-border, #d7dce2);
+  color: var(--dc-color-text-muted, #4b5563);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.redline-root-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: baseline;
+  font-size: 12px;
+}
+
+.redline-root-metadata > span {
+  color: var(--dc-color-text-muted, #4b5563);
+}
+
+.redline-compare-header > span {
+  padding: 8px 14px;
+}
+
+.redline-compare-header > span + span {
+  border-left: 1px solid var(--dc-color-border, #d7dce2);
+}
+
+.redline-compare-row {
+  align-items: stretch;
+  border-bottom: 1px solid var(--dc-color-border-subtle, #e8ebef);
+  scroll-margin-top: 112px;
+}
+
+.redline-compare-row:last-child {
+  border-bottom: 0;
+}
+
+.redline-compare-row:focus {
+  outline: 3px solid var(--dc-color-focus, #2563eb);
+  outline-offset: -3px;
+}
+
+.redline-compare-cell {
+  position: relative;
+  min-width: 0;
+  padding: 14px 16px;
+}
+
+.redline-compare-cell + .redline-compare-cell {
+  border-left: 1px solid var(--dc-color-border, #d7dce2);
+}
+
+.redline-compare-cell > article {
+  max-width: none;
+  margin: 0;
+}
+
+.redline-compare-cell img,
+.redline-compare-cell table {
+  max-width: 100%;
+}
+
+.redline-compare-placeholder {
+  min-height: 36px;
+  border: 1px dashed var(--dc-color-border, #cbd2d9);
+  border-radius: 3px;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 6px,
+    rgba(127, 127, 127, 0.08) 6px,
+    rgba(127, 127, 127, 0.08) 12px
+  );
+}
+
+.redline-compare-change-label {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.redline-compare-row-inserted [data-redline-side="new"] {
+  box-shadow: inset 4px 0 #137333;
+  background: #e6f4ea;
+}
+
+.redline-compare-row-inserted .redline-compare-change-label {
+  color: #0b5b29;
+  background: #c9ead3;
+}
+
+.redline-compare-row-deleted [data-redline-side="old"] {
+  box-shadow: inset 4px 0 #c5221f;
+  background: #fce8e6;
+}
+
+.redline-compare-row-deleted .redline-compare-change-label {
+  color: #8f1714;
+  background: #f5cbc7;
+}
+
+.redline-compare-row-modified .redline-compare-cell {
+  box-shadow: inset 4px 0 #2563eb;
+  background: #eef4ff;
+}
+
+.redline-compare-row-modified .redline-compare-change-label {
+  color: #174ea6;
+  background: #d9e7ff;
+}
+
+.redline-compare-row-formatChanged .redline-compare-cell {
+  box-shadow: inset 4px 0 #b06000;
+  background: #fef7e0;
+}
+
+.redline-compare-row-formatChanged .redline-compare-change-label {
+  color: #7a4300;
+  background: #f8e4a9;
+}
+
+.redline-compare-row-movedFrom [data-redline-side="old"],
+.redline-compare-row-movedTo [data-redline-side="new"] {
+  box-shadow: inset 4px 0 #1a56b0;
+  background: #e8f0fe;
+}
+
+.redline-compare-row-movedFrom .redline-compare-change-label,
+.redline-compare-row-movedTo .redline-compare-change-label {
+  color: #174ea6;
+  background: #d4e2fb;
+}
+
+.redline-compare-unchanged {
+  border-bottom: 1px solid var(--dc-color-border-subtle, #e8ebef);
+}
+
+.redline-compare-expand {
+  width: 100%;
+  padding: 8px 14px;
+  border: 0;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+  background: var(--dc-color-surface-subtle, #f5f7f9);
+  color: var(--dc-color-text-muted, #4b5563);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.redline-compare-expand:hover,
+.redline-compare-expand:focus-visible {
+  color: var(--dc-color-text, #111827);
+  background: var(--dc-color-surface-hover, #e9edf2);
+}
+
+.redline-compare-group-rows {
+  display: block;
 }
 
 /* ── Whole-block insertions / deletions ── */
@@ -86,6 +293,21 @@
 
 .redline-block-del img {
   opacity: 0.45;
+}
+
+.redline-root-label {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.redline-block-ins > .redline-root-label {
+  color: #137333;
+}
+
+.redline-block-del > .redline-root-label {
+  color: #c5221f;
 }
 
 /* ── Formatting-only change: one live-styled block with an amber flag ── */
@@ -216,6 +438,32 @@ del.redline {
 /* High Contrast mode can discard every semantic background above. Preserve
  * change meaning with system-colored structural cues instead of forcing colors. */
 @media (forced-colors: active) {
+  .redline-compare-row-inserted [data-redline-side="new"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .redline-compare-row-deleted [data-redline-side="old"] {
+    outline: 3px double CanvasText;
+    outline-offset: -3px;
+  }
+
+  .redline-compare-row-modified .redline-compare-cell {
+    outline: 2px solid LinkText;
+    outline-offset: -2px;
+  }
+
+  .redline-compare-row-formatChanged .redline-compare-cell {
+    outline: 2px dotted CanvasText;
+    outline-offset: -2px;
+  }
+
+  .redline-compare-row-movedFrom [data-redline-side="old"],
+  .redline-compare-row-movedTo [data-redline-side="new"] {
+    outline: 2px dashed LinkText;
+    outline-offset: -2px;
+  }
+
   .redline-block-ins {
     outline: 2px solid Highlight;
   }

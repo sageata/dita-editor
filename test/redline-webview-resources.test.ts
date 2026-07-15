@@ -132,6 +132,8 @@ describe('configureRedlineWebviewResources', () => {
     expect(source).toContain('workspaceResourceWatcherSpecifications(');
     expect(source).toContain('matchesManagedStyleDocumentTarget(');
     expect(source).toContain('created.refreshGeneration.dispose()');
+    expect(source).toContain('renderReviewDocuments(oldSource, newSource');
+    expect(source).toContain('renderReviewShell({');
   });
 });
 

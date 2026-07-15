@@ -51,10 +51,10 @@ export interface RedlineWebviewResourceUris {
   scriptUris: string[];
 }
 
-/** Resource wiring for the read-only Review Changes (track-changes) panel. Same
+/** Resource wiring for the read-only Review Changes panel. Same
  *  corpus sheets as the canvas, but redline.css instead of editor.css (no editing
- *  chrome on this surface). The ONLY script is media/redline.js — scroll
- *  persistence across auto-refresh html swaps; it never edits anything. */
+ *  chrome on this surface). The ONLY script is media/redline.js — persisted
+ *  mode/scroll state plus comparison navigation; it never edits anything. */
 export function configureRedlineWebviewResources(params: {
   webview: vscode.Webview;
   extensionUri: vscode.Uri;

@@ -137,6 +137,9 @@ export interface RenderOptions {
    *  <table><title>. renderDocument defaults this to deriveTableNames(doc), so the
    *  read-only preview AND the editable canvas both name their tables; render-only. */
   tableNames?: Map<ElementNode, string>;
+  /** Prefix for generated table-header ids. Fragment consumers that render
+   *  multiple independent fragments into one DOM must supply a unique prefix. */
+  tableHeaderIdPrefix?: string;
 }
 
 function attr(el: ElementNode, name: string): string | undefined {
@@ -222,7 +225,7 @@ function titleAttrText(titleEl: ElementNode): string {
  *  ordinal both disambiguates the common many-tables-per-topic case and serves as the
  *  fallback when no ancestor title exists). The value is pre-escaped for an attribute.
  *  Render-only — emitted as aria-label, never written back to the .dita. */
-function deriveTableNames(doc: Document): Map<ElementNode, string> {
+export function deriveTableNames(doc: Document): Map<ElementNode, string> {
   const names = new Map<ElementNode, string>();
   let ordinal = 0;
   const walk = (node: CstNode, context: string): void => {
@@ -252,6 +255,7 @@ class HtmlRenderer {
     private readonly autofocusId: string | null,
     private readonly imageVersion: string | null = null,
     private readonly tableNames: Map<ElementNode, string> | null = null,
+    private readonly tableHeaderIdPrefix = 'dch',
   ) {}
 
   /** Monotonic counter for unique table-header ids across the whole document. */
@@ -606,7 +610,7 @@ class HtmlRenderer {
     const headerScope = new Map<ElementNode, string>();
     const columnHeaders = new Map<number, string[]>();
     for (const h of heads) {
-      const id = `dch${this.headerSeq++}`;
+      const id = `${this.tableHeaderIdPrefix}${this.headerSeq++}`;
       headerId.set(h.entry, id);
       headerScope.set(h.entry, h.colStart === h.colEnd ? 'col' : 'colgroup');
       for (let col = h.colStart; col <= h.colEnd; col++) {
@@ -765,6 +769,7 @@ export function renderFragment(nodes: CstNode[], options?: RenderOptions): strin
     options?.autofocusId ?? null,
     options?.imageVersion ?? null,
     options?.tableNames ?? new Map(),
+    options?.tableHeaderIdPrefix ?? 'dch',
   );
   return nodes.map((node) => renderer.node(node)).join('');
 }
@@ -781,6 +786,7 @@ export function renderDocument(doc: Document, options?: RenderOptions): string {
     // (not just the editable canvas). renderEditable still passes its own map, so the
     // `??` keeps this to a single derivation. Render-only — never serialized.
     options?.tableNames ?? deriveTableNames(doc),
+    options?.tableHeaderIdPrefix ?? 'dch',
   );
   return doc.children.map((node) => renderer.node(node)).join('');
 }

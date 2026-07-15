@@ -9,7 +9,7 @@
 import type { Attr, CstNode, Document, ElementNode } from '../cst/types';
 import { isElement } from '../cst/types';
 import { escapeTextValue, renderFragment } from '../render/to-html';
-import { diffTopics, type BlockChange } from './block-diff';
+import { diffTopics, topicRootChange, type BlockChange } from './block-diff';
 import { renderWordDiff } from './word-diff';
 
 export interface RedlineOptions {
@@ -323,6 +323,18 @@ export function renderRedline(oldDoc: Document, newDoc: Document, options?: Redl
   // children are interleaved inside the root's real rendered shell.
   const root = rootElement(newDoc) ?? rootElement(oldDoc);
   const shell = root ? splitShell(root) : null;
-  const html = shell ? shell.open + inner + shell.close : inner;
-  return { html, changeCount: countChanges(changes) };
+  const documentHtml = shell ? shell.open + inner + shell.close : inner;
+  const rootChange = topicRootChange(oldDoc, newDoc);
+  if (!rootChange) return { html: documentHtml, changeCount: countChanges(changes) };
+  if (rootChange.kind === 'inserted' || rootChange.kind === 'deleted') {
+    const wholeTopic = rootChange.newEl ?? rootChange.oldEl;
+    const blockClass = rootChange.kind === 'inserted' ? 'redline-block-ins' : 'redline-block-del';
+    const html = `<div class="redline-block ${blockClass}"><span class="redline-root-label">${rootChange.label}</span>`
+      + `${wholeTopic ? renderFragment([wholeTopic]) : ''}</div>`;
+    return { html, changeCount: 1 };
+  }
+  return {
+    html: `<div class="redline-block redline-block-fmt"><span class="redline-fmt-label">${rootChange.label}</span>${documentHtml}</div>`,
+    changeCount: countChanges(changes) + 1,
+  };
 }

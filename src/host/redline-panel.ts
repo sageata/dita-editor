@@ -1,5 +1,6 @@
-// Review Changes (track-changes) panel: a read-only webview that renders ONE
-// merged redline of a .dita topic. From a native diff it preserves that exact
+// Review Changes panel: a read-only webview with a merged Track Changes mode
+// and an aligned side-by-side rendered mode for one .dita topic. From a native
+// diff it preserves that exact
 // older/newer document pair; otherwise it compares the working copy (including
 // unsaved edits) against its git base revision (merge-base with main, falling
 // back to HEAD). Deletions struck red, insertions green, formatting-only changes amber.
@@ -12,8 +13,8 @@
 
 import * as vscode from 'vscode';
 import * as path from 'node:path';
-import { parse } from '../cst/parse';
-import { renderRedline } from '../compare/render-redline';
+import { renderReviewDocuments } from '../compare/render-review';
+import { renderReviewShell } from '../compare/review-shell';
 import { buildCanvasHtml } from '../webview/canvas-html';
 import { readFileAtRevision, resolveBaseRevision } from './revision-source';
 import { configureRedlineWebviewResources } from './webview-resources';
@@ -179,32 +180,6 @@ function retargetTaxonomyWatcher(
   }
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function bannerHtml(label: string, changeCount: number, note: string): string {
-  const compared = label
-    ? `Comparing with <strong>${escapeHtml(label)}</strong>`
-    : 'No version-control base available';
-  const count =
-    changeCount === 0
-      ? 'No changes'
-      : `${changeCount} change${changeCount === 1 ? '' : 's'}`;
-  const noteHtml = note ? `<span class="redline-banner-note">${escapeHtml(note)}</span>` : '';
-  // One-click switch to the native side-by-side git diff (only meaningful when
-  // a git base exists). media/redline.js posts the data-redline-action back
-  // here; the intercept in extension.ts is told to leave that diff tab alone.
-  const sourceDiffBtn = label
-    ? '<button type="button" class="redline-banner-btn" data-redline-action="openSourceDiff" title="Open the raw XML changes in the standard side-by-side diff">Side-by-side XML diff</button>'
-    : '';
-  return `<div class="redline-banner"><span>${compared}</span>${noteHtml}${sourceDiffBtn}<span class="redline-banner-count">${count}</span></div>`;
-}
-
 // Full recompute + repaint. Re-resolves the base revision every time (a commit
 // made while the panel is open moves the comparison point). The html assignment
 // is generation-guarded: if a newer render started while this one awaited git,
@@ -270,11 +245,11 @@ async function renderIntoPanel(
       resolveBaseRevision,
       readFileAtRevision,
     },
-    (oldSource, newSource) => renderRedline(parse(oldSource), parse(newSource), {
+    (oldSource, newSource) => renderReviewDocuments(oldSource, newSource, {
       styleNames: managedStyles.styleNames,
     }),
   );
-  const { html, changeCount } = rendered;
+  const { html: inlineHtml, changeCount } = rendered.inline;
 
   if (!entry.refreshGeneration.isCurrent(generation)) return;
   entry.managedStylesMessage = managedStyles.message;
@@ -299,7 +274,13 @@ async function renderIntoPanel(
     joinPath: vscode.Uri.joinPath,
   });
   entry.panel.webview.html = buildCanvasHtml({
-    bodyHtml: bannerHtml(label, changeCount, note) + html,
+    bodyHtml: renderReviewShell({
+      label,
+      note,
+      changeCount,
+      inlineHtml,
+      sideBySideHtml: rendered.sideBySide.html,
+    }),
     contentStyleUris,
     managedStyleCss: inspection.renderCssText,
     managedStyleConsumer: 'redline',

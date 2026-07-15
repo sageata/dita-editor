@@ -208,6 +208,12 @@ describe('public style assets', () => {
     expect(forcedColors).not.toContain('forced-color-adjust');
 
     const stateCues = [
+      ['.redline-compare-row-inserted [data-redline-side="new"]', 'solid'],
+      ['.redline-compare-row-deleted [data-redline-side="old"]', 'double'],
+      ['.redline-compare-row-modified .redline-compare-cell', 'solid'],
+      ['.redline-compare-row-formatChanged .redline-compare-cell', 'dotted'],
+      ['.redline-compare-row-movedFrom [data-redline-side="old"]', 'dashed'],
+      ['.redline-compare-row-movedTo [data-redline-side="new"]', 'dashed'],
       ['.redline-block-ins', 'solid'],
       ['.redline-block-del', 'double'],
       ['.redline-block-fmt', 'dotted'],

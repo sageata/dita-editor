@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { parse } from '../src/cst/parse';
-import { diffTopics, normalizedText } from '../src/compare/block-diff';
+import { diffTopics, normalizedText, topicRootChange } from '../src/compare/block-diff';
 import type { BlockChange } from '../src/compare/block-diff';
 import type { ElementNode } from '../src/cst/types';
 
@@ -70,6 +70,38 @@ describe('block-diff: identical and reflowed docs', () => {
       '  </body>\n' +
       '</topic>';
     expect(kinds(diff(oldSrc, newSrc))).toEqual(['same', 'same']);
+  });
+});
+
+describe('block-diff: topic root metadata', () => {
+  test('reports root attributes and root type changes outside child alignment', () => {
+    const attributes = topicRootChange(
+      parse('<topic id="old"><title>T</title></topic>'),
+      parse('<topic id="new"><title>T</title></topic>'),
+    );
+    expect(attributes?.kind).toBe('formatChanged');
+    expect(attributes?.label).toBe('Topic metadata changed');
+
+    const type = topicRootChange(
+      parse('<topic id="t"><title>T</title></topic>'),
+      parse('<concept id="t"><title>T</title></concept>'),
+    );
+    expect(type?.kind).toBe('modified');
+    expect(type?.label).toBe('Topic type changed');
+  });
+
+  test('reports an added or deleted topic root, including an otherwise empty topic', () => {
+    const added = topicRootChange(parse(''), parse('<topic id="new"/>'));
+    expect(added?.kind).toBe('inserted');
+    expect(added?.label).toBe('Topic added');
+    expect(added?.oldEl).toBeUndefined();
+    expect(added?.newEl?.attrs.some((attribute) => attribute.name === 'id' && attribute.value === 'new')).toBe(true);
+
+    const deleted = topicRootChange(parse('<concept id="old"/>'), parse(''));
+    expect(deleted?.kind).toBe('deleted');
+    expect(deleted?.label).toBe('Topic deleted');
+    expect(deleted?.oldEl?.name).toBe('concept');
+    expect(deleted?.newEl).toBeUndefined();
   });
 });
 
@@ -466,5 +498,81 @@ describe('block-diff: wide-container positional guard', () => {
     expect(body.children!.filter((c) => c.kind === 'modified').length).toBe(1);
     expect(body.children![5].kind).toBe('modified');
     expect(body.children![5].textOnly).toBe(true);
+  });
+
+  test('a sparse insertion before more than 200 children does not shift every pair', () => {
+    const paras = Array.from({ length: 201 }, (_, i) => `<p>para ${i}</p>`).join('');
+    const oldSrc = `<topic id="t"><title>T</title><body>${paras}</body></topic>`;
+    const newSrc = `<topic id="t"><title>T</title><body><p>inserted first</p>${paras}</body></topic>`;
+    const body = byName(diff(oldSrc, newSrc), 'body');
+
+    expect(body.children?.filter((change) => change.kind === 'inserted').length).toBe(1);
+    expect(body.children?.filter((change) => change.kind === 'same').length).toBe(201);
+    expect(body.children?.filter((change) => change.kind === 'modified').length).toBe(0);
+  });
+
+  test('multiple sparse edits in a wide container keep exact blocks aligned', () => {
+    const paragraphs = Array.from({ length: 401 }, (_, index) => `<p>para ${index}</p>`);
+    const oldSrc = `<topic id="t"><body>${paragraphs.join('')}</body></topic>`;
+    const inserted = [...paragraphs];
+    inserted.splice(100, 0, '<p>insert A</p>');
+    inserted.splice(302, 0, '<p>insert B</p>');
+    const insertedBody = byName(diff(
+      oldSrc,
+      `<topic id="t"><body>${inserted.join('')}</body></topic>`,
+    ), 'body');
+
+    expect(insertedBody.children?.filter((change) => change.kind === 'same').length).toBe(401);
+    expect(insertedBody.children?.filter((change) => change.kind === 'inserted').length).toBe(2);
+    expect(insertedBody.children?.filter((change) => change.kind === 'modified').length).toBe(0);
+
+    const removed = paragraphs.filter((_, index) => index !== 100 && index !== 300);
+    const removedBody = byName(diff(
+      oldSrc,
+      `<topic id="t"><body>${removed.join('')}</body></topic>`,
+    ), 'body');
+    expect(removedBody.children?.filter((change) => change.kind === 'same').length).toBe(399);
+    expect(removedBody.children?.filter((change) => change.kind === 'deleted').length).toBe(2);
+    expect(removedBody.children?.filter((change) => change.kind === 'modified').length).toBe(0);
+
+    const mixed = paragraphs.filter((_, index) => index !== 100);
+    mixed.splice(301, 0, '<p>insert replacement</p>');
+    const mixedBody = byName(diff(
+      oldSrc,
+      `<topic id="t"><body>${mixed.join('')}</body></topic>`,
+    ), 'body');
+    expect(mixedBody.children?.filter((change) => change.kind === 'same').length).toBe(400);
+    expect(mixedBody.children?.filter((change) => change.kind === 'deleted').length).toBe(1);
+    expect(mixedBody.children?.filter((change) => change.kind === 'inserted').length).toBe(1);
+    expect(mixedBody.children?.filter((change) => change.kind === 'modified').length).toBe(0);
+  });
+
+  test('multiple sparse insertions align wide repeated-content sequences', () => {
+    const paragraphs = Array.from(
+      { length: 401 },
+      (_, index) => `<p>repeat ${index % 2 === 0 ? 'A' : 'B'}</p>`,
+    );
+    const inserted = [...paragraphs];
+    inserted.splice(100, 0, '<p>insert X</p>');
+    inserted.splice(302, 0, '<p>insert Y</p>');
+    const body = byName(diff(
+      `<topic><body>${paragraphs.join('')}</body></topic>`,
+      `<topic><body>${inserted.join('')}</body></topic>`,
+    ), 'body');
+
+    expect(body.children?.filter((change) => change.kind === 'same').length).toBe(401);
+    expect(body.children?.filter((change) => change.kind === 'inserted').length).toBe(2);
+    expect(body.children?.filter((change) => change.kind === 'modified').length).toBe(0);
+
+    const mixed = paragraphs.filter((_, index) => index !== 100);
+    mixed.splice(300, 0, '<p>insert Z</p>');
+    const mixedBody = byName(diff(
+      `<topic><body>${paragraphs.join('')}</body></topic>`,
+      `<topic><body>${mixed.join('')}</body></topic>`,
+    ), 'body');
+    expect(mixedBody.children?.filter((change) => change.kind === 'same').length).toBe(400);
+    expect(mixedBody.children?.filter((change) => change.kind === 'deleted').length).toBe(1);
+    expect(mixedBody.children?.filter((change) => change.kind === 'inserted').length).toBe(1);
+    expect(mixedBody.children?.filter((change) => change.kind === 'modified').length).toBe(0);
   });
 });

@@ -41,8 +41,8 @@ const REGISTRY: Record<string, number[]> = {
   'media/canvas-table-insert-plus.js': [49],
   'media/canvas-table-resize.js': [48],
   'media/editor.css': [80],
-  // Separate script-less Review Changes webview: only the sticky banner stacks
-  // above topic content; nothing from the canvas ladder can appear there.
+  // Separate Review Changes webview: only the sticky mode banner stacks above
+  // content; nothing from the canvas ladder appears there.
   'media/redline.css': [10],
 };
 

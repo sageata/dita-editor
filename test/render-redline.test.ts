@@ -48,6 +48,25 @@ describe('renderRedline', () => {
     expect(html).toBe(renderFragment([el(doc, 'topic')]));
   });
 
+  test('topic root metadata changes are visible and included in the count', () => {
+    const oldSrc = '<topic id="old"><title>T</title><body><p>Same</p></body></topic>';
+    const newSrc = '<topic id="new"><title>T</title><body><p>Same</p></body></topic>';
+    const { html, changeCount } = redline(oldSrc, newSrc);
+
+    expect(changeCount).toBe(1);
+    expect(html).toContain('Topic metadata changed');
+    expect(html).toContain('redline-block-fmt');
+  });
+
+  test('an otherwise empty added topic is visible and included in the count', () => {
+    const { html, changeCount } = redline('', '<topic id="new"/>');
+
+    expect(changeCount).toBe(1);
+    expect(html).toContain('Topic added');
+    expect(html).toContain('redline-block-ins');
+    expect(html).toContain('<article role="article" class="nested0 topic">');
+  });
+
   test('inserted paragraph: one ins wrapper around the new p, siblings unwrapped', () => {
     const oldSrc = '<topic id="t"><title>T</title><body><p>One</p><p>Three</p></body></topic>';
     const newSrc = '<topic id="t"><title>T</title><body><p>One</p><p>Two</p><p>Three</p></body></topic>';

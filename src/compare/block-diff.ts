@@ -184,7 +184,7 @@ function makeModified(oldEl: ElementNode, newEl: ElementNode): BlockChange {
  */
 function comparePair(oldEl: ElementNode, newEl: ElementNode): BlockChange {
   if (contentKey(oldEl) !== contentKey(newEl)) return makeModified(oldEl, newEl);
-  if (attrFingerprint(oldEl) === attrFingerprint(newEl)) return { kind: 'same', newEl };
+  if (attrFingerprint(oldEl) === attrFingerprint(newEl)) return { kind: 'same', oldEl, newEl };
   // A rewritten tag tree dominates everything — including the table-coarse
   // rule, which exists for ATTRIBUTE deltas (colspec widths, cell attrs), not
   // for content restructured inside a cell with the same visible text.
@@ -292,7 +292,7 @@ function pairGap(removed: ElementNode[], added: ElementNode[]): BlockChange[] {
   return out;
 }
 
-/** Positional fallback for very wide containers (deterministic, no LCS cost). */
+/** Positional fallback for a wide unmatched middle (deterministic, no LCS cost). */
 function diffPositional(oldEls: ElementNode[], newEls: ElementNode[]): BlockChange[] {
   const out: BlockChange[] = [];
   const shared = Math.min(oldEls.length, newEls.length);
@@ -311,12 +311,11 @@ function diffPositional(oldEls: ElementNode[], newEls: ElementNode[]): BlockChan
   return out;
 }
 
-/** Diff one container's element-children lists. */
-function diffLists(oldEls: ElementNode[], newEls: ElementNode[]): BlockChange[] {
-  if (oldEls.length > LCS_GUARD || newEls.length > LCS_GUARD) {
-    return diffPositional(oldEls, newEls);
-  }
-  const matches = lcs(oldEls.map(contentKey), newEls.map(contentKey));
+function diffFromMatches(
+  oldEls: ElementNode[],
+  newEls: ElementNode[],
+  matches: Array<[number, number]>,
+): BlockChange[] {
   const out: BlockChange[] = [];
   let oi = 0;
   let ni = 0;
@@ -331,9 +330,220 @@ function diffLists(oldEls: ElementNode[], newEls: ElementNode[]): BlockChange[] 
   return out;
 }
 
+function diffLcs(oldEls: ElementNode[], newEls: ElementNode[]): BlockChange[] {
+  return diffFromMatches(oldEls, newEls, lcs(oldEls.map(contentKey), newEls.map(contentKey)));
+}
+
+/** Bounded Myers exact-match alignment for wide repeated-content gaps. Sparse
+ *  insert/delete sequences finish near-linearly even when no key is unique;
+ *  highly divergent inputs stop at the bound and retain the positional guard. */
+function myersMatches(
+  oldEls: ElementNode[],
+  newEls: ElementNode[],
+  maxDistance = LCS_GUARD,
+): Array<[number, number]> | undefined {
+  const oldKeys = oldEls.map(contentKey);
+  const newKeys = newEls.map(contentKey);
+  const n = oldKeys.length;
+  const m = newKeys.length;
+  const limit = Math.min(n + m, maxDistance);
+  const trace: Array<Map<number, number>> = [];
+  const frontier = new Map<number, number>([[1, 0]]);
+
+  for (let distance = 0; distance <= limit; distance += 1) {
+    for (let diagonal = -distance; diagonal <= distance; diagonal += 2) {
+      const down = frontier.get(diagonal + 1) ?? -1;
+      const right = frontier.get(diagonal - 1) ?? -1;
+      let oldIndex = diagonal === -distance || (diagonal !== distance && right < down)
+        ? Math.max(0, down)
+        : right + 1;
+      let newIndex = oldIndex - diagonal;
+      while (oldIndex < n && newIndex < m && oldKeys[oldIndex] === newKeys[newIndex]) {
+        oldIndex += 1;
+        newIndex += 1;
+      }
+      frontier.set(diagonal, oldIndex);
+      if (oldIndex < n || newIndex < m) continue;
+
+      trace.push(new Map(frontier));
+      const matches: Array<[number, number]> = [];
+      let x = n;
+      let y = m;
+      for (let d = distance; d > 0; d -= 1) {
+        const previous = trace[d - 1];
+        const k = x - y;
+        const previousDown = previous.get(k + 1) ?? -1;
+        const previousRight = previous.get(k - 1) ?? -1;
+        const previousK = k === -d || (k !== d && previousRight < previousDown) ? k + 1 : k - 1;
+        const previousX = Math.max(0, previous.get(previousK) ?? 0);
+        const previousY = previousX - previousK;
+        while (x > previousX && y > previousY) {
+          matches.push([x - 1, y - 1]);
+          x -= 1;
+          y -= 1;
+        }
+        x = previousX;
+        y = previousY;
+      }
+      while (x > 0 && y > 0) {
+        matches.push([x - 1, y - 1]);
+        x -= 1;
+        y -= 1;
+      }
+      matches.reverse();
+      return matches;
+    }
+    trace.push(new Map(frontier));
+  }
+  return undefined;
+}
+
+/** Ordered anchors whose exact content key occurs once on each side. The
+ *  longest increasing subsequence of new-side positions is a cheap, stable
+ *  common subsequence for wide containers (patience-diff style). */
+function uniqueOrderedAnchors(oldEls: ElementNode[], newEls: ElementNode[]): Array<[number, number]> {
+  const oldKeys = oldEls.map(contentKey);
+  const newKeys = newEls.map(contentKey);
+  const oldCounts = new Map<string, number>();
+  const newCounts = new Map<string, number>();
+  const newPositions = new Map<string, number>();
+  for (const key of oldKeys) oldCounts.set(key, (oldCounts.get(key) ?? 0) + 1);
+  newKeys.forEach((key, index) => {
+    newCounts.set(key, (newCounts.get(key) ?? 0) + 1);
+    newPositions.set(key, index);
+  });
+
+  const candidates: Array<[number, number]> = [];
+  oldKeys.forEach((key, oldIndex) => {
+    if (oldCounts.get(key) === 1 && newCounts.get(key) === 1) {
+      candidates.push([oldIndex, newPositions.get(key)!]);
+    }
+  });
+  if (candidates.length === 0) return [];
+
+  const tails: number[] = [];
+  const previous = new Array<number>(candidates.length).fill(-1);
+  candidates.forEach((candidate, candidateIndex) => {
+    let low = 0;
+    let high = tails.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (candidates[tails[middle]][1] < candidate[1]) low = middle + 1;
+      else high = middle;
+    }
+    if (low > 0) previous[candidateIndex] = tails[low - 1];
+    tails[low] = candidateIndex;
+  });
+
+  const anchors: Array<[number, number]> = [];
+  let cursor = tails[tails.length - 1];
+  while (cursor !== undefined && cursor >= 0) {
+    anchors.push(candidates[cursor]);
+    cursor = previous[cursor];
+  }
+  anchors.reverse();
+  return anchors;
+}
+
+/** Wide containers peel exact prefixes/suffixes, then use unique ordered
+ *  anchors to split the remaining middle before any positional fallback. This
+ *  isolates multiple sparse edits without allocating an unbounded LCS matrix. */
+function diffWide(oldEls: ElementNode[], newEls: ElementNode[]): BlockChange[] {
+  let prefix = 0;
+  const shared = Math.min(oldEls.length, newEls.length);
+  while (prefix < shared && contentKey(oldEls[prefix]) === contentKey(newEls[prefix])) prefix += 1;
+
+  let suffix = 0;
+  while (
+    suffix < shared - prefix
+    && contentKey(oldEls[oldEls.length - 1 - suffix]) === contentKey(newEls[newEls.length - 1 - suffix])
+  ) suffix += 1;
+
+  const oldMiddle = oldEls.slice(prefix, oldEls.length - suffix);
+  const newMiddle = newEls.slice(prefix, newEls.length - suffix);
+  let middle: BlockChange[];
+  if (oldMiddle.length <= LCS_GUARD && newMiddle.length <= LCS_GUARD) {
+    middle = diffLcs(oldMiddle, newMiddle);
+  } else {
+    const anchors = uniqueOrderedAnchors(oldMiddle, newMiddle);
+    if (anchors.length === 0) {
+      const repeatedMatches = myersMatches(oldMiddle, newMiddle);
+      middle = repeatedMatches
+        ? diffFromMatches(oldMiddle, newMiddle, repeatedMatches)
+        : diffPositional(oldMiddle, newMiddle);
+    } else {
+      middle = [];
+      let oldCursor = 0;
+      let newCursor = 0;
+      for (const [oldAnchor, newAnchor] of anchors) {
+        const oldGap = oldMiddle.slice(oldCursor, oldAnchor);
+        const newGap = newMiddle.slice(newCursor, newAnchor);
+        middle.push(...(
+          oldGap.length > LCS_GUARD || newGap.length > LCS_GUARD
+            ? diffWide(oldGap, newGap)
+            : diffLcs(oldGap, newGap)
+        ));
+        middle.push(comparePair(oldMiddle[oldAnchor], newMiddle[newAnchor]));
+        oldCursor = oldAnchor + 1;
+        newCursor = newAnchor + 1;
+      }
+      const oldTail = oldMiddle.slice(oldCursor);
+      const newTail = newMiddle.slice(newCursor);
+      middle.push(...(
+        oldTail.length > LCS_GUARD || newTail.length > LCS_GUARD
+          ? diffWide(oldTail, newTail)
+          : diffLcs(oldTail, newTail)
+      ));
+    }
+  }
+  return [
+    ...oldEls.slice(0, prefix).map((oldEl, index) => comparePair(oldEl, newEls[index])),
+    ...middle,
+    ...oldEls.slice(oldEls.length - suffix).map((oldEl, index) =>
+      comparePair(oldEl, newEls[newEls.length - suffix + index])
+    ),
+  ];
+}
+
+/** Diff one container's element-children lists. */
+function diffLists(oldEls: ElementNode[], newEls: ElementNode[]): BlockChange[] {
+  return oldEls.length > LCS_GUARD || newEls.length > LCS_GUARD
+    ? diffWide(oldEls, newEls)
+    : diffLcs(oldEls, newEls);
+}
+
 /** Root topic element: first element child, skipping xmldecl/doctype/whitespace. */
-function rootElement(doc: Document): ElementNode | undefined {
+export function rootElement(doc: Document): ElementNode | undefined {
   return doc.children.find(isElement);
+}
+
+export interface TopicRootChange {
+  kind: 'inserted' | 'deleted' | 'formatChanged' | 'modified';
+  label: 'Topic added' | 'Topic deleted' | 'Topic metadata changed' | 'Topic type changed';
+  oldEl?: ElementNode;
+  newEl?: ElementNode;
+}
+
+function ownRootFingerprint(el: ElementNode): string {
+  return el.attrs.map((attribute) => `${attribute.name}=${attribute.value}`).sort().join(';');
+}
+
+/** Root name/attribute changes sit outside diffTopics' child alignment. Expose
+ *  them separately so renderers can mark topic metadata without duplicating the
+ *  entire document as an additional block change. */
+export function topicRootChange(oldDoc: Document, newDoc: Document): TopicRootChange | undefined {
+  const oldEl = rootElement(oldDoc);
+  const newEl = rootElement(newDoc);
+  if (!oldEl && !newEl) return undefined;
+  if (!oldEl) return { kind: 'inserted', label: 'Topic added', newEl: newEl! };
+  if (!newEl) return { kind: 'deleted', label: 'Topic deleted', oldEl };
+  if (oldEl.name !== newEl.name) {
+    return { kind: 'modified', label: 'Topic type changed', oldEl, newEl };
+  }
+  if (ownRootFingerprint(oldEl) !== ownRootFingerprint(newEl)) {
+    return { kind: 'formatChanged', label: 'Topic metadata changed', oldEl, newEl };
+  }
+  return undefined;
 }
 
 /** Move-detection key: same content AND same deep attribute fingerprint only. */
