@@ -212,12 +212,6 @@ async function evaluate(client: CdpClient, expression: string, contextId = clien
   return result.result?.value;
 }
 
-async function pointerClick(client: CdpClient, point: { x: number; y: number }): Promise<void> {
-  await client.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y });
-  await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
-  await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
-}
-
 async function saveActiveEditor(client: CdpClient): Promise<void> {
   const { cdpMask } = shortcutModifier(process.platform);
   await client.send('Input.dispatchKeyEvent', {
@@ -564,7 +558,7 @@ async function runRealWebviewSmoke(): Promise<void> {
       return evaluate(webview!, `document.querySelector('td[data-valign="middle"] img[data-struct-kind="image"]') ? true : null`, webviewContextId);
     }, 20_000);
 
-    console.log('[real-webview-e2e] applying table frame and grid settings from the compact context menu');
+    console.log('[real-webview-e2e] applying table frame and grid settings through native context commands');
     const frameCases = [
       { label: 'All', value: 'all', widths: ['1px', '1px', '1px', '1px'] },
       { label: 'Top and bottom', value: 'topbot', widths: ['1px', '0px', '1px', '0px'] },
@@ -575,13 +569,12 @@ async function runRealWebviewSmoke(): Promise<void> {
     for (const frameCase of frameCases) {
       await evaluate(webview, `(() => {
         const cell = document.querySelectorAll('tbody tr')[0].children[0];
-        cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 600, clientY: 400, view: window }));
-        const settings = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Table settings');
-        if (!settings) throw new Error('Table settings is not visible');
-        settings.click();
-        const choice = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === ${JSON.stringify('Table frame: ')} + ${JSON.stringify(frameCase.label)});
-        if (!choice) throw new Error('Table frame choice is not visible');
-        choice.click();
+        const context = JSON.parse(cell.getAttribute('data-vscode-context') || '{}');
+        window.dispatchEvent(new MessageEvent('message', { data: {
+          type: 'nativeContextCommand',
+          command: ${JSON.stringify(`ditaeditor.context.cals.table.frame.${frameCase.value}`)},
+          context,
+        } }));
       })()`, webviewContextId);
       await waitFor(`WebView rendered frame ${frameCase.value}`, async () => evaluate(webview!, `(() => {
         const table = document.querySelector('table[data-struct-id]');
@@ -590,22 +583,13 @@ async function runRealWebviewSmoke(): Promise<void> {
         return [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth].join(',') === ${JSON.stringify(frameCase.widths.join(','))} ? true : null;
       })()`, webviewContextId), 20_000);
     }
-    const settingsPoint = await evaluate(webview, `(() => {
+    await evaluate(webview, `(() => {
       const cell = document.querySelectorAll('tbody tr')[0].children[0];
-      cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 600, clientY: 400, view: window }));
-      const settings = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Table settings');
-      if (!settings) throw new Error('Table settings is not visible after title rerender');
-      const rect = settings.getBoundingClientRect();
-      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      const context = JSON.parse(cell.getAttribute('data-vscode-context') || '{}');
+      window.dispatchEvent(new MessageEvent('message', { data: {
+        type: 'nativeContextCommand', command: 'ditaeditor.context.cals.table.frame.sides', context,
+      } }));
     })()`, webviewContextId);
-    await pointerClick(webview, settingsPoint);
-    const sidesPoint = await evaluate(webview, `(() => {
-      const sides = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Table frame: Sides');
-      if (!sides) throw new Error('Table frame: Sides is not visible');
-      const rect = sides.getBoundingClientRect();
-      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    })()`, webviewContextId);
-    await pointerClick(webview, sidesPoint);
     await waitFor('WebView rerendered table frame setting', async () => {
       return evaluate(webview!, `(() => {
         const table = document.querySelector('table[data-struct-id]');
@@ -616,13 +600,10 @@ async function runRealWebviewSmoke(): Promise<void> {
     }, 20_000);
     await evaluate(webview, `(() => {
       const cell = document.querySelectorAll('tbody tr')[0].children[0];
-      cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 600, clientY: 400, view: window }));
-      const settings = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Table settings');
-      if (!settings) throw new Error('Table settings is not visible after frame rerender');
-      settings.click();
-      const grid = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Grid lines: No grid lines');
-      if (!grid) throw new Error('Grid lines: No grid lines is not visible');
-      grid.click();
+      const context = JSON.parse(cell.getAttribute('data-vscode-context') || '{}');
+      window.dispatchEvent(new MessageEvent('message', { data: {
+        type: 'nativeContextCommand', command: 'ditaeditor.context.tgroup.grid.none', context,
+      } }));
     })()`, webviewContextId);
     await waitFor('WebView rerendered table grid setting', async () => {
       return evaluate(webview!, `(() => {
@@ -677,7 +658,7 @@ async function runRealWebviewSmoke(): Promise<void> {
       })()`, webviewContextId);
     }, 20_000);
 
-    console.log('[real-webview-e2e] merging a selected cell rectangle from the compact context menu');
+    console.log('[real-webview-e2e] merging a selected cell rectangle through a native context command');
     const selectedCellCount = await evaluate(webview, `(() => {
       const row = document.querySelectorAll('tbody tr')[1];
       if (!row || row.children.length !== 2) throw new Error('Expected two cells in the image row');
@@ -689,16 +670,17 @@ async function runRealWebviewSmoke(): Promise<void> {
       return document.querySelectorAll('td.is-selected, th.is-selected').length;
     })()`, webviewContextId);
     expect(selectedCellCount).toBe(2);
-    await waitFor('Merge selected cells availability in compact context menu', async () => evaluate(webview!, `(() => {
+    await waitFor('Merge selected cells native availability', async () => evaluate(webview!, `(() => {
       const first = document.querySelectorAll('tbody tr')[1].children[0];
-      first.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 600, clientY: 500, view: window }));
-      const merge = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Merge selected cells');
-      return merge && merge.getAttribute('aria-disabled') !== 'true' ? true : null;
+      const context = JSON.parse(first.getAttribute('data-vscode-context') || '{}');
+      return context.ditaNativeShowMerge && context['ditaNativeEnabled.range.cellRectMerge'] ? true : null;
     })()`, webviewContextId), 20_000);
     await evaluate(webview, `(() => {
-      const merge = Array.from(document.querySelectorAll('[role="menuitem"]')).find((item) => item.getAttribute('aria-label') === 'Merge selected cells');
-      if (!merge) throw new Error('Merge selected cells disappeared before activation');
-      merge.click();
+      const first = document.querySelectorAll('tbody tr')[1].children[0];
+      const context = JSON.parse(first.getAttribute('data-vscode-context') || '{}');
+      window.dispatchEvent(new MessageEvent('message', { data: {
+        type: 'nativeContextCommand', command: 'ditaeditor.context.range.cellRectMerge', context,
+      } }));
     })()`, webviewContextId);
     await waitFor('selected image row merged into one spanning cell', async () => {
       return evaluate(webview!, `(() => {

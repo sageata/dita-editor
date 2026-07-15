@@ -48,6 +48,7 @@ export function createVisualActionContexts(params: VisualActionContextParams): V
       pushBody: params.pushBody,
       announce: params.announce,
       clearDiagnostics: params.clearDiagnostics,
+      bumpStructVersion: params.bumpStructVersion,
     }),
     attributeActionContext: () => ({
       document: params.document,
@@ -72,6 +73,7 @@ export function createVisualActionContexts(params: VisualActionContextParams): V
       pushBody: params.pushBody,
       announce: params.announce,
       clearDiagnostics: params.clearDiagnostics,
+      bumpStructVersion: params.bumpStructVersion,
       postRangeAvailability: params.postRangeAvailability,
     }),
     insertActionContext: () => ({

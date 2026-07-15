@@ -86,6 +86,790 @@
         "title": "Review Changes (Track Changes)",
         "category": "DITA Editor",
         "icon": "$(git-compare)"
+      },
+      {
+        "command": "ditaeditor.context.transform.paragraphToSection",
+        "title": "Section",
+        "enablement": "ditaNativeEnabled.transform.paragraphToSection"
+      },
+      {
+        "command": "ditaeditor.context.transform.paragraphToUnorderedList",
+        "title": "Bulleted list",
+        "enablement": "ditaNativeEnabled.transform.paragraphToUnorderedList"
+      },
+      {
+        "command": "ditaeditor.context.transform.paragraphToAlphabeticList",
+        "title": "Alphabetic list",
+        "enablement": "ditaNativeEnabled.transform.paragraphToAlphabeticList"
+      },
+      {
+        "command": "ditaeditor.context.transform.paragraphToOrderedList",
+        "title": "Numbered list",
+        "enablement": "ditaNativeEnabled.transform.paragraphToOrderedList"
+      },
+      {
+        "command": "ditaeditor.context.transform.paragraphToNote",
+        "title": "Note",
+        "enablement": "ditaNativeEnabled.transform.paragraphToNote"
+      },
+      {
+        "command": "ditaeditor.context.transform.paragraphToCodeblock",
+        "title": "Code block",
+        "enablement": "ditaNativeEnabled.transform.paragraphToCodeblock"
+      },
+      {
+        "command": "ditaeditor.context.transform.paragraphToItem",
+        "title": "List item",
+        "enablement": "ditaNativeEnabled.transform.paragraphToItem"
+      },
+      {
+        "command": "ditaeditor.context.transform.itemToParagraph",
+        "title": "Paragraph",
+        "enablement": "ditaNativeEnabled.transform.itemToParagraph"
+      },
+      {
+        "command": "ditaeditor.context.transform.toAlphabeticList",
+        "title": "Alphabetic list",
+        "enablement": "ditaNativeEnabled.transform.toAlphabeticList"
+      },
+      {
+        "command": "ditaeditor.context.transform.toOrderedList",
+        "title": "Numbered list",
+        "enablement": "ditaNativeEnabled.transform.toOrderedList"
+      },
+      {
+        "command": "ditaeditor.context.transform.toUnorderedList",
+        "title": "Bulleted list",
+        "enablement": "ditaNativeEnabled.transform.toUnorderedList"
+      },
+      {
+        "command": "ditaeditor.context.transform.linesToParagraph",
+        "title": "Paragraph",
+        "enablement": "ditaNativeEnabled.transform.linesToParagraph"
+      },
+      {
+        "command": "ditaeditor.context.transform.linesToUnorderedList",
+        "title": "Bulleted list",
+        "enablement": "ditaNativeEnabled.transform.linesToUnorderedList"
+      },
+      {
+        "command": "ditaeditor.context.transform.linesToAlphabeticList",
+        "title": "Alphabetic list",
+        "enablement": "ditaNativeEnabled.transform.linesToAlphabeticList"
+      },
+      {
+        "command": "ditaeditor.context.transform.linesToOrderedList",
+        "title": "Numbered list",
+        "enablement": "ditaNativeEnabled.transform.linesToOrderedList"
+      },
+      {
+        "command": "ditaeditor.context.transform.linesToSection",
+        "title": "Section",
+        "enablement": "ditaNativeEnabled.transform.linesToSection"
+      },
+      {
+        "command": "ditaeditor.context.transform.linesToNote",
+        "title": "Note",
+        "enablement": "ditaNativeEnabled.transform.linesToNote"
+      },
+      {
+        "command": "ditaeditor.context.transform.linesToCodeblock",
+        "title": "Code block",
+        "enablement": "ditaNativeEnabled.transform.linesToCodeblock"
+      },
+      {
+        "command": "ditaeditor.context.transform.entryToParagraph",
+        "title": "Convert content to paragraph",
+        "enablement": "ditaNativeEnabled.transform.entryToParagraph"
+      },
+      {
+        "command": "ditaeditor.context.transform.entryToUnorderedList",
+        "title": "Convert content to bulleted list",
+        "enablement": "ditaNativeEnabled.transform.entryToUnorderedList"
+      },
+      {
+        "command": "ditaeditor.context.transform.entryToAlphabeticList",
+        "title": "Convert content to alphabetic list",
+        "enablement": "ditaNativeEnabled.transform.entryToAlphabeticList"
+      },
+      {
+        "command": "ditaeditor.context.transform.entryToOrderedList",
+        "title": "Convert content to numbered list",
+        "enablement": "ditaNativeEnabled.transform.entryToOrderedList"
+      },
+      {
+        "command": "ditaeditor.context.transform.entryToLines",
+        "title": "Convert content to lines",
+        "enablement": "ditaNativeEnabled.transform.entryToLines"
+      },
+      {
+        "command": "ditaeditor.context.transform.entryToNote",
+        "title": "Convert content to note",
+        "enablement": "ditaNativeEnabled.transform.entryToNote"
+      },
+      {
+        "command": "ditaeditor.context.transform.entryToCodeblock",
+        "title": "Convert content to code block",
+        "enablement": "ditaNativeEnabled.transform.entryToCodeblock"
+      },
+      {
+        "command": "ditaeditor.context.structural.target.indentItem",
+        "title": "Indent",
+        "enablement": "ditaNativeEnabled.structural.target.indentItem"
+      },
+      {
+        "command": "ditaeditor.context.structural.target.outdentItem",
+        "title": "Outdent",
+        "enablement": "ditaNativeEnabled.structural.target.outdentItem"
+      },
+      {
+        "command": "ditaeditor.context.structural.row.addRowBefore",
+        "title": "Add row above",
+        "enablement": "ditaNativeEnabled.structural.row.addRowBefore"
+      },
+      {
+        "command": "ditaeditor.context.structural.row.addRowAfter",
+        "title": "Add row below",
+        "enablement": "ditaNativeEnabled.structural.row.addRowAfter"
+      },
+      {
+        "command": "ditaeditor.context.structural.row.promoteRowToHeader",
+        "title": "Make this the header row",
+        "enablement": "ditaNativeEnabled.structural.row.promoteRowToHeader"
+      },
+      {
+        "command": "ditaeditor.context.structural.row.demoteRowFromHeader",
+        "title": "Move header row into body",
+        "enablement": "ditaNativeEnabled.structural.row.demoteRowFromHeader"
+      },
+      {
+        "command": "ditaeditor.context.structural.row.deleteRow",
+        "title": "Delete row",
+        "enablement": "ditaNativeEnabled.structural.row.deleteRow"
+      },
+      {
+        "command": "ditaeditor.context.structural.column.addColumnBefore",
+        "title": "Add column to the left",
+        "enablement": "ditaNativeEnabled.structural.column.addColumnBefore"
+      },
+      {
+        "command": "ditaeditor.context.structural.column.addColumnAfter",
+        "title": "Add column to the right",
+        "enablement": "ditaNativeEnabled.structural.column.addColumnAfter"
+      },
+      {
+        "command": "ditaeditor.context.structural.column.moveColumnLeft",
+        "title": "Move column left",
+        "enablement": "ditaNativeEnabled.structural.column.moveColumnLeft"
+      },
+      {
+        "command": "ditaeditor.context.structural.column.moveColumnRight",
+        "title": "Move column right",
+        "enablement": "ditaNativeEnabled.structural.column.moveColumnRight"
+      },
+      {
+        "command": "ditaeditor.context.structural.column.deleteColumn",
+        "title": "Delete column",
+        "enablement": "ditaNativeEnabled.structural.column.deleteColumn"
+      },
+      {
+        "command": "ditaeditor.context.structural.cell.splitCell",
+        "title": "Split merged cell",
+        "enablement": "ditaNativeEnabled.structural.cell.splitCell"
+      },
+      {
+        "command": "ditaeditor.context.structural.table.addTableTitle",
+        "title": "Add table title",
+        "enablement": "ditaNativeEnabled.structural.table.addTableTitle"
+      },
+      {
+        "command": "ditaeditor.context.structural.tableTitle.deleteTitle",
+        "title": "Remove table title",
+        "enablement": "ditaNativeEnabled.structural.tableTitle.deleteTitle"
+      },
+      {
+        "command": "ditaeditor.context.structural.table.deleteTable",
+        "title": "Delete this table",
+        "enablement": "ditaNativeEnabled.structural.table.deleteTable"
+      },
+      {
+        "command": "ditaeditor.context.range.cellRectMerge",
+        "title": "Merge selected cells",
+        "enablement": "ditaNativeEnabled.range.cellRectMerge"
+      },
+      {
+        "command": "ditaeditor.context.delete.p",
+        "title": "Delete this paragraph",
+        "enablement": "ditaNativeEnabled.delete.p"
+      },
+      {
+        "command": "ditaeditor.context.delete.li",
+        "title": "Delete this list item",
+        "enablement": "ditaNativeEnabled.delete.li"
+      },
+      {
+        "command": "ditaeditor.context.delete.title",
+        "title": "Delete this title",
+        "enablement": "ditaNativeEnabled.delete.title"
+      },
+      {
+        "command": "ditaeditor.context.delete.shortdesc",
+        "title": "Delete this short description",
+        "enablement": "ditaNativeEnabled.delete.shortdesc"
+      },
+      {
+        "command": "ditaeditor.context.delete.section",
+        "title": "Delete this section",
+        "enablement": "ditaNativeEnabled.delete.section"
+      },
+      {
+        "command": "ditaeditor.context.delete.lines",
+        "title": "Delete this lines block",
+        "enablement": "ditaNativeEnabled.delete.lines"
+      },
+      {
+        "command": "ditaeditor.context.delete.codeblock",
+        "title": "Delete this code block",
+        "enablement": "ditaNativeEnabled.delete.codeblock"
+      },
+      {
+        "command": "ditaeditor.context.delete.note",
+        "title": "Delete this note",
+        "enablement": "ditaNativeEnabled.delete.note"
+      },
+      {
+        "command": "ditaeditor.context.delete.cmd",
+        "title": "Delete this cmd",
+        "enablement": "ditaNativeEnabled.delete.cmd"
+      },
+      {
+        "command": "ditaeditor.context.delete.ul",
+        "title": "Delete this bulleted list",
+        "enablement": "ditaNativeEnabled.delete.ul"
+      },
+      {
+        "command": "ditaeditor.context.delete.ol",
+        "title": "Delete this numbered list",
+        "enablement": "ditaNativeEnabled.delete.ol"
+      },
+      {
+        "command": "ditaeditor.context.delete.row",
+        "title": "Delete this row",
+        "enablement": "ditaNativeEnabled.delete.row"
+      },
+      {
+        "command": "ditaeditor.context.delete.fig",
+        "title": "Delete this figure",
+        "enablement": "ditaNativeEnabled.delete.fig"
+      },
+      {
+        "command": "ditaeditor.context.delete.table",
+        "title": "Delete this table",
+        "enablement": "ditaNativeEnabled.delete.table"
+      },
+      {
+        "command": "ditaeditor.context.delete.image",
+        "title": "Delete this image",
+        "enablement": "ditaNativeEnabled.delete.image"
+      },
+      {
+        "command": "ditaeditor.context.image.pick",
+        "title": "Change image…"
+      },
+      {
+        "command": "ditaeditor.context.image.alt",
+        "title": "Edit alt text…"
+      },
+      {
+        "command": "ditaeditor.context.image.resize",
+        "title": "Resize image…"
+      },
+      {
+        "command": "ditaeditor.context.clipboard.copy",
+        "title": "Copy as DITA"
+      },
+      {
+        "command": "ditaeditor.context.clipboard.before",
+        "title": "Paste DITA before"
+      },
+      {
+        "command": "ditaeditor.context.clipboard.after",
+        "title": "Paste DITA after"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfBefore.paragraph",
+        "title": "Paragraph",
+        "enablement": "ditaNativeEnabled.insert.selfBefore.paragraph"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfBefore.unorderedList",
+        "title": "Bulleted list",
+        "enablement": "ditaNativeEnabled.insert.selfBefore.unorderedList"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfBefore.alphabeticList",
+        "title": "Alphabetic list",
+        "enablement": "ditaNativeEnabled.insert.selfBefore.alphabeticList"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfBefore.orderedList",
+        "title": "Numbered list",
+        "enablement": "ditaNativeEnabled.insert.selfBefore.orderedList"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfBefore.table",
+        "title": "Table",
+        "enablement": "ditaNativeEnabled.insert.selfBefore.table"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfBefore.lines",
+        "title": "Line-respecting text",
+        "enablement": "ditaNativeEnabled.insert.selfBefore.lines"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfBefore.note",
+        "title": "Note",
+        "enablement": "ditaNativeEnabled.insert.selfBefore.note"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfBefore.codeblock",
+        "title": "Code block",
+        "enablement": "ditaNativeEnabled.insert.selfBefore.codeblock"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfBefore.section",
+        "title": "Section",
+        "enablement": "ditaNativeEnabled.insert.selfBefore.section"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfAfter.paragraph",
+        "title": "Paragraph",
+        "enablement": "ditaNativeEnabled.insert.selfAfter.paragraph"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfAfter.unorderedList",
+        "title": "Bulleted list",
+        "enablement": "ditaNativeEnabled.insert.selfAfter.unorderedList"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfAfter.alphabeticList",
+        "title": "Alphabetic list",
+        "enablement": "ditaNativeEnabled.insert.selfAfter.alphabeticList"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfAfter.orderedList",
+        "title": "Numbered list",
+        "enablement": "ditaNativeEnabled.insert.selfAfter.orderedList"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfAfter.table",
+        "title": "Table",
+        "enablement": "ditaNativeEnabled.insert.selfAfter.table"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfAfter.lines",
+        "title": "Line-respecting text",
+        "enablement": "ditaNativeEnabled.insert.selfAfter.lines"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfAfter.note",
+        "title": "Note",
+        "enablement": "ditaNativeEnabled.insert.selfAfter.note"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfAfter.codeblock",
+        "title": "Code block",
+        "enablement": "ditaNativeEnabled.insert.selfAfter.codeblock"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfAfter.section",
+        "title": "Section",
+        "enablement": "ditaNativeEnabled.insert.selfAfter.section"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfInto.paragraph",
+        "title": "Paragraph",
+        "enablement": "ditaNativeEnabled.insert.selfInto.paragraph"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfInto.unorderedList",
+        "title": "Bulleted list",
+        "enablement": "ditaNativeEnabled.insert.selfInto.unorderedList"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfInto.alphabeticList",
+        "title": "Alphabetic list",
+        "enablement": "ditaNativeEnabled.insert.selfInto.alphabeticList"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfInto.orderedList",
+        "title": "Numbered list",
+        "enablement": "ditaNativeEnabled.insert.selfInto.orderedList"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfInto.table",
+        "title": "Table",
+        "enablement": "ditaNativeEnabled.insert.selfInto.table"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfInto.lines",
+        "title": "Line-respecting text",
+        "enablement": "ditaNativeEnabled.insert.selfInto.lines"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfInto.note",
+        "title": "Note",
+        "enablement": "ditaNativeEnabled.insert.selfInto.note"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfInto.codeblock",
+        "title": "Code block",
+        "enablement": "ditaNativeEnabled.insert.selfInto.codeblock"
+      },
+      {
+        "command": "ditaeditor.context.insert.selfInto.section",
+        "title": "Section",
+        "enablement": "ditaNativeEnabled.insert.selfInto.section"
+      },
+      {
+        "command": "ditaeditor.context.insert.cellInto.paragraph",
+        "title": "Paragraph",
+        "enablement": "ditaNativeEnabled.insert.cellInto.paragraph"
+      },
+      {
+        "command": "ditaeditor.context.insert.cellInto.unorderedList",
+        "title": "Bulleted list",
+        "enablement": "ditaNativeEnabled.insert.cellInto.unorderedList"
+      },
+      {
+        "command": "ditaeditor.context.insert.cellInto.alphabeticList",
+        "title": "Alphabetic list",
+        "enablement": "ditaNativeEnabled.insert.cellInto.alphabeticList"
+      },
+      {
+        "command": "ditaeditor.context.insert.cellInto.orderedList",
+        "title": "Numbered list",
+        "enablement": "ditaNativeEnabled.insert.cellInto.orderedList"
+      },
+      {
+        "command": "ditaeditor.context.insert.cellInto.table",
+        "title": "Table",
+        "enablement": "ditaNativeEnabled.insert.cellInto.table"
+      },
+      {
+        "command": "ditaeditor.context.insert.cellInto.lines",
+        "title": "Line-respecting text",
+        "enablement": "ditaNativeEnabled.insert.cellInto.lines"
+      },
+      {
+        "command": "ditaeditor.context.insert.cellInto.note",
+        "title": "Note",
+        "enablement": "ditaNativeEnabled.insert.cellInto.note"
+      },
+      {
+        "command": "ditaeditor.context.insert.cellInto.codeblock",
+        "title": "Code block",
+        "enablement": "ditaNativeEnabled.insert.cellInto.codeblock"
+      },
+      {
+        "command": "ditaeditor.context.insert.cellInto.section",
+        "title": "Section",
+        "enablement": "ditaNativeEnabled.insert.cellInto.section"
+      },
+      {
+        "command": "ditaeditor.context.insert.tableAfter.paragraph",
+        "title": "Paragraph",
+        "enablement": "ditaNativeEnabled.insert.tableAfter.paragraph"
+      },
+      {
+        "command": "ditaeditor.context.insert.tableAfter.unorderedList",
+        "title": "Bulleted list",
+        "enablement": "ditaNativeEnabled.insert.tableAfter.unorderedList"
+      },
+      {
+        "command": "ditaeditor.context.insert.tableAfter.alphabeticList",
+        "title": "Alphabetic list",
+        "enablement": "ditaNativeEnabled.insert.tableAfter.alphabeticList"
+      },
+      {
+        "command": "ditaeditor.context.insert.tableAfter.orderedList",
+        "title": "Numbered list",
+        "enablement": "ditaNativeEnabled.insert.tableAfter.orderedList"
+      },
+      {
+        "command": "ditaeditor.context.insert.tableAfter.table",
+        "title": "Table",
+        "enablement": "ditaNativeEnabled.insert.tableAfter.table"
+      },
+      {
+        "command": "ditaeditor.context.insert.tableAfter.lines",
+        "title": "Line-respecting text",
+        "enablement": "ditaNativeEnabled.insert.tableAfter.lines"
+      },
+      {
+        "command": "ditaeditor.context.insert.tableAfter.note",
+        "title": "Note",
+        "enablement": "ditaNativeEnabled.insert.tableAfter.note"
+      },
+      {
+        "command": "ditaeditor.context.insert.tableAfter.codeblock",
+        "title": "Code block",
+        "enablement": "ditaNativeEnabled.insert.tableAfter.codeblock"
+      },
+      {
+        "command": "ditaeditor.context.insert.tableAfter.section",
+        "title": "Section",
+        "enablement": "ditaNativeEnabled.insert.tableAfter.section"
+      },
+      {
+        "command": "ditaeditor.context.insert.figureAfter.paragraph",
+        "title": "Paragraph",
+        "enablement": "ditaNativeEnabled.insert.figureAfter.paragraph"
+      },
+      {
+        "command": "ditaeditor.context.insert.figureAfter.unorderedList",
+        "title": "Bulleted list",
+        "enablement": "ditaNativeEnabled.insert.figureAfter.unorderedList"
+      },
+      {
+        "command": "ditaeditor.context.insert.figureAfter.alphabeticList",
+        "title": "Alphabetic list",
+        "enablement": "ditaNativeEnabled.insert.figureAfter.alphabeticList"
+      },
+      {
+        "command": "ditaeditor.context.insert.figureAfter.orderedList",
+        "title": "Numbered list",
+        "enablement": "ditaNativeEnabled.insert.figureAfter.orderedList"
+      },
+      {
+        "command": "ditaeditor.context.insert.figureAfter.table",
+        "title": "Table",
+        "enablement": "ditaNativeEnabled.insert.figureAfter.table"
+      },
+      {
+        "command": "ditaeditor.context.insert.figureAfter.lines",
+        "title": "Line-respecting text",
+        "enablement": "ditaNativeEnabled.insert.figureAfter.lines"
+      },
+      {
+        "command": "ditaeditor.context.insert.figureAfter.note",
+        "title": "Note",
+        "enablement": "ditaNativeEnabled.insert.figureAfter.note"
+      },
+      {
+        "command": "ditaeditor.context.insert.figureAfter.codeblock",
+        "title": "Code block",
+        "enablement": "ditaNativeEnabled.insert.figureAfter.codeblock"
+      },
+      {
+        "command": "ditaeditor.context.insert.figureAfter.section",
+        "title": "Section",
+        "enablement": "ditaNativeEnabled.insert.figureAfter.section"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.colsep.on",
+        "title": "Right border: On",
+        "enablement": "ditaNativeEnabled.cals.cell.colsep.on"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.colsep.off",
+        "title": "Right border: Off",
+        "enablement": "ditaNativeEnabled.cals.cell.colsep.off"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.colsep.default",
+        "title": "Right border: Default",
+        "enablement": "ditaNativeEnabled.cals.cell.colsep.default"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.rowsep.on",
+        "title": "Bottom border: On",
+        "enablement": "ditaNativeEnabled.cals.cell.rowsep.on"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.rowsep.off",
+        "title": "Bottom border: Off",
+        "enablement": "ditaNativeEnabled.cals.cell.rowsep.off"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.rowsep.default",
+        "title": "Bottom border: Default",
+        "enablement": "ditaNativeEnabled.cals.cell.rowsep.default"
+      },
+      {
+        "command": "ditaeditor.context.cals.row.rowsep.on",
+        "title": "Row bottom border: On",
+        "enablement": "ditaNativeEnabled.cals.row.rowsep.on"
+      },
+      {
+        "command": "ditaeditor.context.cals.row.rowsep.off",
+        "title": "Row bottom border: Off",
+        "enablement": "ditaNativeEnabled.cals.row.rowsep.off"
+      },
+      {
+        "command": "ditaeditor.context.cals.row.rowsep.default",
+        "title": "Row bottom border: Default",
+        "enablement": "ditaNativeEnabled.cals.row.rowsep.default"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.align.left",
+        "title": "Left",
+        "enablement": "ditaNativeEnabled.cals.cell.align.left"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.align.center",
+        "title": "Center",
+        "enablement": "ditaNativeEnabled.cals.cell.align.center"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.align.right",
+        "title": "Right",
+        "enablement": "ditaNativeEnabled.cals.cell.align.right"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.align.justify",
+        "title": "Justify",
+        "enablement": "ditaNativeEnabled.cals.cell.align.justify"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.align.default",
+        "title": "Default",
+        "enablement": "ditaNativeEnabled.cals.cell.align.default"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.valign.top",
+        "title": "Cell: Top",
+        "enablement": "ditaNativeEnabled.cals.cell.valign.top"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.valign.middle",
+        "title": "Cell: Middle",
+        "enablement": "ditaNativeEnabled.cals.cell.valign.middle"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.valign.bottom",
+        "title": "Cell: Bottom",
+        "enablement": "ditaNativeEnabled.cals.cell.valign.bottom"
+      },
+      {
+        "command": "ditaeditor.context.cals.cell.valign.default",
+        "title": "Cell: Default",
+        "enablement": "ditaNativeEnabled.cals.cell.valign.default"
+      },
+      {
+        "command": "ditaeditor.context.cals.row.valign.top",
+        "title": "Row: Top",
+        "enablement": "ditaNativeEnabled.cals.row.valign.top"
+      },
+      {
+        "command": "ditaeditor.context.cals.row.valign.middle",
+        "title": "Row: Middle",
+        "enablement": "ditaNativeEnabled.cals.row.valign.middle"
+      },
+      {
+        "command": "ditaeditor.context.cals.row.valign.bottom",
+        "title": "Row: Bottom",
+        "enablement": "ditaNativeEnabled.cals.row.valign.bottom"
+      },
+      {
+        "command": "ditaeditor.context.cals.row.valign.default",
+        "title": "Row: Default",
+        "enablement": "ditaNativeEnabled.cals.row.valign.default"
+      },
+      {
+        "command": "ditaeditor.context.cals.table.frame.all",
+        "title": "Table frame: All",
+        "enablement": "ditaNativeEnabled.cals.table.frame.all"
+      },
+      {
+        "command": "ditaeditor.context.cals.table.frame.topbot",
+        "title": "Table frame: Top and bottom",
+        "enablement": "ditaNativeEnabled.cals.table.frame.topbot"
+      },
+      {
+        "command": "ditaeditor.context.cals.table.frame.sides",
+        "title": "Table frame: Sides",
+        "enablement": "ditaNativeEnabled.cals.table.frame.sides"
+      },
+      {
+        "command": "ditaeditor.context.cals.table.frame.top",
+        "title": "Table frame: Top",
+        "enablement": "ditaNativeEnabled.cals.table.frame.top"
+      },
+      {
+        "command": "ditaeditor.context.cals.table.frame.bottom",
+        "title": "Table frame: Bottom",
+        "enablement": "ditaNativeEnabled.cals.table.frame.bottom"
+      },
+      {
+        "command": "ditaeditor.context.cals.table.frame.none",
+        "title": "Table frame: None",
+        "enablement": "ditaNativeEnabled.cals.table.frame.none"
+      },
+      {
+        "command": "ditaeditor.context.cals.table.frame.default",
+        "title": "Table frame: Default",
+        "enablement": "ditaNativeEnabled.cals.table.frame.default"
+      },
+      {
+        "command": "ditaeditor.context.shade.cell.neutral",
+        "title": "Cell: Neutral"
+      },
+      {
+        "command": "ditaeditor.context.shade.cell.gold",
+        "title": "Cell: Gold tint"
+      },
+      {
+        "command": "ditaeditor.context.shade.cell.blue",
+        "title": "Cell: Blue tint"
+      },
+      {
+        "command": "ditaeditor.context.shade.cell.white",
+        "title": "Cell: White"
+      },
+      {
+        "command": "ditaeditor.context.shade.cell.custom",
+        "title": "Cell: Custom color…"
+      },
+      {
+        "command": "ditaeditor.context.shade.cell.clear",
+        "title": "Cell: Clear"
+      },
+      {
+        "command": "ditaeditor.context.shade.row.neutral",
+        "title": "Row: Neutral"
+      },
+      {
+        "command": "ditaeditor.context.shade.row.gold",
+        "title": "Row: Gold tint"
+      },
+      {
+        "command": "ditaeditor.context.shade.row.blue",
+        "title": "Row: Blue tint"
+      },
+      {
+        "command": "ditaeditor.context.shade.row.white",
+        "title": "Row: White"
+      },
+      {
+        "command": "ditaeditor.context.shade.row.custom",
+        "title": "Row: Custom color…"
+      },
+      {
+        "command": "ditaeditor.context.shade.row.clear",
+        "title": "Row: Clear"
+      },
+      {
+        "command": "ditaeditor.context.tgroup.grid.all",
+        "title": "Grid lines: All grid lines"
+      },
+      {
+        "command": "ditaeditor.context.tgroup.grid.none",
+        "title": "Grid lines: No grid lines"
+      },
+      {
+        "command": "ditaeditor.context.tgroup.grid.default",
+        "title": "Grid lines: Default"
       }
     ],
     "menus": {
@@ -115,6 +899,650 @@
         {
           "command": "ditaeditor.compareRevision",
           "when": "resourceExtname == .dita"
+        },
+        {
+          "command": "ditaeditor.context.transform.paragraphToSection",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.paragraphToUnorderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.paragraphToAlphabeticList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.paragraphToOrderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.paragraphToNote",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.paragraphToCodeblock",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.paragraphToItem",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.itemToParagraph",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.toAlphabeticList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.toOrderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.toUnorderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToParagraph",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToUnorderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToAlphabeticList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToOrderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToSection",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToNote",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToCodeblock",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.entryToParagraph",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.entryToUnorderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.entryToAlphabeticList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.entryToOrderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.entryToLines",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.entryToNote",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.transform.entryToCodeblock",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.target.indentItem",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.target.outdentItem",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.row.addRowBefore",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.row.addRowAfter",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.row.promoteRowToHeader",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.row.demoteRowFromHeader",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.row.deleteRow",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.column.addColumnBefore",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.column.addColumnAfter",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.column.moveColumnLeft",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.column.moveColumnRight",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.column.deleteColumn",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.cell.splitCell",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.table.addTableTitle",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.tableTitle.deleteTitle",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.structural.table.deleteTable",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.range.cellRectMerge",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.p",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.li",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.title",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.shortdesc",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.section",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.lines",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.codeblock",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.note",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.cmd",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.ul",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.ol",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.row",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.fig",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.table",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.delete.image",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.image.pick",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.image.alt",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.image.resize",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.clipboard.copy",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.clipboard.before",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.clipboard.after",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.paragraph",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.unorderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.alphabeticList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.orderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.table",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.lines",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.note",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.codeblock",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.section",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.paragraph",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.unorderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.alphabeticList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.orderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.table",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.lines",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.note",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.codeblock",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.section",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.paragraph",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.unorderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.alphabeticList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.orderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.table",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.lines",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.note",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.codeblock",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.section",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.paragraph",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.unorderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.alphabeticList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.orderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.table",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.lines",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.note",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.codeblock",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.section",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.paragraph",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.unorderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.alphabeticList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.orderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.table",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.lines",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.note",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.codeblock",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.section",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.paragraph",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.unorderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.alphabeticList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.orderedList",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.table",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.lines",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.note",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.codeblock",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.section",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.colsep.on",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.colsep.off",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.colsep.default",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.rowsep.on",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.rowsep.off",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.rowsep.default",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.rowsep.on",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.rowsep.off",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.rowsep.default",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.align.left",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.align.center",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.align.right",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.align.justify",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.align.default",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.valign.top",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.valign.middle",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.valign.bottom",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.valign.default",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.valign.top",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.valign.middle",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.valign.bottom",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.valign.default",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.all",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.topbot",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.sides",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.top",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.bottom",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.none",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.default",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.shade.cell.neutral",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.shade.cell.gold",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.shade.cell.blue",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.shade.cell.white",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.shade.cell.custom",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.shade.cell.clear",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.shade.row.neutral",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.shade.row.gold",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.shade.row.blue",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.shade.row.white",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.shade.row.custom",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.shade.row.clear",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.tgroup.grid.all",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.tgroup.grid.none",
+          "when": "false"
+        },
+        {
+          "command": "ditaeditor.context.tgroup.grid.default",
+          "when": "false"
         }
       ],
       "editor/title": [
@@ -151,6 +1579,735 @@
           "command": "ditaeditor.compareRevision",
           "when": "scmProvider == git && resourceExtname == .dita",
           "group": "navigation"
+        }
+      ],
+      "webview/context": [
+        {
+          "submenu": "ditaeditor.context.submenu.convertElement",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind =~ /^(p|li|lines|ul|ol)$/",
+          "group": "1_convert@1"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.convertCell",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'cell'",
+          "group": "1_convert@1"
+        },
+        {
+          "command": "ditaeditor.context.structural.target.indentItem",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'li'",
+          "group": "2_structure@1"
+        },
+        {
+          "command": "ditaeditor.context.structural.target.outdentItem",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'li'",
+          "group": "2_structure@2"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.row",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'cell'",
+          "group": "2_structure@1"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.column",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'cell'",
+          "group": "2_structure@2"
+        },
+        {
+          "command": "ditaeditor.context.range.cellRectMerge",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'cell' && ditaNativeShowMerge",
+          "group": "2_structure@3"
+        },
+        {
+          "command": "ditaeditor.context.structural.cell.splitCell",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'cell' && ditaNativeCellMerged",
+          "group": "2_structure@4"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.borders",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'cell'",
+          "group": "3_presentation@1"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.alignText",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'cell'",
+          "group": "3_presentation@2"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.verticalAlign",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'cell'",
+          "group": "3_presentation@3"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.shading",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'cell'",
+          "group": "3_presentation@4"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.tableSettings",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'cell'",
+          "group": "3_presentation@5"
+        },
+        {
+          "command": "ditaeditor.context.image.pick",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'image'",
+          "group": "1_image@1"
+        },
+        {
+          "command": "ditaeditor.context.image.alt",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'image'",
+          "group": "1_image@2"
+        },
+        {
+          "command": "ditaeditor.context.image.resize",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'image'",
+          "group": "1_image@3"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.insert.selfBefore",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeHas.selfBefore",
+          "group": "4_insert@1"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.insert.selfAfter",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeHas.selfAfter",
+          "group": "4_insert@2"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.insert.selfInto",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeHas.selfInto",
+          "group": "4_insert@3"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.insert.cellInto",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeHas.cellInto",
+          "group": "4_insert@4"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.insert.tableAfter",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeHas.tableAfter",
+          "group": "4_insert@5"
+        },
+        {
+          "submenu": "ditaeditor.context.submenu.insert.figureAfter",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeHas.figureAfter",
+          "group": "4_insert@6"
+        },
+        {
+          "command": "ditaeditor.context.clipboard.copy",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element'",
+          "group": "5_clipboard@1"
+        },
+        {
+          "command": "ditaeditor.context.clipboard.before",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element'",
+          "group": "5_clipboard@2"
+        },
+        {
+          "command": "ditaeditor.context.clipboard.after",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element'",
+          "group": "5_clipboard@3"
+        },
+        {
+          "command": "ditaeditor.context.delete.p",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'p'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.li",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'li'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.title",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'title'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.shortdesc",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'shortdesc'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.section",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'section'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.lines",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'lines'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.codeblock",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'codeblock'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.note",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'note'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.cmd",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'cmd'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.ul",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'ul'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.ol",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'ol'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.row",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'row'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.fig",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'fig'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.table",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'element' && ditaNativeKind == 'table'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.delete.image",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'image' && ditaNativeKind == 'image'",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "ditaeditor.context.structural.table.deleteTable",
+          "when": "webviewId == 'ditaeditor.visual' && ditaNativeContext == 'cell'",
+          "group": "9_delete@1"
+        }
+      ],
+      "ditaeditor.context.submenu.convertElement": [
+        {
+          "command": "ditaeditor.context.transform.paragraphToSection",
+          "when": "ditaNativeKind == 'p'"
+        },
+        {
+          "command": "ditaeditor.context.transform.paragraphToUnorderedList",
+          "when": "ditaNativeKind == 'p'"
+        },
+        {
+          "command": "ditaeditor.context.transform.paragraphToAlphabeticList",
+          "when": "ditaNativeKind == 'p'"
+        },
+        {
+          "command": "ditaeditor.context.transform.paragraphToOrderedList",
+          "when": "ditaNativeKind == 'p'"
+        },
+        {
+          "command": "ditaeditor.context.transform.paragraphToNote",
+          "when": "ditaNativeKind == 'p'"
+        },
+        {
+          "command": "ditaeditor.context.transform.paragraphToCodeblock",
+          "when": "ditaNativeKind == 'p'"
+        },
+        {
+          "command": "ditaeditor.context.transform.paragraphToItem",
+          "when": "ditaNativeKind == 'p'"
+        },
+        {
+          "command": "ditaeditor.context.transform.itemToParagraph",
+          "when": "ditaNativeKind == 'li'"
+        },
+        {
+          "command": "ditaeditor.context.transform.toAlphabeticList",
+          "when": "ditaNativeKind == 'li'"
+        },
+        {
+          "command": "ditaeditor.context.transform.toOrderedList",
+          "when": "ditaNativeKind == 'li'"
+        },
+        {
+          "command": "ditaeditor.context.transform.toUnorderedList",
+          "when": "ditaNativeKind == 'li'"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToParagraph",
+          "when": "ditaNativeKind == 'lines'"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToUnorderedList",
+          "when": "ditaNativeKind == 'lines'"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToAlphabeticList",
+          "when": "ditaNativeKind == 'lines'"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToOrderedList",
+          "when": "ditaNativeKind == 'lines'"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToSection",
+          "when": "ditaNativeKind == 'lines'"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToNote",
+          "when": "ditaNativeKind == 'lines'"
+        },
+        {
+          "command": "ditaeditor.context.transform.linesToCodeblock",
+          "when": "ditaNativeKind == 'lines'"
+        },
+        {
+          "command": "ditaeditor.context.transform.toAlphabeticList",
+          "when": "ditaNativeKind == 'ul'"
+        },
+        {
+          "command": "ditaeditor.context.transform.toOrderedList",
+          "when": "ditaNativeKind == 'ul'"
+        },
+        {
+          "command": "ditaeditor.context.transform.toUnorderedList",
+          "when": "ditaNativeKind == 'ul'"
+        },
+        {
+          "command": "ditaeditor.context.transform.toAlphabeticList",
+          "when": "ditaNativeKind == 'ol'"
+        },
+        {
+          "command": "ditaeditor.context.transform.toOrderedList",
+          "when": "ditaNativeKind == 'ol'"
+        },
+        {
+          "command": "ditaeditor.context.transform.toUnorderedList",
+          "when": "ditaNativeKind == 'ol'"
+        }
+      ],
+      "ditaeditor.context.submenu.convertCell": [
+        {
+          "command": "ditaeditor.context.transform.entryToParagraph"
+        },
+        {
+          "command": "ditaeditor.context.transform.entryToUnorderedList"
+        },
+        {
+          "command": "ditaeditor.context.transform.entryToAlphabeticList"
+        },
+        {
+          "command": "ditaeditor.context.transform.entryToOrderedList"
+        },
+        {
+          "command": "ditaeditor.context.transform.entryToLines"
+        },
+        {
+          "command": "ditaeditor.context.transform.entryToNote"
+        },
+        {
+          "command": "ditaeditor.context.transform.entryToCodeblock"
+        }
+      ],
+      "ditaeditor.context.submenu.row": [
+        {
+          "command": "ditaeditor.context.structural.row.addRowBefore"
+        },
+        {
+          "command": "ditaeditor.context.structural.row.addRowAfter"
+        },
+        {
+          "command": "ditaeditor.context.structural.row.promoteRowToHeader",
+          "when": "!ditaNativeInHeader"
+        },
+        {
+          "command": "ditaeditor.context.structural.row.demoteRowFromHeader",
+          "when": "ditaNativeInHeader"
+        },
+        {
+          "command": "ditaeditor.context.structural.row.deleteRow"
+        }
+      ],
+      "ditaeditor.context.submenu.column": [
+        {
+          "command": "ditaeditor.context.structural.column.addColumnBefore"
+        },
+        {
+          "command": "ditaeditor.context.structural.column.addColumnAfter"
+        },
+        {
+          "command": "ditaeditor.context.structural.column.moveColumnLeft"
+        },
+        {
+          "command": "ditaeditor.context.structural.column.moveColumnRight"
+        },
+        {
+          "command": "ditaeditor.context.structural.column.deleteColumn"
+        }
+      ],
+      "ditaeditor.context.submenu.borders": [
+        {
+          "command": "ditaeditor.context.cals.cell.colsep.on",
+          "group": "1_right"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.colsep.off",
+          "group": "1_right"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.colsep.default",
+          "group": "1_right"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.rowsep.on",
+          "group": "2_bottom"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.rowsep.off",
+          "group": "2_bottom"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.rowsep.default",
+          "group": "2_bottom"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.rowsep.on",
+          "group": "3_row"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.rowsep.off",
+          "group": "3_row"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.rowsep.default",
+          "group": "3_row"
+        }
+      ],
+      "ditaeditor.context.submenu.alignText": [
+        {
+          "command": "ditaeditor.context.cals.cell.align.left"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.align.center"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.align.right"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.align.justify"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.align.default"
+        }
+      ],
+      "ditaeditor.context.submenu.verticalAlign": [
+        {
+          "command": "ditaeditor.context.cals.cell.valign.top",
+          "group": "1_cell"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.valign.middle",
+          "group": "1_cell"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.valign.bottom",
+          "group": "1_cell"
+        },
+        {
+          "command": "ditaeditor.context.cals.cell.valign.default",
+          "group": "1_cell"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.valign.top",
+          "group": "2_row"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.valign.middle",
+          "group": "2_row"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.valign.bottom",
+          "group": "2_row"
+        },
+        {
+          "command": "ditaeditor.context.cals.row.valign.default",
+          "group": "2_row"
+        }
+      ],
+      "ditaeditor.context.submenu.shading": [
+        {
+          "command": "ditaeditor.context.shade.cell.neutral",
+          "group": "1_cell"
+        },
+        {
+          "command": "ditaeditor.context.shade.cell.gold",
+          "group": "1_cell"
+        },
+        {
+          "command": "ditaeditor.context.shade.cell.blue",
+          "group": "1_cell"
+        },
+        {
+          "command": "ditaeditor.context.shade.cell.white",
+          "group": "1_cell"
+        },
+        {
+          "command": "ditaeditor.context.shade.cell.custom",
+          "group": "1_cell"
+        },
+        {
+          "command": "ditaeditor.context.shade.cell.clear",
+          "group": "1_cell"
+        },
+        {
+          "command": "ditaeditor.context.shade.row.neutral",
+          "group": "2_row"
+        },
+        {
+          "command": "ditaeditor.context.shade.row.gold",
+          "group": "2_row"
+        },
+        {
+          "command": "ditaeditor.context.shade.row.blue",
+          "group": "2_row"
+        },
+        {
+          "command": "ditaeditor.context.shade.row.white",
+          "group": "2_row"
+        },
+        {
+          "command": "ditaeditor.context.shade.row.custom",
+          "group": "2_row"
+        },
+        {
+          "command": "ditaeditor.context.shade.row.clear",
+          "group": "2_row"
+        }
+      ],
+      "ditaeditor.context.submenu.tableSettings": [
+        {
+          "command": "ditaeditor.context.structural.table.addTableTitle",
+          "when": "!ditaNativeHasTableTitle",
+          "group": "1_title"
+        },
+        {
+          "command": "ditaeditor.context.structural.tableTitle.deleteTitle",
+          "when": "ditaNativeHasTableTitle",
+          "group": "1_title"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.all",
+          "group": "2_frame"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.topbot",
+          "group": "2_frame"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.sides",
+          "group": "2_frame"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.top",
+          "group": "2_frame"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.bottom",
+          "group": "2_frame"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.none",
+          "group": "2_frame"
+        },
+        {
+          "command": "ditaeditor.context.cals.table.frame.default",
+          "group": "2_frame"
+        },
+        {
+          "command": "ditaeditor.context.tgroup.grid.all",
+          "group": "3_grid"
+        },
+        {
+          "command": "ditaeditor.context.tgroup.grid.none",
+          "group": "3_grid"
+        },
+        {
+          "command": "ditaeditor.context.tgroup.grid.default",
+          "group": "3_grid"
+        }
+      ],
+      "ditaeditor.context.submenu.insert.selfBefore": [
+        {
+          "command": "ditaeditor.context.insert.selfBefore.paragraph"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.unorderedList"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.alphabeticList"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.orderedList"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.table"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.lines"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.note"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.codeblock"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfBefore.section"
+        }
+      ],
+      "ditaeditor.context.submenu.insert.selfAfter": [
+        {
+          "command": "ditaeditor.context.insert.selfAfter.paragraph"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.unorderedList"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.alphabeticList"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.orderedList"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.table"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.lines"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.note"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.codeblock"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfAfter.section"
+        }
+      ],
+      "ditaeditor.context.submenu.insert.selfInto": [
+        {
+          "command": "ditaeditor.context.insert.selfInto.paragraph"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.unorderedList"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.alphabeticList"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.orderedList"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.table"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.lines"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.note"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.codeblock"
+        },
+        {
+          "command": "ditaeditor.context.insert.selfInto.section"
+        }
+      ],
+      "ditaeditor.context.submenu.insert.cellInto": [
+        {
+          "command": "ditaeditor.context.insert.cellInto.paragraph"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.unorderedList"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.alphabeticList"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.orderedList"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.table"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.lines"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.note"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.codeblock"
+        },
+        {
+          "command": "ditaeditor.context.insert.cellInto.section"
+        }
+      ],
+      "ditaeditor.context.submenu.insert.tableAfter": [
+        {
+          "command": "ditaeditor.context.insert.tableAfter.paragraph"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.unorderedList"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.alphabeticList"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.orderedList"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.table"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.lines"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.note"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.codeblock"
+        },
+        {
+          "command": "ditaeditor.context.insert.tableAfter.section"
+        }
+      ],
+      "ditaeditor.context.submenu.insert.figureAfter": [
+        {
+          "command": "ditaeditor.context.insert.figureAfter.paragraph"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.unorderedList"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.alphabeticList"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.orderedList"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.table"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.lines"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.note"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.codeblock"
+        },
+        {
+          "command": "ditaeditor.context.insert.figureAfter.section"
         }
       ]
     },
@@ -219,6 +2376,68 @@
             ]
           }
         ]
+      }
+    ],
+    "submenus": [
+      {
+        "id": "ditaeditor.context.submenu.convertElement",
+        "label": "Convert to"
+      },
+      {
+        "id": "ditaeditor.context.submenu.convertCell",
+        "label": "Convert content"
+      },
+      {
+        "id": "ditaeditor.context.submenu.row",
+        "label": "Row"
+      },
+      {
+        "id": "ditaeditor.context.submenu.column",
+        "label": "Column"
+      },
+      {
+        "id": "ditaeditor.context.submenu.borders",
+        "label": "Borders"
+      },
+      {
+        "id": "ditaeditor.context.submenu.alignText",
+        "label": "Align text"
+      },
+      {
+        "id": "ditaeditor.context.submenu.verticalAlign",
+        "label": "Vertical align"
+      },
+      {
+        "id": "ditaeditor.context.submenu.shading",
+        "label": "Shading"
+      },
+      {
+        "id": "ditaeditor.context.submenu.tableSettings",
+        "label": "Table settings"
+      },
+      {
+        "id": "ditaeditor.context.submenu.insert.selfBefore",
+        "label": "Insert before"
+      },
+      {
+        "id": "ditaeditor.context.submenu.insert.selfAfter",
+        "label": "Insert after"
+      },
+      {
+        "id": "ditaeditor.context.submenu.insert.selfInto",
+        "label": "Insert inside"
+      },
+      {
+        "id": "ditaeditor.context.submenu.insert.cellInto",
+        "label": "Insert inside cell"
+      },
+      {
+        "id": "ditaeditor.context.submenu.insert.tableAfter",
+        "label": "Insert after table"
+      },
+      {
+        "id": "ditaeditor.context.submenu.insert.figureAfter",
+        "label": "Insert after figure"
       }
     ]
   },

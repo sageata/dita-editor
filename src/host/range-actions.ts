@@ -17,6 +17,7 @@ export interface RangeActionContext {
   pushBody(focusId: string | null, caretOffset: number | null): void;
   announce(message: string): void;
   clearDiagnostics(): void;
+  bumpStructVersion(): void;
   postRangeAvailability(forIds: string[], actions: RangeActionAvailability[]): void;
 }
 
@@ -161,6 +162,7 @@ export async function executeRangeAction(
     // (atomic, single undo), then rerender + push the fresh navMap/cmdMap.
     if (await ctx.applyMinimal(result.source)) {
       ctx.clearDiagnostics();
+      ctx.bumpStructVersion();
       ctx.pushBody(null, null);
       ctx.announce(rangeSuccessMessage(result.action, ids.length));
     }

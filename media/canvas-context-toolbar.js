@@ -210,8 +210,7 @@
 
     function scheduleHide() {
       const insertMenu = opts.getInsertMenuController();
-      const contextMenu = opts.getContextMenuController();
-      if (toolbarFocused || (insertMenu && insertMenu.isOpen()) || (contextMenu && contextMenu.isOpen())) return;
+      if (toolbarFocused || (insertMenu && insertMenu.isOpen())) return;
       clearHideTimer();
       hideTimer = setTimeout(() => {
         hide();

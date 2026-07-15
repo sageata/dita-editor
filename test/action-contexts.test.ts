@@ -58,18 +58,20 @@ describe('createVisualActionContexts', () => {
     image.pushBody('e1', 3);
     image.announce('image changed');
     image.clearDiagnostics();
+    image.bumpStructVersion();
 
     const attribute = contexts.attributeActionContext();
     attribute.postError('bad attribute');
     attribute.clearDiagnostics();
 
     const inline = contexts.inlineActionContext();
-    expect(inline.getStructVersion()).toBe(2);
-    inline.bumpStructVersion();
     expect(inline.getStructVersion()).toBe(3);
+    inline.bumpStructVersion();
+    expect(inline.getStructVersion()).toBe(4);
 
     const range = contexts.rangeActionContext();
     range.postRangeAvailability(['e1'], [{ action: 'rangeDelete', enabled: true }]);
+    range.bumpStructVersion();
 
     const insert = contexts.insertActionContext();
     insert.setRefusedDiagnostic('paragraph');
@@ -87,6 +89,6 @@ describe('createVisualActionContexts', () => {
     expect(clears).toBe(2);
     expect(refused).toEqual(['paragraph', 'split']);
     expect(rangePosts).toEqual([{ ids: ['e1'], actions: [{ action: 'rangeDelete', enabled: true }] }]);
-    expect(version).toBe(5);
+    expect(version).toBe(7);
   });
 });

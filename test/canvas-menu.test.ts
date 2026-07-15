@@ -44,14 +44,13 @@ function setBox(
 }
 
 describe('canvas-menu', () => {
-  test('renders element headers and fly-out submenus from menu definitions', () => {
+  test('renders fly-out submenus from menu definitions', () => {
     const doc = new TestDocument();
     const activated: string[] = [];
     const menu = loadMenu(doc).createMenu('List item actions');
 
     menu.openAt(
       [
-        { elementHeader: { label: 'List item', icon: '<svg></svg>', tag: '<li>' } },
         { separator: true },
         {
           label: 'Convert to',
@@ -91,7 +90,7 @@ describe('canvas-menu', () => {
     const root = menuRoot(doc);
     expect(root.style.width).toBe('300px');
     expect(root.style.overflow).toBe('auto');
-    expect(root.querySelector('[data-menu-header="List item"]')).toBeInstanceOf(TestElement);
+    expect(root.querySelector('[data-menu-header="List item"]')).toBeNull();
 
     const convert = root.querySelector('[aria-label="Convert to"]')!;
     expect(convert.getAttribute('aria-haspopup')).toBe('menu');

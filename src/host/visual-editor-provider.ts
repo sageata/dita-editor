@@ -96,8 +96,15 @@ import {
   readRevalidatedTaxonomyResource,
   type TaxonomyResourceIdentity,
 } from './taxonomy-state';
+import {
+  createNativeContextExecutionGate,
+  nativeContextCommandIds,
+  routeNativeContextCommand,
+  withoutNativeContextTransportMetadata,
+} from './native-context-routing';
 
 export const VIEW_TYPE = 'ditaeditor.visual';
+export { NATIVE_CONTEXT_COMMAND_PREFIX } from './native-context-routing';
 
 // Host-side discoverability surface, owned by activate() and shared with the
 // provider: a Problems DiagnosticCollection for refused/stale ops, plus the
@@ -119,19 +126,32 @@ export interface VisualHost {
 }
 
 export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider {
+  private readonly nativeContextWebviews = new Map<string, vscode.Webview>();
+
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly host: VisualHost,
   ) {}
 
+  registerNativeContextCommands(): vscode.Disposable[] {
+    return nativeContextCommandIds(this.context.extension.packageJSON)
+      .map((command) => vscode.commands.registerCommand(command, (argument: unknown) => {
+        const result = routeNativeContextCommand(command, argument, this.nativeContextWebviews);
+        if (!result.ok) this.host.debug.appendLine(`native context command refused (${command}): ${result.reason}`);
+      }));
+  }
+
   async resolveCustomTextEditor(document: vscode.TextDocument, webviewPanel: vscode.WebviewPanel): Promise<void> {
     const { webview } = webviewPanel;
+    const nativeContextSession = makeNonce();
+    this.nativeContextWebviews.set(nativeContextSession, webview);
     let folder = vscode.workspace.getWorkspaceFolder(document.uri);
     let disposed = false;
     let disposeEditorResources = (): void => {};
     let disposeEarlyTaxonomy = (): void => {};
     const earlyDispose = webviewPanel.onDidDispose(() => {
       disposed = true;
+      if (this.nativeContextWebviews.get(nativeContextSession) === webview) this.nativeContextWebviews.delete(nativeContextSession);
       disposeEarlyTaxonomy();
       disposeEditorResources();
     });
@@ -517,6 +537,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         scriptUris,
         nonce: makeNonce(),
         taxonomy: currentTaxonomy,
+        nativeContextSession,
       });
     };
 
@@ -893,7 +914,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
     const authorizeCurrentAttributeMessage = (message: CanvasMessage) =>
       authorizeAttributeMessage({
         source: document.getText(),
-        message: message as unknown as Record<string, unknown>,
+        message: withoutNativeContextTransportMetadata(message as unknown as Record<string, unknown>),
         taxonomy: currentTaxonomy,
         styles: authorStyleInspection.styles,
         structVersion,
@@ -1022,6 +1043,18 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
       }
     };
     const onMessage = webview.onDidReceiveMessage((msg: CanvasMessage) => {
+      const refuseStaleNativeContext = (): void => {
+        this.host.debug.appendLine('native context command refused: stale or foreign render context');
+        announce('That context menu action was stale. The editor has been refreshed.');
+        pushBody(null, null);
+      };
+      const nativeContextGate = createNativeContextExecutionGate(
+        msg,
+        nativeContextSession,
+        () => structVersion,
+        refuseStaleNativeContext,
+      );
+      const runWhenNativeContextFresh = nativeContextGate.run;
       if (msg && msg.type === 'resumeStyleSave') {
         if (!isValidStyleSaveRequestId(msg.requestId)) {
           styleLog('Ignored an invalid resumed style save request ID.');
@@ -1049,6 +1082,12 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
           styleSaveResults.acknowledge(msg.requestId);
         }
         return;
+      }
+      if (msg?.nativeContextSession !== undefined) {
+        if (!nativeContextGate.isFresh()) {
+          refuseStaleNativeContext();
+          return;
+        }
       }
       // One-time load handshake: the initial canvas comes from webview.html (no message),
       // so the client pings once it is ready and we reply with the current navMap. Handled
@@ -1136,7 +1175,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
       }
       if (msg && isAuthorizedAttributeMessageType(msg.type)) {
         queue = queue
-          .then(async () => {
+          .then(() => runWhenNativeContextFresh(async () => {
             const authorized = authorizeCurrentAttributeMessage(msg);
             if (!authorized.ok) {
               refuseAttributeMessage(msg.type!, authorized.reason);
@@ -1175,7 +1214,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
               return;
             }
             await applyAuthorizedShade(action, msg);
-          })
+          }))
           .catch((error) => {
             this.host.debug.appendLine(`${msg.type} failed: ${String(error)}`);
             postError('The requested attribute change could not be applied. See the DITA Editor output for details.');
@@ -1250,7 +1289,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
           ? msg.values.filter((value: unknown): value is string => typeof value === 'string')
           : undefined;
         queue = queue
-          .then(() => executeRangeAction(rangeActionContext(), action, ids, values))
+          .then(() => runWhenNativeContextFresh(() => executeRangeAction(rangeActionContext(), action, ids, values)))
           .catch((err) => {
             console.error('dita-editor: range execute failed', err);
             postError('That action could not be completed. See the developer console for details.');
@@ -1267,7 +1306,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         const op = msg.op as InsertKind;
         const payload = msg.payload;
         queue = queue
-          .then(() => applyInsertAction(insertActionContext(), op, payload))
+          .then(() => runWhenNativeContextFresh(() => applyInsertAction(insertActionContext(), op, payload)))
           .catch((err) => {
             console.error('dita-editor: insert failed', err);
             postError('That action could not be completed. See the developer console for details.');
@@ -1307,7 +1346,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
       if (msg && msg.type === 'copyDita' && Array.isArray(msg.ids)) {
         const ids = msg.ids.filter((x): x is string => typeof x === 'string');
         queue = queue
-          .then(async () => {
+          .then(() => runWhenNativeContextFresh(async () => {
             const text = sliceElements(document.getText(), ids);
             if (text == null) {
               announce('Copy failed: the element is no longer in the document.');
@@ -1315,7 +1354,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
             }
             await vscode.env.clipboard.writeText(text);
             announce('Copied ' + ids.length + ' element' + (ids.length === 1 ? '' : 's') + ' as DITA.');
-          })
+          }))
           .catch((err) => {
             console.error('dita-editor: copy as DITA failed', err);
             postError('Copy as DITA failed. See the developer console for details.');
@@ -1460,7 +1499,8 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
           refId: msg.refId,
         };
         queue = queue
-          .then(() => applyStructuralAction(structuralActionContext(), op, id, payload, msg.baseStructVersion, msg.announceOnSuccess))
+          .then(() => runWhenNativeContextFresh(() =>
+            applyStructuralAction(structuralActionContext(), op, id, payload, msg.baseStructVersion, msg.announceOnSuccess)))
           .catch((err) => {
             console.error('dita-editor: structural edit failed', err);
             postError('That action could not be completed. See the developer console for details.');
@@ -1472,7 +1512,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         const mode = msg.op;
         const baseV = msg.baseStructVersion;
         queue = queue
-          .then(async () => {
+          .then(() => runWhenNativeContextFresh(async () => {
             if (typeof baseV === 'number' && baseV !== structVersion) {
               pushBody(null, null);
               return;
@@ -1493,7 +1533,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
             structVersion++;
             pushBody(result.focusId, null);
             announce('Pasted DITA content.');
-          })
+          }))
           .catch((err) => {
             console.error('dita-editor: paste as DITA failed', err);
             postError('Paste as DITA failed. See the developer console for details.');
@@ -1506,7 +1546,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         // rerender + focus the transformed block.
         const transform = msg.transform as TransformType;
         queue = queue
-          .then(() => applyTransformAction(structuralActionContext(), transform, id))
+          .then(() => runWhenNativeContextFresh(() => applyTransformAction(structuralActionContext(), transform, id)))
           .catch((err) => {
             console.error('dita-editor: transform failed', err);
             postError('That action could not be completed. See the developer console for details.');
@@ -1515,7 +1555,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         // P1-4: open the native image picker for the selected image. Queued behind any in-flight
         // edit so it reads/writes a settled document. All mutation guards live in the helper.
         queue = queue
-          .then(() => pickAndApplyImageHref(imageActionContext(), id))
+          .then(() => runWhenNativeContextFresh(() => pickAndApplyImageHref(imageActionContext(), id)))
           .catch((err) => {
             console.error('dita-editor: image href edit failed', err);
             postError('The image could not be changed. See the developer console for details.');
@@ -1524,14 +1564,14 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         // P1-4: edit the selected image's DITA <alt> child. This is not an attribute edit:
         // DITA image alt text is element content, so the CST helper adds/updates/removes <alt>.
         queue = queue
-          .then(() => promptAndApplyImageAlt(imageActionContext(), id))
+          .then(() => runWhenNativeContextFresh(() => promptAndApplyImageAlt(imageActionContext(), id)))
           .catch((err) => {
             console.error('dita-editor: image alt edit failed', err);
             postError('The image alt text could not be changed. See the developer console for details.');
           });
       } else if (msg.type === 'resizeImage') {
         queue = queue
-          .then(() => promptAndApplyImageWidth(imageActionContext(), id))
+          .then(() => runWhenNativeContextFresh(() => promptAndApplyImageWidth(imageActionContext(), id)))
           .catch((err) => {
             console.error('dita-editor: image resize failed', err);
             postError('The image could not be resized. See the developer console for details.');

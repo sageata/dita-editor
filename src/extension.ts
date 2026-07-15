@@ -147,6 +147,7 @@ export function activate(context: vscode.ExtensionContext): void {
     },
     scheduleStatusRefresh,
   };
+  const visualProvider = new DitaVisualEditorProvider(context, host);
 
   // OPEN-1: persist the user's default-editor preference for *.dita as a
   // workbench.editorAssociations entry — the VS Code setting that OVERRIDES the
@@ -229,7 +230,7 @@ export function activate(context: vscode.ExtensionContext): void {
     { dispose: () => statusTimer && clearTimeout(statusTimer) },
     vscode.window.registerCustomEditorProvider(
       VIEW_TYPE,
-      new DitaVisualEditorProvider(context, host),
+      visualProvider,
       {
         // enableFindWidget lets the History group's Find button (and Cmd/Ctrl+F) open VS Code's
         // native in-webview find over the rendered canvas text.
@@ -237,6 +238,7 @@ export function activate(context: vscode.ExtensionContext): void {
         supportsMultipleEditorsPerDocument: false,
       },
     ),
+    ...visualProvider.registerNativeContextCommands(),
     vscode.commands.registerCommand('ditaeditor.openVisual', (uri?: vscode.Uri) => {
       const target = uri ?? vscode.window.activeTextEditor?.document.uri;
       if (!target) {

@@ -81,6 +81,8 @@ export interface CanvasMessage {
   payload?: InsertPayload;
   transform?: string;
   baseStructVersion?: number;
+  /** Present only on VS Code-native context menu actions. */
+  nativeContextSession?: string;
   announceOnSuccess?: string;
   className?: string;
   color?: string;

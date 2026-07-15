@@ -314,6 +314,18 @@ describe('canvas-selection-controller', () => {
     expect(rangeRefreshes()).toBe(0);
   });
 
+  test('refreshes native context state when selection or range availability changes', () => {
+    let nativeRefreshes = 0;
+    const { controller } = installController({ onSelectionChange: () => nativeRefreshes++ });
+
+    controller.setSelection({ mode: 'single', unit: 'block', id: 'e1', kind: 'p', text: 'Alpha' });
+    expect(nativeRefreshes).toBe(1);
+    controller.applyRangeAvailability({ forIds: ['e1'], actions: [{ action: 'rangeDelete', enabled: true }] });
+    expect(nativeRefreshes).toBe(2);
+    controller.clearSelection();
+    expect(nativeRefreshes).toBe(3);
+  });
+
   test('keeps a selected cell after rerender changes its text', () => {
     const { controller, doc, cellA, ariaApplied } = installController();
     controller.setSelection({ mode: 'single', unit: 'cell', id: 'c1', kind: 'entry', text: 'A' });

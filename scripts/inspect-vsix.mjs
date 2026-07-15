@@ -39,7 +39,7 @@ const RUNTIME_MEDIA_FILES = new Set([
   'extension/media/canvas-command-insert.js',
   'extension/media/canvas-command-shortcuts.js',
   'extension/media/canvas-command-structure.js',
-  'extension/media/canvas-context-menu.js',
+  'extension/media/canvas-native-context-menu.js',
   'extension/media/canvas-context-toolbar-state.js',
   'extension/media/canvas-context-toolbar.js',
   'extension/media/canvas-controls.js',

@@ -226,7 +226,7 @@
   const setBtnEnabled = canvasControls.setBtnEnabled;
 
   let insertMenuController = null;
-  let contextMenuController = null;
+  let nativeContextMenu = null;
   let imageBar = null;
 
   const canvasContextToolbar = window.DitaEditorCanvasContextToolbar;
@@ -255,7 +255,6 @@
     rangeAvailFor: rangeAvailFor,
     currentSelectionIds: currentSelectionIds,
     getInsertMenuController: () => insertMenuController,
-    getContextMenuController: () => contextMenuController,
     getImageBar: () => imageBar,
     announceNav: announceNav,
   });
@@ -276,7 +275,6 @@
   const canvasIcons = window.DitaEditorCanvasIcons;
   if (!canvasIcons) throw new Error('DITA Editor icons script did not load before canvas.js');
   const MENU_ICN = canvasIcons.menu;
-  const menuIconForOp = canvasIcons.menuIconForOp;
 
   // P0-2: an op's availability for an element id from the host-computed cmdMap (validity core SoT).
   // Defaults to ENABLED when the map lacks an entry (pre-handshake / parse error) — never wrongly
@@ -380,37 +378,25 @@
     }
   }
 
-  // ==================== #19/#22 persistent context menu (right-click; zero document bytes) ====================
-  const canvasContextMenu = window.DitaEditorCanvasContextMenu;
-  if (!canvasContextMenu) throw new Error('DITA Editor context menu script did not load before canvas.js');
-  contextMenuController = canvasContextMenu.installContextMenu({
+  // VS Code-native right-click context menus. This helper only decorates targets
+  // and executes commands forwarded back by the extension host.
+  const canvasNativeContextMenu = window.DitaEditorCanvasNativeContextMenu;
+  if (!canvasNativeContextMenu) throw new Error('DITA Editor native context menu script did not load before canvas.js');
+  nativeContextMenu = canvasNativeContextMenu.installNativeContextMenu({
     document: document,
     vscode: vscode,
     getStyleState: () => styleState,
-    menu: window.DitaEditorCanvasMenu,
-    menuIcons: MENU_ICN,
-    menuIconForOp: menuIconForOp,
-    editableTarget: editableTarget,
-    toolbar: toolbar,
-    clearHideTimer: contextToolbar.clearHideTimer,
-    highlightCell: highlightCell,
-    clearCellHighlight: clearCellHighlight,
-    caretOffset: caretOffset,
-    setCaret: setCaret,
+    clearTimer: clearTimer,
     columnAnchorId: columnAnchorId,
     availFor: availFor,
-    postStructural: postStructural,
     withStructuralSuccess: withStructuralSuccess,
     transformAvailFor: transformAvailFor,
-    postTransform: postTransform,
-    resolveInsertEntries: resolveInsertEntries,
     insertAvailFor: insertAvailFor,
-    idOfPayload: idOfPayload,
-    nounForKind: nounForKind,
-    announceNav: announceNav,
-    showError: showError,
     getStructVersion: () => structVersion,
-    getSelection: getCanvasSelection,
+    getSessionId: () => {
+      try { return JSON.parse(document.body.dataset.vscodeContext || '{}').ditaNativeSession || ''; }
+      catch (error) { console.error('DITA Editor: invalid native context session', error); return ''; }
+    },
     currentSelectionIds: currentSelectionIds,
     rangeActionForSelection: rangeActionForSelection,
     rangeAvailFor: rangeAvailFor,
@@ -532,6 +518,7 @@
     isContextToolbarShown: () => toolbar.style.display !== 'none',
     getImageBar: () => imageBar,
     selectedBlockPasteBlocksFromClipboard: editing.selectedBlockPasteBlocksFromClipboard,
+    onSelectionChange: () => nativeContextMenu.refresh(),
   });
 
   // ==================== IX-1/IX-2 block move gestures (Alt+Arrow + drag grip → host moveBefore/moveAfter) ====================
@@ -763,6 +750,10 @@
   window.addEventListener('message', (e) => {
     const msg = e.data;
     if (!msg) return;
+    if (msg.type === 'nativeContextCommand') {
+      nativeContextMenu.execute(msg.command, msg.context);
+      return;
+    }
     if (msg.type === 'error') {
       showError(msg.message);
       return;
@@ -781,6 +772,7 @@
         propertiesPanel.setTaxonomy(taxonomy);
       }
       if (typeof msg.structVersion === 'number') structVersion = msg.structVersion; // adopt the load-cycle token
+      nativeContextMenu.refresh();
       endInsert.refresh(); // refresh the trailing paragraph hit area against the host insert map
       refreshCmdBar(); // the command bar gates off these maps — repaint it on the load handshake
       refreshProperties(); // repaint the file-level Properties panel
@@ -795,6 +787,7 @@
     }
     if (msg.type === 'styleState') {
       if (msg.styleState) styleState = msg.styleState;
+      nativeContextMenu.refresh();
       // NOT forced: this fires after every autosave round-trip while the user may still be
       // typing in the style editor. buildPanel() already repaints the live CSS preview
       // unconditionally; forcing the DOM rebuild here destroyed the focused input every time,
@@ -815,6 +808,7 @@
     }
     if (msg.type === 'rangeAvailability') {
       applyRangeAvailability(msg);
+      nativeContextMenu.refresh();
       return;
     }
     if (msg.type === 'lint') {
@@ -837,7 +831,6 @@
     endInsert.refresh(); // re-append the end-of-document paragraph affordance after the body swap
     contextToolbar.resetForRerender();
     insertMenuController.close(false); // #13: the menu was anchored to the now-replaced toolbar/element
-    contextMenuController.close(false); // #19/#22: the context menu was anchored to a now-replaced cell/block
     slashMenu.close(false); // IX-5: the popup was anchored to a now-replaced leaf
     moveBlock.hideGrip(); // IX-1: the grip's block was replaced by the body swap
     lintMarks.clear(); // UX-7: old marks point at detached elements; the host re-pushes lint after every rerender
@@ -850,6 +843,7 @@
     tableInsertPlus.refresh(); // the "+" anchored to a now-detached table boundary
     spellCtl.apply(main); // re-assert the author's spellcheck preference on the fresh editables
     restoreSelectionAfterRerender(main); // re-resolve/repaint or drop the element selection
+    nativeContextMenu.refresh();
     if (msg.focusId != null) {
       const el = main.querySelector('[data-autofocus]');
       if (el) {

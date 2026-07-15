@@ -22,6 +22,7 @@
     const configureRangeButton = opts.configureRangeButton || noop;
     const isContextToolbarShown = opts.isContextToolbarShown || function () { return false; };
     const selectedBlockPasteBlocksFromClipboard = opts.selectedBlockPasteBlocksFromClipboard || null;
+    const onSelectionChange = opts.onSelectionChange || noop;
     const dependencyResolver = windowObj.DitaEditorCanvasSelectionDependencies || window.DitaEditorCanvasSelectionDependencies;
     if (!dependencyResolver || typeof dependencyResolver.resolveSelectionDependencies !== 'function') {
       throw new Error('DitaEditorCanvasSelectionDependencies is required before canvas-selection-controller.js');
@@ -112,6 +113,7 @@
       reflectSelectionState();
       updateImageBar();
       updateRangeQuery();
+      onSelectionChange();
       if (!selection) {
         selCount.style.display = 'none';
         selCount.textContent = '';
@@ -342,6 +344,7 @@
 
     function applyRangeAvailability(msg) {
       rangeAvail = selectionRange.normalizeAvailability(msg);
+      onSelectionChange();
       if (selectionRange.sameIds(rangeAvail.forIds, currentSelectionIds()) && isContextToolbarShown()) configureRangeButton();
     }
 

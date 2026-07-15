@@ -29,6 +29,8 @@ export interface CanvasHtmlOptions {
   nonce?: string;
   /** Current normalized workspace taxonomy, embedded as inert JSON only. */
   taxonomy?: TaxonomyConfig | null;
+  /** Random id used to route native context commands back to this webview. */
+  nativeContextSession?: string;
 }
 
 function contentSecurityPolicy(cspSource: string, nonce?: string): string {
@@ -73,7 +75,7 @@ export function buildCanvasHtml(options: CanvasHtmlOptions): string {
   <style id="ditaeditor-author-styles-live"></style>
   ${surfaceLink}
 </head>
-<body class="ditaeditor-canvas">
+<body class="ditaeditor-canvas"${options.nativeContextSession ? ` data-vscode-context='${JSON.stringify({ ditaNativeSession: options.nativeContextSession })}'` : ''}>
   <main role="main">${options.bodyHtml}</main>
   <script id="ditaeditor-taxonomy-data" type="application/json"${dataNonce}>${taxonomyData}</script>
   <script id="ditaeditor-managed-style-data" type="application/json"${dataNonce}>${managedStyleData}</script>

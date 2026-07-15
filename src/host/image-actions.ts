@@ -20,6 +20,7 @@ export interface ImageActionContext {
   pushBody(focusId: string | null, caretOffset: number | null): void;
   announce(message: string): void;
   clearDiagnostics(): void;
+  bumpStructVersion(): void;
 }
 
 type ImageItem = vscode.QuickPickItem & { href: string };
@@ -175,6 +176,7 @@ export async function pickAndApplyImageHref(ctx: ImageActionContext, structId: s
   const ok = await ctx.applyMinimal(serialize(doc));
   if (ok) {
     ctx.clearDiagnostics();
+    ctx.bumpStructVersion();
     ctx.pushBody(null, null); // re-render so the preview fetches the newly-referenced asset
     ctx.announce(`Image source changed to ${href.split(/[\\/]/).pop() ?? href}.`);
   }
@@ -212,6 +214,7 @@ export async function promptAndApplyImageAlt(ctx: ImageActionContext, structId: 
   const ok = await ctx.applyMinimal(serialize(doc));
   if (ok) {
     ctx.clearDiagnostics();
+    ctx.bumpStructVersion();
     ctx.pushBody(null, null); // re-render so the image alt attribute reflects the DITA <alt>
     ctx.announce(result === 'cleared' ? 'Image alt text cleared.' : 'Image alt text updated.');
   }
@@ -251,6 +254,7 @@ export async function applyImageWidth(
   const ok = await ctx.applyMinimal(serialize(doc));
   if (ok) {
     ctx.clearDiagnostics();
+    ctx.bumpStructVersion();
     ctx.pushBody(null, null);
     ctx.announce(next === '' ? 'Image width cleared.' : `Image width updated to ${next}.`);
   }
@@ -289,6 +293,7 @@ export async function applyImageAlignment(
   const ok = await ctx.applyMinimal(serialize(doc));
   if (ok) {
     ctx.clearDiagnostics();
+    ctx.bumpStructVersion();
     ctx.pushBody(null, null);
     ctx.announce(`Image aligned ${requestedAlign}.`);
   }

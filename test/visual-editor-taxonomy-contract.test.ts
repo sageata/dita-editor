@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 const provider = readFileSync(new URL('../src/host/visual-editor-provider.ts', import.meta.url), 'utf8');
 const canvas = readFileSync(new URL('../media/canvas.js', import.meta.url), 'utf8');
 const properties = readFileSync(new URL('../media/canvas-properties.js', import.meta.url), 'utf8');
-const contextMenu = readFileSync(new URL('../media/canvas-context-menu.js', import.meta.url), 'utf8');
+const contextMenu = readFileSync(new URL('../media/canvas-native-context-menu.js', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('../media/canvas-styles.js', import.meta.url), 'utf8');
 
 describe('visual editor taxonomy integration contract', () => {
@@ -40,9 +40,10 @@ describe('visual editor taxonomy integration contract', () => {
   });
 
   test('every browser attribute family carries the current render generation', () => {
-    for (const source of [properties, contextMenu, styles]) {
+    for (const source of [properties, styles]) {
       expect(source).toContain('baseStructVersion: getStructVersion()');
     }
+    expect(contextMenu).toContain('message.baseStructVersion = context.ditaNativeStructVersion');
     expect(canvas).toContain('getStructVersion: () => structVersion');
     expect(provider).toContain('structVersion++; // external bytes may recycle positional ids');
   });

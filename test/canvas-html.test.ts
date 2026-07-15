@@ -53,6 +53,20 @@ describe('buildCanvasHtml', () => {
     expect(html).toContain('<main role="main"><article role="article"><h1 class="title topictitle1">T</h1></article></main>');
   });
 
+  test('embeds the native context routing session on the webview body', () => {
+    const withSession = buildCanvasHtml({
+      bodyHtml: '<p>x</p>',
+      contentStyleUris: ['theme.css'],
+      managedStyleCss: '',
+      managedStyleConsumer: 'canvas',
+      surfaceStyleUri: 'editor.css',
+      baseHref: '',
+      cspSource: 'vs',
+      nativeContextSession: 'native-session-123',
+    });
+    expect(withSession).toContain(`data-vscode-context='{"ditaNativeSession":"native-session-123"}'`);
+  });
+
   test('keeps executable scripts after main', () => {
     const data = html.indexOf('<script id="ditaeditor-managed-style-data"');
     const main = html.indexOf('<main role="main">');

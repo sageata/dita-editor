@@ -83,6 +83,7 @@ function makeCtx(initialSource = SRC) {
   const pushed: Array<[string | null, number | null]> = [];
   const announced: string[] = [];
   let cleared = 0;
+  let bumped = 0;
   const ctx: ImageActionContext = {
     document: {
       getText: () => source,
@@ -103,6 +104,9 @@ function makeCtx(initialSource = SRC) {
     clearDiagnostics() {
       cleared += 1;
     },
+    bumpStructVersion() {
+      bumped += 1;
+    },
   };
 
   return {
@@ -112,6 +116,9 @@ function makeCtx(initialSource = SRC) {
     announced,
     get cleared() {
       return cleared;
+    },
+    get bumped() {
+      return bumped;
     },
     get source() {
       return source;
@@ -202,6 +209,7 @@ describe('image host actions', () => {
       SRC.replace('images/img_005.jpeg', 'images/img_006.jpeg'),
     ]);
     expect(fixture.cleared).toBe(1);
+    expect(fixture.bumped).toBe(1);
     expect(fixture.pushed).toEqual([[null, null]]);
     expect(fixture.announced).toEqual(['Image source changed to img_006.jpeg.']);
     expect(infoMessages).toEqual([]);
@@ -271,6 +279,7 @@ describe('image host actions', () => {
       ),
     ]);
     expect(fixture.cleared).toBe(1);
+    expect(fixture.bumped).toBe(1);
     expect(fixture.pushed).toEqual([[null, null]]);
     expect(fixture.announced).toEqual(['Image alt text updated.']);
   });
@@ -283,6 +292,7 @@ describe('image host actions', () => {
 
     expect(inputBoxCalls).toHaveLength(1);
     expect(fixture.applied).toEqual([]);
+    expect(fixture.bumped).toBe(0);
     expect(fixture.pushed).toEqual([]);
     expect(fixture.announced).toEqual([]);
     expect(fixture.source).toBe(SRC);

@@ -141,33 +141,6 @@
       return s;
     }
 
-    function createElementHeader(def) {
-      const h = document.createElement('div');
-      h.setAttribute('role', 'presentation');
-      h.setAttribute('data-menu-header', def.label);
-      h.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 14px 9px;';
-      if (def.icon) {
-        const ic = document.createElement('span');
-        ic.setAttribute('aria-hidden', 'true');
-        ic.style.cssText = 'display:inline-flex;color:#5f5f5f;';
-        ic.innerHTML = def.icon; // static author-authored SVG markup, not user content
-        h.appendChild(ic);
-      }
-      const label = document.createElement('span');
-      label.textContent = def.label;
-      label.style.cssText = 'font-weight:600;font-size:13px;color:#2f2f2f;';
-      h.appendChild(label);
-      if (def.tag) {
-        const tag = document.createElement('span');
-        tag.textContent = def.tag;
-        tag.style.cssText =
-          'margin-left:auto;font-family:' + MONO_FONT + ';font-size:11px;color:#8f8f8f;' +
-          'background:#f3f3f3;border-radius:5px;padding:2px 7px;';
-        h.appendChild(tag);
-      }
-      return h;
-    }
-
     function createItemButton(def, nested) {
       const b = document.createElement('button');
       b.setAttribute('role', 'menuitem');
@@ -338,10 +311,6 @@
           sp.setAttribute('role', 'presentation');
           sp.style.cssText = 'padding-top:' + def.spacer + 'px;';
           menu.appendChild(sp);
-          continue;
-        }
-        if (def.elementHeader) {
-          menu.appendChild(createElementHeader(def.elementHeader));
           continue;
         }
         if (def.header) {

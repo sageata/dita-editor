@@ -44,6 +44,7 @@ function makeContext(source: string): RangeActionContext & {
   announced: string[];
   pushed: Array<[string | null, number | null]>;
   cleared: number;
+  bumped: number;
   posted: Array<{ forIds: string[]; actions: RangeActionAvailability[] }>;
 } {
   const ctx = {
@@ -51,6 +52,7 @@ function makeContext(source: string): RangeActionContext & {
     announced: [] as string[],
     pushed: [] as Array<[string | null, number | null]>,
     cleared: 0,
+    bumped: 0,
     posted: [] as Array<{ forIds: string[]; actions: RangeActionAvailability[] }>,
     document: {
       getText: () => source,
@@ -68,6 +70,9 @@ function makeContext(source: string): RangeActionContext & {
     },
     clearDiagnostics: () => {
       ctx.cleared++;
+    },
+    bumpStructVersion: () => {
+      ctx.bumped++;
     },
     postRangeAvailability: (forIds: string[], actions: RangeActionAvailability[]) => {
       ctx.posted.push({ forIds, actions });
@@ -113,6 +118,7 @@ describe('range host actions', () => {
     expect(ctx.applied).toEqual([TOPIC('<p>three</p>')]);
     expect(ctx.pushed).toEqual([[null, null]]);
     expect(ctx.cleared).toBe(1);
+    expect(ctx.bumped).toBe(1);
     expect(ctx.announced).toEqual(['2 items deleted.']);
   });
 
@@ -191,6 +197,7 @@ describe('range host actions', () => {
     expect(ctx.applied[0]).toContain('<entry namest="c1" nameend="c2" morerows="1">a b c d</entry>');
     expect(ctx.pushed).toEqual([[null, null]]);
     expect(ctx.cleared).toBe(1);
+    expect(ctx.bumped).toBe(1);
     expect(ctx.announced).toEqual(['Cells merged.']);
   });
 
@@ -342,6 +349,7 @@ describe('range host actions', () => {
     expect(ctx.applied).toEqual([]);
     expect(ctx.pushed).toEqual([]);
     expect(ctx.cleared).toBe(0);
+    expect(ctx.bumped).toBe(0);
     expect(ctx.announced).toEqual(["Can't delete every item in its container."]);
   });
 

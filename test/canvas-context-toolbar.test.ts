@@ -72,7 +72,6 @@ function installToolbar(extraOpts: Record<string, unknown> = {}) {
     rangeAvailFor: () => null,
     currentSelectionIds: () => [],
     getInsertMenuController: () => null,
-    getContextMenuController: () => null,
     getImageBar: () => null,
     announceNav: (message: string) => announced.push(message),
     ...extraOpts,

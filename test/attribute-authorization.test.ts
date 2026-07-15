@@ -7,6 +7,7 @@ import type { TaxonomyConfig } from '../src/config/taxonomy';
 import type { AuthorStyleDefinition } from '../src/styles/author-styles';
 import { applyElementAttribute } from '../src/host/attribute-actions';
 import { parse } from '../src/cst/parse';
+import { withoutNativeContextTransportMetadata } from '../src/host/native-context-routing';
 
 const SOURCE = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
@@ -61,6 +62,28 @@ function refused(message: Record<string, unknown>) {
 }
 
 describe('attribute authorization', () => {
+  test('accepts a native CALS payload after verified transport metadata is removed', () => {
+    const message = withoutNativeContextTransportMetadata({
+      type: 'setCalsAttr',
+      id: 'e4',
+      attrName: 'frame',
+      attrValue: 'sides',
+      baseStructVersion: 0,
+      nativeContextSession: 'session-a',
+    });
+    const result = authorizeAttributeMessage({
+      source: SOURCE,
+      message,
+      taxonomy: TAXONOMY,
+      styles: STYLES,
+      structVersion: 0,
+    });
+    expect(result).toEqual({
+      ok: true,
+      action: { kind: 'element', ids: ['e4'], attrName: 'frame', attrValue: 'sides' },
+    });
+  });
+
   test('permits current-root taxonomy edits and preserves removable legacy multi-select tokens', () => {
     expect(accepted({ type: 'setTaxonomyAttr', id: 'e0', attrName: 'cabin', attrValue: 'J legacy-cabin' })).toEqual({
       kind: 'element', ids: ['e0'], attrName: 'cabin', attrValue: 'J legacy-cabin',

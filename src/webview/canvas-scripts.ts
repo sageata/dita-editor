@@ -8,7 +8,7 @@ export const CANVAS_SCRIPT_FILES = [
   'canvas-context-toolbar-state.js',
   'canvas-context-toolbar.js',
   'canvas-menu.js',
-  'canvas-context-menu.js',
+  'canvas-native-context-menu.js',
   'canvas-insert-menu.js',
   'canvas-end-insert.js',
   'canvas-images.js',
