@@ -20,7 +20,7 @@ jobs:
   publish:
     name: Test, package, and publish
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Check out the release commit
@@ -118,7 +118,27 @@ jobs:
       - name: Publish to the Visual Studio Marketplace
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: bun x vsce publish --packagePath "$VSIX_PATH" --skip-duplicate
+        run: |
+          set -o pipefail
+          publish_log="$RUNNER_TEMP/vsce-publish.log"
+          if bun x vsce publish --packagePath "$VSIX_PATH" --skip-duplicate 2>&1 | tee "$publish_log"; then
+            exit 0
+          fi
+          if ! grep -Fq "Request timeout:" "$publish_log"; then
+            exit 1
+          fi
+
+          echo "::warning::Marketplace publish timed out; retrying the same version once with duplicate protection."
+          sleep 20
+          : > "$publish_log"
+          if bun x vsce publish --packagePath "$VSIX_PATH" --skip-duplicate 2>&1 | tee "$publish_log"; then
+            exit 0
+          fi
+          if grep -Fq "Request timeout:" "$publish_log"; then
+            echo "::warning::Marketplace publish timed out again; the exact version and SHA verifier will resolve the ambiguous server outcome."
+            exit 0
+          fi
+          exit 1
 
       - name: Verify the published VSIX
         run: |
