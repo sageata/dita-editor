@@ -465,6 +465,96 @@ describe('persistManagedAuthorStylesheet', () => {
     expect(logs.join('\n')).toContain('cleanup left');
   });
 
+  test('temporary pathname replacement with a reused inode requires matching usable birth times', async () => {
+    for (const [ownedBirthtimeMs, replacementBirthtimeMs] of [
+      [100, 200],
+      [100, undefined],
+      [undefined, 100],
+    ] as const) {
+      const { target } = await tempTarget();
+      const initialSource = await createManagedSource(target);
+      const temporaryPath = `${target.canonicalPath}.ditaeditor-nonce-123.tmp`;
+      const logs: string[] = [];
+      const deps = dependencies(logs);
+      const files = deps.files;
+      let hookCalls = 0;
+      deps.afterTemporaryFileFlush = async () => {
+        hookCalls += 1;
+        const replacementBytes = await readFile(temporaryPath);
+        await rm(temporaryPath);
+        await writeFile(temporaryPath, replacementBytes);
+      };
+      const reusedIdentity = withFiles(deps, {
+        open: async (value, flags, mode) => {
+          const handle = await files.open(value, flags, mode);
+          if (value !== temporaryPath) return handle;
+          return {
+            ...handle,
+            stat: async () => ({
+              ...await handle.stat(),
+              dev: 7,
+              ino: 11,
+              birthtimeMs: ownedBirthtimeMs,
+            }),
+          };
+        },
+        lstat: async (value) => {
+          const current = await files.lstat(value);
+          return value === temporaryPath
+            ? { ...current, dev: 7, ino: 11, birthtimeMs: replacementBirthtimeMs }
+            : current;
+        },
+      });
+      const result = await persistManagedAuthorStylesheet({
+        target,
+        displayedSourceHash: inspectManagedAuthorStylesheet(initialSource).sourceHash,
+        styles: [{ ...STYLE, name: 'Never committed' }],
+        revalidateTarget: async () => ({ target, exists: true }),
+      }, reusedIdentity);
+
+      expect(hookCalls).toBe(1);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toContain('temporary file identity changed');
+      expect(await readFile(target.canonicalPath, 'utf8')).toBe(initialSource);
+      expect(await exists(temporaryPath)).toBe(true);
+      expect(logs.join('\n')).toContain('cleanup left');
+    }
+  });
+
+  test('adapters without usable birth times retain dev and inode ownership compatibility', async () => {
+    for (const birthtimeMs of [undefined, 0] as const) {
+      const { target } = await tempTarget();
+      const initialSource = await createManagedSource(target);
+      const temporaryPath = `${target.canonicalPath}.ditaeditor-nonce-123.tmp`;
+      const lockPath = `${target.canonicalPath}.ditaeditor.lock`;
+      const logs: string[] = [];
+      const deps = dependencies(logs);
+      const files = deps.files;
+      const withoutUsableBirthtime = withFiles(deps, {
+        open: async (value, flags, mode) => {
+          const handle = await files.open(value, flags, mode);
+          return {
+            ...handle,
+            stat: async () => ({ ...await handle.stat(), birthtimeMs }),
+          };
+        },
+        lstat: async (value) => ({ ...await files.lstat(value), birthtimeMs }),
+      });
+
+      const result = await persistManagedAuthorStylesheet({
+        target,
+        displayedSourceHash: inspectManagedAuthorStylesheet(initialSource).sourceHash,
+        styles: [{ ...STYLE, name: `Compatible ${String(birthtimeMs)}` }],
+        revalidateTarget: async () => ({ target, exists: true }),
+      }, withoutUsableBirthtime);
+
+      expect(result.ok).toBe(true);
+      expect(await exists(temporaryPath)).toBe(false);
+      expect(await exists(lockPath)).toBe(false);
+      expect(logs).toEqual([]);
+    }
+  });
+
   test('a matching document generation that becomes dirty after temp flush refuses before rename', async () => {
     const { target } = await tempTarget();
     const initialSource = await createManagedSource(target);

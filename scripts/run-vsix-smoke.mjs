@@ -585,11 +585,11 @@ async function packageManifest(vsixPath) {
   return JSON.parse(result.stdout);
 }
 
-async function localExecutableIdentity(executable, expected) {
-  const identityCommand = process.platform === 'darwin' && /\.app\/Contents\/MacOS\/(?:Electron|Code)$/.test(executable)
-    ? cliCommandForExecutable(executable)
+async function localExecutableIdentity(executable, expected, capture = captureCommand) {
+  const identityCommand = /\.app\/Contents\/MacOS\/(?:Electron|Code)$/.test(executable)
+    ? cliCommandForExecutable(executable, 'darwin')
     : { command: executable, args: [] };
-  const result = await captureCommand(identityCommand.command, [...identityCommand.args, '--version']);
+  const result = await capture(identityCommand.command, [...identityCommand.args, '--version']);
   if (result.exitCode !== 0) throw new Error(`local VS Code version check failed\n${result.stderr}`);
   const lines = result.stdout.trim().split(/\r?\n/);
   const identity = { version: lines[0], commit: lines[1] };
@@ -599,9 +599,9 @@ async function localExecutableIdentity(executable, expected) {
   return { ...identity, output: result.stdout };
 }
 
-export async function inspectExplicitLocalBinary(executable, record) {
+export async function inspectExplicitLocalBinary(executable, record, capture = captureCommand) {
   const path = await realpath(resolve(executable));
-  const identity = await localExecutableIdentity(path, record);
+  const identity = await localExecutableIdentity(path, record, capture);
   return {
     path,
     sha256: await sha256File(path),
