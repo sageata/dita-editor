@@ -15,7 +15,14 @@ import { formatDitaSource, lintDitaSource, type DitaLintIssue } from './cst/dita
 import { minimalEdit } from './cst/edit-bridge';
 import { DitaVisualEditorProvider, VIEW_TYPE, type VisualHost } from './host/visual-editor-provider';
 import { openRedlinePanel } from './host/redline-panel';
-import { isManualSourceDiff, shouldInterceptScmDiff, unmarkManualSourceDiff } from './host/scm-intercept';
+import {
+  isManualSourceDiff,
+  renderReviewBeforeClosingNative,
+  reviewComparisonFromDiffTab,
+  shouldInterceptScmDiff,
+  unmarkManualSourceDiff,
+  type ReviewComparison,
+} from './host/scm-intercept';
 
 // Resolve the .dita document a command should act on: an explicit arg (passed by
 // the editor-title button), else the active custom/text tab, else the active text
@@ -26,6 +33,12 @@ function activeDitaUri(arg?: vscode.Uri): vscode.Uri | undefined {
   if (input instanceof vscode.TabInputCustom && input.viewType === VIEW_TYPE) return input.uri;
   if (input instanceof vscode.TabInputText) return input.uri;
   return vscode.window.activeTextEditor?.document.uri;
+}
+
+function activeDitaDiff(): ReviewComparison<vscode.Uri> | undefined {
+  const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+  if (!(input instanceof vscode.TabInputTextDiff)) return undefined;
+  return reviewComparisonFromDiffTab(input);
 }
 
 // Toggle a .dita file between the visual editor and its XML source IN PLACE: open the
@@ -262,7 +275,11 @@ export function activate(context: vscode.ExtensionContext): void {
         arg && typeof arg === 'object' && 'resourceUri' in arg && arg.resourceUri instanceof vscode.Uri
           ? arg.resourceUri
           : undefined;
-      const target = fromScm ?? activeDitaUri(arg instanceof vscode.Uri ? arg : undefined);
+      const explicit = fromScm ?? (arg instanceof vscode.Uri ? arg : undefined);
+      const comparison = explicit
+        ? { kind: 'working-copy', modified: explicit } satisfies ReviewComparison<vscode.Uri>
+        : activeDitaDiff();
+      const target = comparison?.modified ?? activeDitaUri();
       if (!target || !isDitaUri(target)) {
         void vscode.window.showInformationMessage(
           'Open a .dita file first, then run "DITA Editor: Review Changes (Track Changes)".',
@@ -270,7 +287,11 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
       try {
-        await openRedlinePanel(context, target, debug);
+        await openRedlinePanel(
+          context,
+          comparison ?? { kind: 'working-copy', modified: target },
+          debug,
+        );
       } catch (err) {
         const detail = err instanceof Error ? err.message : String(err);
         debug.appendLine(`compareRevision failed for ${target.fsPath}: ${detail}`);
@@ -290,7 +311,7 @@ export function activate(context: vscode.ExtensionContext): void {
       for (const tab of event.closed) {
         const input = tab.input;
         if (input instanceof vscode.TabInputTextDiff && shouldInterceptScmDiff(input)) {
-          unmarkManualSourceDiff(input.modified.fsPath);
+          unmarkManualSourceDiff(input);
         }
       }
       if (!vscode.workspace.getConfiguration('ditaeditor').get<boolean>('redline.openFromScm', true)) {
@@ -302,12 +323,35 @@ export function activate(context: vscode.ExtensionContext): void {
         if (!shouldInterceptScmDiff(input)) continue;
         // The Review panel's "side-by-side XML diff" button opened this one on
         // purpose — leave it alone until the user closes it.
-        if (isManualSourceDiff(input.modified.fsPath)) continue;
-        const target = input.modified;
-        void vscode.window.tabGroups.close(tab, true).then(
-          () => openRedlinePanel(context, target, debug),
-          (err: unknown) => debug.appendLine(`redline scm intercept failed: ${String(err)}`),
-        );
+        if (isManualSourceDiff(input)) continue;
+        const comparison = reviewComparisonFromDiffTab(input);
+        if (!comparison) continue;
+        void (async () => {
+          try {
+            // The native diff is the fallback. Build the complete rendered review
+            // first; only remove the XML diff after both selected sources loaded
+            // and the Review webview rendered successfully.
+            const closed = await renderReviewBeforeClosingNative(
+              () => openRedlinePanel(context, comparison, debug),
+              () => vscode.window.tabGroups.close(tab, true),
+            );
+            if (!closed) {
+              const detail = `VS Code returned false while closing the native diff for ${input.modified.toString(true)}.`;
+              debug.appendLine(`dita-editor: redline scm intercept failed: ${detail}`);
+              void vscode.window.showErrorMessage(
+                `DITA Editor: the rendered review opened, but the native XML diff could not be closed. ${detail}`,
+              );
+            }
+          } catch (err) {
+            const detail = err instanceof Error ? err.message : String(err);
+            debug.appendLine(
+              `dita-editor: redline scm intercept failed for ${input.original.toString(true)} -> ${input.modified.toString(true)}: ${detail}`,
+            );
+            void vscode.window.showErrorMessage(
+              `DITA Editor: could not build the rendered review; the native XML diff was kept open. ${detail}`,
+            );
+          }
+        })();
       }
     }),
   );
