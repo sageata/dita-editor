@@ -7,6 +7,7 @@ import {
   stat,
   unlink,
 } from 'node:fs/promises';
+import type { BigIntStats, Stats } from 'node:fs';
 import {
   inspectManagedAuthorStylesheet,
   planManagedAuthorStylesheetWrite,
@@ -41,6 +42,7 @@ export interface ManagedStyleFileStat {
   dev: number;
   ino: number;
   birthtimeMs?: number;
+  birthtimeNs?: bigint;
   isFile(): boolean;
   isSymbolicLink(): boolean;
 }
@@ -91,6 +93,7 @@ interface FileIdentity {
   dev: number;
   ino: number;
   birthtimeMs?: number;
+  birthtimeNs?: bigint;
 }
 
 interface DocumentSnapshotEntry {
@@ -101,12 +104,20 @@ interface DocumentSnapshotEntry {
   canonicalIdentity: string;
 }
 
-function nodeStat(value: Awaited<ReturnType<typeof lstat>>): ManagedStyleFileStat {
+function nodeStat(value: BigIntStats | Stats): ManagedStyleFileStat {
+  const sourceBirthtimeNs =
+    'birthtimeNs' in value &&
+    typeof value.birthtimeNs === 'bigint'
+    ? value.birthtimeNs
+    : undefined;
   return {
     mode: Number(value.mode),
     dev: Number(value.dev),
     ino: Number(value.ino),
-    birthtimeMs: Number(value.birthtimeMs),
+    birthtimeMs: sourceBirthtimeNs === undefined
+      ? Number(value.birthtimeMs)
+      : Number(sourceBirthtimeNs) / 1_000_000,
+    birthtimeNs: sourceBirthtimeNs,
     isFile: () => value.isFile(),
     isSymbolicLink: () => value.isSymbolicLink(),
   };
@@ -114,17 +125,31 @@ function nodeStat(value: Awaited<ReturnType<typeof lstat>>): ManagedStyleFileSta
 
 export function createNodeManagedStyleFiles(): ManagedStyleFiles {
   return {
-    stat: async (value) => nodeStat(await stat(value)),
-    lstat: async (value) => nodeStat(await lstat(value)),
+    stat: async (value) => nodeStat(await stat(value, { bigint: true })),
+    lstat: async (value) => nodeStat(await lstat(value, { bigint: true })),
     readFile,
     realpath,
     open: async (value, flags, mode) => {
       const handle = await open(value, flags, mode);
+      let tiedIdentity: Promise<ManagedStyleFileStat> | null = null;
       return {
         writeFile: async (data) => { await handle.writeFile(data); },
         sync: async () => { await handle.sync(); },
         chmod: async (nextMode) => { await handle.chmod(nextMode); },
-        stat: async () => nodeStat(await handle.stat()),
+        stat: async () => {
+          tiedIdentity ??= (async () => {
+            const current = await handle.stat({ bigint: true });
+            if ('birthtimeNs' in current && typeof current.birthtimeNs === 'bigint') {
+              return nodeStat(current);
+            }
+            const tiedPath = await lstat(value, { bigint: true });
+            if (BigInt(current.dev) !== tiedPath.dev || BigInt(current.ino) !== tiedPath.ino) {
+              throw new Error(`Opened file identity changed before nanosecond stat binding: ${value}`);
+            }
+            return nodeStat(tiedPath);
+          })();
+          return tiedIdentity;
+        },
         close: async () => { await handle.close(); },
       };
     },
@@ -141,12 +166,24 @@ function errorCode(error: unknown): string | undefined {
 }
 
 function identityOf(stat: ManagedStyleFileStat): FileIdentity {
-  return { dev: stat.dev, ino: stat.ino, birthtimeMs: stat.birthtimeMs };
+  return {
+    dev: stat.dev,
+    ino: stat.ino,
+    birthtimeMs: stat.birthtimeMs,
+    birthtimeNs: stat.birthtimeNs,
+  };
 }
 
 function sameFile(left: FileIdentity | null, right: ManagedStyleFileStat): boolean {
   if (left === null || left.dev !== right.dev || left.ino !== right.ino) return false;
-  const leftBirthtime = left?.birthtimeMs;
+  const leftBirthtimeNs = left.birthtimeNs;
+  const rightBirthtimeNs = right.birthtimeNs;
+  const leftBirthtimeNsUsable = typeof leftBirthtimeNs === 'bigint' && leftBirthtimeNs > 0n;
+  const rightBirthtimeNsUsable = typeof rightBirthtimeNs === 'bigint' && rightBirthtimeNs > 0n;
+  if (leftBirthtimeNsUsable !== rightBirthtimeNsUsable) return false;
+  if (leftBirthtimeNsUsable) return leftBirthtimeNs === rightBirthtimeNs;
+
+  const leftBirthtime = left.birthtimeMs;
   const rightBirthtime = right.birthtimeMs;
   const leftBirthtimeUsable = typeof leftBirthtime === 'number' &&
     Number.isFinite(leftBirthtime) && leftBirthtime > 0;

@@ -92,6 +92,32 @@ function withFiles(
 }
 
 describe('persistManagedAuthorStylesheet', () => {
+  test('node file handles retain one exact nanosecond identity after pathname replacement', async () => {
+    const { target } = await tempTarget('identity-probe');
+    const files = createNodeManagedStyleFiles();
+    const handle = await files.open(target.canonicalPath, 'wx', 0o600);
+    try {
+      const opened = await handle.stat();
+      const openedPath = await files.lstat(target.canonicalPath);
+      expect(typeof opened.birthtimeNs).toBe('bigint');
+      expect(opened.birthtimeNs).toBe(openedPath.birthtimeNs);
+
+      await files.unlink(target.canonicalPath);
+      await writeFile(target.canonicalPath, 'replacement', 'utf8');
+      const cached = await handle.stat();
+      const replacement = await files.lstat(target.canonicalPath);
+
+      expect(cached.dev).toBe(opened.dev);
+      expect(cached.ino).toBe(opened.ino);
+      expect(cached.birthtimeNs).toBe(opened.birthtimeNs);
+      expect(typeof replacement.birthtimeNs).toBe('bigint');
+      expect(replacement.birthtimeNs).not.toBe(opened.birthtimeNs);
+      expect(cached.birthtimeNs).not.toBe(replacement.birthtimeNs);
+    } finally {
+      await handle.close();
+    }
+  });
+
   test('creates a missing custom nested destination exclusively and cleans its owned lock', async () => {
     const { target } = await tempTarget('custom/nested/managed.css');
     const logs: string[] = [];
@@ -466,10 +492,48 @@ describe('persistManagedAuthorStylesheet', () => {
   });
 
   test('temporary pathname replacement with a reused inode requires matching usable birth times', async () => {
-    for (const [ownedBirthtimeMs, replacementBirthtimeMs] of [
-      [100, 200],
-      [100, undefined],
-      [undefined, 100],
+    for (const {
+      ownedBirthtimeMs,
+      replacementBirthtimeMs,
+      ownedBirthtimeNs,
+      replacementBirthtimeNs,
+    } of [
+      {
+        ownedBirthtimeMs: 100,
+        replacementBirthtimeMs: 200,
+        ownedBirthtimeNs: undefined,
+        replacementBirthtimeNs: undefined,
+      },
+      {
+        ownedBirthtimeMs: 100,
+        replacementBirthtimeMs: undefined,
+        ownedBirthtimeNs: undefined,
+        replacementBirthtimeNs: undefined,
+      },
+      {
+        ownedBirthtimeMs: undefined,
+        replacementBirthtimeMs: 100,
+        ownedBirthtimeNs: undefined,
+        replacementBirthtimeNs: undefined,
+      },
+      {
+        ownedBirthtimeMs: 100,
+        replacementBirthtimeMs: 100,
+        ownedBirthtimeNs: 100_000_001n,
+        replacementBirthtimeNs: 100_000_002n,
+      },
+      {
+        ownedBirthtimeMs: 100,
+        replacementBirthtimeMs: 100,
+        ownedBirthtimeNs: 100_000_001n,
+        replacementBirthtimeNs: undefined,
+      },
+      {
+        ownedBirthtimeMs: 100,
+        replacementBirthtimeMs: 100,
+        ownedBirthtimeNs: undefined,
+        replacementBirthtimeNs: 100_000_002n,
+      },
     ] as const) {
       const { target } = await tempTarget();
       const initialSource = await createManagedSource(target);
@@ -495,13 +559,20 @@ describe('persistManagedAuthorStylesheet', () => {
               dev: 7,
               ino: 11,
               birthtimeMs: ownedBirthtimeMs,
+              birthtimeNs: ownedBirthtimeNs,
             }),
           };
         },
         lstat: async (value) => {
           const current = await files.lstat(value);
           return value === temporaryPath
-            ? { ...current, dev: 7, ino: 11, birthtimeMs: replacementBirthtimeMs }
+            ? {
+              ...current,
+              dev: 7,
+              ino: 11,
+              birthtimeMs: replacementBirthtimeMs,
+              birthtimeNs: replacementBirthtimeNs,
+            }
             : current;
         },
       });
@@ -522,7 +593,10 @@ describe('persistManagedAuthorStylesheet', () => {
   });
 
   test('adapters without usable birth times retain dev and inode ownership compatibility', async () => {
-    for (const birthtimeMs of [undefined, 0] as const) {
+    for (const [birthtimeMs, birthtimeNs] of [
+      [undefined, undefined],
+      [0, 0n],
+    ] as const) {
       const { target } = await tempTarget();
       const initialSource = await createManagedSource(target);
       const temporaryPath = `${target.canonicalPath}.ditaeditor-nonce-123.tmp`;
@@ -535,10 +609,14 @@ describe('persistManagedAuthorStylesheet', () => {
           const handle = await files.open(value, flags, mode);
           return {
             ...handle,
-            stat: async () => ({ ...await handle.stat(), birthtimeMs }),
+            stat: async () => ({ ...await handle.stat(), birthtimeMs, birthtimeNs }),
           };
         },
-        lstat: async (value) => ({ ...await files.lstat(value), birthtimeMs }),
+        lstat: async (value) => ({
+          ...await files.lstat(value),
+          birthtimeMs,
+          birthtimeNs,
+        }),
       });
 
       const result = await persistManagedAuthorStylesheet({
