@@ -124,7 +124,9 @@ jobs:
         run: |
           local_sha256="$(sha256sum "$VSIX_PATH" | cut -d " " -f 1)"
           metadata="$RUNNER_TEMP/marketplace-after.json"
-          for attempt in 1 2 3 4 5 6; do
+          max_attempts=60
+          echo "Waiting for $EXTENSION_ID@$RELEASE_VERSION with SHA-256 $local_sha256"
+          for attempt in $(seq 1 "$max_attempts"); do
             if bun x vsce show "$EXTENSION_ID" --json > "$metadata" && \
               MARKETPLACE_METADATA="$metadata" LOCAL_VSIX_SHA256="$local_sha256" bun -e '
                 const data = await Bun.file(process.env.MARKETPLACE_METADATA).json();
@@ -138,7 +140,8 @@ jobs:
               echo "Verified $EXTENSION_ID@$RELEASE_VERSION with SHA-256 $local_sha256"
               exit 0
             fi
-            if [ "$attempt" -lt 6 ]; then sleep 10; fi
+            echo "Marketplace propagation check $attempt/$max_attempts has not matched yet."
+            if [ "$attempt" -lt "$max_attempts" ]; then sleep 10; fi
           done
           echo "::error::Marketplace did not expose the expected version and VSIX SHA-256."
           exit 1
