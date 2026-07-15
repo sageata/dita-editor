@@ -12,12 +12,12 @@ export interface RenderedReviewDocuments {
 export function renderReviewDocuments(
   oldSource: string,
   newSource: string,
-  options?: RedlineOptions,
+  options?: RedlineOptions & { idPrefix?: string },
 ): RenderedReviewDocuments {
   const oldDocument = parse(oldSource);
   const newDocument = parse(newSource);
   return {
     inline: renderRedline(oldDocument, newDocument, options),
-    sideBySide: renderSideBySide(oldDocument, newDocument),
+    sideBySide: renderSideBySide(oldDocument, newDocument, { idPrefix: options?.idPrefix }),
   };
 }

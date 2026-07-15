@@ -8,6 +8,7 @@ import {
   resolveReviewSelection,
   reviewComparisonIdentity,
   reviewComparisonFromDiffTab,
+  reviewComparisonsFromMultiDiff,
   shouldInterceptScmDiff,
   sourceDiffIdentity,
   unmarkManualSourceDiff,
@@ -60,6 +61,33 @@ describe('shouldInterceptScmDiff', () => {
 
   test('gitlens-scheme original does not intercept (only built-in git does)', () => {
     expect(shouldInterceptScmDiff(diffTab('gitlens', 'file', '/ws/topics/01-intro.dita'))).toBe(false);
+  });
+});
+
+describe('reviewComparisonsFromMultiDiff', () => {
+  test('extracts every exact DITA revision pair from a Graph commit tab', () => {
+    const first = diffTab('git', 'git', '/ws/topics/01-intro.dita');
+    const second = diffTab('git', 'git', '/ws/topics/02-service.dita');
+    const readme = diffTab('git', 'git', '/ws/README.md');
+
+    const result = reviewComparisonsFromMultiDiff<TestUri>({
+      textDiffs: [first, readme, second],
+    });
+
+    expect(result?.totalTextDiffs).toBe(3);
+    expect(result?.comparisons).toEqual([
+      { kind: 'historical', original: first.original, modified: first.modified },
+      { kind: 'historical', original: second.original, modified: second.modified },
+    ]);
+  });
+
+  test('recognizes only the structural proposed-API shape and ignores malformed entries', () => {
+    expect(reviewComparisonsFromMultiDiff({})).toBeUndefined();
+    expect(reviewComparisonsFromMultiDiff({ textDiffs: 'not-an-array' })).toBeUndefined();
+    expect(reviewComparisonsFromMultiDiff({ textDiffs: [null, { original: {}, modified: {} }] })).toEqual({
+      comparisons: [],
+      totalTextDiffs: 2,
+    });
   });
 });
 

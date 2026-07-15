@@ -15,10 +15,12 @@ import { formatDitaSource, lintDitaSource, type DitaLintIssue } from './cst/dita
 import { minimalEdit } from './cst/edit-bridge';
 import { DitaVisualEditorProvider, VIEW_TYPE, type VisualHost } from './host/visual-editor-provider';
 import { openRedlinePanel } from './host/redline-panel';
+import { openMultiRedlinePanel } from './host/multi-redline-panel';
 import {
   isManualSourceDiff,
   renderReviewBeforeClosingNative,
   reviewComparisonFromDiffTab,
+  reviewComparisonsFromMultiDiff,
   shouldInterceptScmDiff,
   unmarkManualSourceDiff,
   type ReviewComparison,
@@ -101,6 +103,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // this there was NO OutputChannel anywhere — logging went to console.* only — which is
   // why the channel QA looked at appeared empty (it did not exist).
   const debug = vscode.window.createOutputChannel('DITA Editor');
+  const pendingMultiDiffTabs = new WeakSet<vscode.Tab>();
 
   // C4: a status-bar trust indicator for the active visual editor — byte-safe vs. unsaved.
   const statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -319,6 +322,39 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       for (const tab of [...event.opened, ...event.changed]) {
         const input = tab.input;
+        const multiDiff = reviewComparisonsFromMultiDiff<vscode.Uri>(input);
+        if (multiDiff && multiDiff.comparisons.length > 0) {
+          if (pendingMultiDiffTabs.has(tab)) continue;
+          pendingMultiDiffTabs.add(tab);
+          void (async () => {
+            try {
+              await openMultiRedlinePanel(
+                context,
+                multiDiff.comparisons,
+                multiDiff.totalTextDiffs,
+                tab.label,
+                debug,
+              );
+              const closed = await vscode.window.tabGroups.close(tab, true);
+              if (!closed) {
+                const detail = `VS Code returned false while closing the native multi-file diff "${tab.label}".`;
+                debug.appendLine(`dita-editor: multi-redline scm intercept failed: ${detail}`);
+                void vscode.window.showErrorMessage(
+                  `DITA Editor: the rendered commit review opened, but the native XML diff could not be closed. ${detail}`,
+                );
+              }
+            } catch (err) {
+              const detail = err instanceof Error ? err.message : String(err);
+              debug.appendLine(`dita-editor: multi-redline scm intercept failed for "${tab.label}": ${detail}`);
+              void vscode.window.showErrorMessage(
+                `DITA Editor: could not build the rendered commit review; the native multi-file diff was kept open. ${detail}`,
+              );
+            } finally {
+              pendingMultiDiffTabs.delete(tab);
+            }
+          })();
+          continue;
+        }
         if (!(input instanceof vscode.TabInputTextDiff)) continue;
         if (!shouldInterceptScmDiff(input)) continue;
         // The Review panel's "side-by-side XML diff" button opened this one on

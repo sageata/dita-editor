@@ -32,6 +32,7 @@ interface CompareRow {
 interface RenderContext {
   oldTableNames: Map<ElementNode, string>;
   newTableNames: Map<ElementNode, string>;
+  idPrefix: string;
 }
 
 function rootElement(doc: Document): ElementNode | undefined {
@@ -164,7 +165,7 @@ function renderCell(row: CompareRow, side: 'old' | 'new', context: RenderContext
     : [row.kind];
   const labels = [...new Set(labelKinds.map((kind) => kindLabel(kind, side)).filter(Boolean))];
   const content = element
-    ? renderedElement(element, ancestors, tableNames, `dch-${row.id}-${side}-`)
+    ? renderedElement(element, ancestors, tableNames, `dch-${context.idPrefix}${row.id}-${side}-`)
     : placeholder(side === 'old' ? 'No earlier content' : 'No newer content');
   const badge = labels
     .map((label) => `<span class="redline-compare-change-label">${escapeHtml(label)}</span>`)
@@ -176,7 +177,7 @@ function renderCell(row: CompareRow, side: 'old' | 'new', context: RenderContext
 function renderRow(row: CompareRow, context: RenderContext): string {
   const changed = row.kind === 'same' ? '' : ' data-redline-change tabindex="-1"';
   const move = row.moveId === undefined ? '' : ` data-redline-move="${row.moveId}"`;
-  return `<div id="${row.id}" class="redline-compare-row redline-compare-row-${row.kind}"${changed}${move}>`
+  return `<div id="${context.idPrefix}${row.id}" class="redline-compare-row redline-compare-row-${row.kind}"${changed}${move}>`
     + renderCell(row, 'old', context)
     + renderCell(row, 'new', context)
     + '</div>';
@@ -214,7 +215,7 @@ function renderRowsWithCollapsedContext(rows: CompareRow[], context: RenderConte
     if (keepAtStart) html += renderRow(run[0], context);
     if (collapsed.length > 0) {
       groupSequence += 1;
-      html += renderUnchangedGroup(collapsed, `unchanged-${groupSequence}`, context);
+      html += renderUnchangedGroup(collapsed, `${context.idPrefix}unchanged-${groupSequence}`, context);
     }
     if (keepAtEnd) html += renderRow(run[run.length - 1], context);
     index = end;
@@ -229,7 +230,7 @@ function rootSummary(element: ElementNode): string {
   return `<div class="redline-root-metadata"><strong>&lt;${escapeHtml(element.name)}&gt;</strong>${attrs}</div>`;
 }
 
-function renderRootChange(change: TopicRootChange): string {
+function renderRootChange(change: TopicRootChange, idPrefix: string): string {
   const cell = (side: 'old' | 'new', element: ElementNode | undefined): string => {
     const accessibleSide = side === 'old' ? 'Earlier version' : 'Newer version';
     const showLabel = change.kind === 'modified'
@@ -242,19 +243,24 @@ function renderRootChange(change: TopicRootChange): string {
     return `<div class="redline-compare-cell" data-redline-side="${side}" aria-label="${accessibleSide}">`
       + `${showLabel ? `<span class="redline-compare-change-label">${change.label}</span>` : ''}${content}</div>`;
   };
-  return `<div id="comparison-root-metadata" class="redline-compare-row redline-compare-row-${change.kind}" data-redline-change tabindex="-1">`
+  return `<div id="${idPrefix}comparison-root-metadata" class="redline-compare-row redline-compare-row-${change.kind}" data-redline-change tabindex="-1">`
     + cell('old', change.oldEl)
     + cell('new', change.newEl)
     + '</div>';
 }
 
-export function renderSideBySide(oldDoc: Document, newDoc: Document): SideBySideResult {
+export function renderSideBySide(
+  oldDoc: Document,
+  newDoc: Document,
+  options: { idPrefix?: string } = {},
+): SideBySideResult {
   const changes = diffTopics(oldDoc, newDoc);
   const oldRoot = rootElement(oldDoc);
   const newRoot = rootElement(newDoc);
   const context: RenderContext = {
     oldTableNames: deriveTableNames(oldDoc),
     newTableNames: deriveTableNames(newDoc),
+    idPrefix: options.idPrefix ?? '',
   };
   const rows = flattenChanges(
     changes,
@@ -267,6 +273,6 @@ export function renderSideBySide(oldDoc: Document, newDoc: Document): SideBySide
   const rootRow = topicRootChange(oldDoc, newDoc);
   return {
     html: `<div class="redline-side-by-side" data-redline-comparison>${header}`
-      + `${rootRow ? renderRootChange(rootRow) : ''}${renderRowsWithCollapsedContext(rows, context)}</div>`,
+      + `${rootRow ? renderRootChange(rootRow, context.idPrefix) : ''}${renderRowsWithCollapsedContext(rows, context)}</div>`,
   };
 }

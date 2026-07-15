@@ -7,6 +7,23 @@
  * single amber-flagged block (never a stacked duplicate for a pure restyle).
  */
 
+/* The shared document theme intentionally caps authoring pages at 1100px.
+ * Review is a different surface: it needs the complete editor width, especially
+ * when two rendered pages are visible. A narrow viewport may scroll horizontally
+ * rather than squeezing both columns below a readable width. */
+body.ditaeditor-canvas main[role="main"] {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 24px clamp(16px, 2vw, 32px) !important;
+  box-shadow: none !important;
+}
+
+.redline-review-view[data-redline-view="inline"] {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
 /* ── Banner: what is being compared, and how many changes ── */
 
 .redline-banner {
@@ -79,13 +96,71 @@
   display: none !important;
 }
 
+/* ── Source Control Graph multi-file review ─────────────────────────────── */
+
+.redline-multi-banner {
+  align-items: center;
+}
+
+.redline-multi-files {
+  display: grid;
+  gap: 28px;
+}
+
+.redline-multi-file {
+  min-width: 1120px;
+  scroll-margin-top: 72px;
+}
+
+.redline-multi-file-header {
+  position: sticky;
+  top: 48px;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--dc-color-border, #d7dce2);
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  background: var(--dc-color-surface-subtle, #f5f7f9);
+  color: var(--dc-color-text, #111827);
+}
+
+.redline-multi-file-header > span:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.redline-multi-file-header small {
+  overflow: hidden;
+  color: var(--dc-color-text-muted, #4b5563);
+  font-size: 11px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.redline-multi-file-header > span:last-child {
+  color: var(--dc-color-text-muted, #4b5563);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.redline-multi-file > .redline-side-by-side {
+  border-radius: 0 0 6px 6px;
+}
+
 /* ── Side-by-side rendered comparison ──────────────────────────────────────
  * Each pair is one grid row in the normal document flow. There are no nested
  * vertical scroll containers, so Earlier and Newer always move on the same
  * real webview scrollbar. */
 
 .redline-side-by-side {
-  min-width: 720px;
+  width: 100%;
+  min-width: 1120px;
   border: 1px solid var(--dc-color-border, #d7dce2);
   border-radius: 6px;
   background: var(--dc-color-surface, #fff);

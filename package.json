@@ -160,7 +160,7 @@
         "ditaeditor.redline.openFromScm": {
           "type": "boolean",
           "default": true,
-          "description": "Open the rendered Review Changes (Track Changes) view when clicking a changed .dita file in Source Control, instead of the raw XML diff."
+          "description": "Open rendered Review Changes when selecting a changed .dita file or a DITA commit in Source Control, instead of the raw XML diff."
         },
         "ditaeditor.visual.contentStylesheets": {
           "type": "array",

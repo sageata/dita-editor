@@ -13,4 +13,14 @@ describe('renderReviewDocuments', () => {
     expect(rendered.sideBySide.html).toContain('Newer exact text');
     expect(rendered.inline.changeCount).toBe(1);
   });
+
+  test('namespaces side-by-side controls when many topics share one webview', () => {
+    const oldSource = '<topic id="t"><title>T</title><body><p>Same</p><p>Old</p></body></topic>';
+    const newSource = '<topic id="t"><title>T</title><body><p>Same</p><p>New</p></body></topic>';
+    const rendered = renderReviewDocuments(oldSource, newSource, { idPrefix: 'file-7-' });
+
+    expect(rendered.sideBySide.html).toContain('id="file-7-comparison-row-');
+    expect(rendered.sideBySide.html).toContain('data-redline-expand="file-7-unchanged-');
+    expect(rendered.sideBySide.html).not.toContain('data-redline-expand="unchanged-');
+  });
 });

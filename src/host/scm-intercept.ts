@@ -16,6 +16,17 @@ export interface DiffTabShape<T extends ReviewTargetShape = ReviewTargetShape> {
   modified: T;
 }
 
+/**
+ * Runtime shape of VS Code's aggregate multi-file diff tab. The corresponding
+ * `TabInputTextMultiDiff` API is still proposed, so production extensions cannot
+ * name the constructor without opting into an experimental API. VS Code still
+ * exposes the input through `Tab.input` as `unknown`; keeping this structural
+ * shape here lets us consume it without an experimental manifest dependency.
+ */
+export interface TextMultiDiffShape<T extends ReviewTargetShape = ReviewTargetShape> {
+  readonly textDiffs: readonly DiffTabShape<T>[];
+}
+
 interface ReviewTargetDependencies<T extends ReviewTargetShape> {
   fileUri(fsPath: string): T;
   isInWorkspace(uri: T): boolean;
@@ -65,6 +76,40 @@ export function reviewComparisonFromDiffTab<T extends ReviewTargetShape>(
     return { kind: 'working-copy', modified: tab.modified };
   }
   return undefined;
+}
+
+export interface MultiDiffReviewComparisons<T extends ReviewTargetShape> {
+  comparisons: ReviewComparison<T>[];
+  totalTextDiffs: number;
+}
+
+function isReviewTargetShape(value: unknown): value is ReviewTargetShape {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<ReviewTargetShape>;
+  return typeof candidate.scheme === 'string' && typeof candidate.fsPath === 'string';
+}
+
+/** Extract the exact historical pairs from a Source Control Graph commit tab. */
+export function reviewComparisonsFromMultiDiff<T extends ReviewTargetShape>(
+  input: unknown,
+): MultiDiffReviewComparisons<T> | undefined {
+  if (!input || typeof input !== 'object' || !('textDiffs' in input)) return undefined;
+  const textDiffs = (input as { textDiffs?: unknown }).textDiffs;
+  if (!Array.isArray(textDiffs)) return undefined;
+
+  const comparisons: ReviewComparison<T>[] = [];
+  for (const candidate of textDiffs) {
+    if (!candidate || typeof candidate !== 'object') continue;
+    const original = (candidate as { original?: unknown }).original;
+    const modified = (candidate as { modified?: unknown }).modified;
+    if (!isReviewTargetShape(original) || !isReviewTargetShape(modified)) continue;
+    const comparison = reviewComparisonFromDiffTab({
+      original: original as T,
+      modified: modified as T,
+    });
+    if (comparison) comparisons.push(comparison);
+  }
+  return { comparisons, totalTextDiffs: textDiffs.length };
 }
 
 /**
