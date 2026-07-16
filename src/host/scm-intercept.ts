@@ -209,6 +209,23 @@ export async function renderReviewBeforeClosingNative(
   return closeNative();
 }
 
+/** Treat a preview tab that VS Code already removed as successfully closed. */
+export async function closeNativeTabsIfPresent<T>(
+  tabs: readonly T[],
+  isOpen: (tab: T) => boolean,
+  closeNative: (openTabs: readonly T[]) => PromiseLike<boolean>,
+  isAlreadyClosedError: (err: unknown) => boolean = () => false,
+): Promise<boolean> {
+  const openTabs = tabs.filter(isOpen);
+  if (openTabs.length === 0) return true;
+  try {
+    return await closeNative(openTabs);
+  } catch (err) {
+    if (tabs.every((tab) => !isOpen(tab)) || isAlreadyClosedError(err)) return true;
+    throw err;
+  }
+}
+
 // -- Manual source-diff suppression ------------------------------------------
 // The Review panel's "Side-by-side XML diff" button opens a native diff on
 // purpose. Historical suppressions are keyed by the complete original/modified
