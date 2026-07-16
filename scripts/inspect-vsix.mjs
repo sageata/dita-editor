@@ -60,6 +60,7 @@ const RUNTIME_MEDIA_FILES = new Set([
   'extension/media/canvas-menu.js',
   'extension/media/canvas-move-block.js',
   'extension/media/canvas-properties.js',
+  'extension/media/canvas-scroll-anchor.js',
   'extension/media/canvas-selection-announce.js',
   'extension/media/canvas-selection-aria.js',
   'extension/media/canvas-selection-clipboard.js',

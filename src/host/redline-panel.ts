@@ -14,7 +14,8 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { renderReviewDocuments } from '../compare/render-review';
-import { renderReviewShell } from '../compare/review-shell';
+import { renderReviewExportShell, renderReviewShell } from '../compare/review-shell';
+import { ReviewExportSnapshotStore, saveReviewExport } from '../compare/review-html-export';
 import { buildCanvasHtml } from '../webview/canvas-html';
 import { readFileAtRevision, resolveBaseRevision } from './revision-source';
 import { configureRedlineWebviewResources } from './webview-resources';
@@ -57,6 +58,11 @@ import {
   workspaceResourceWatcherSpecifications,
   type WorkspaceResourceWatchTarget,
 } from './resource-watch-target';
+import {
+  captureReviewExportStylesheets,
+  reviewDocumentDirectory,
+  reviewExportSaveAdapter,
+} from './review-html-export-host';
 
 const REDLINE_VIEW_TYPE = 'ditaeditor.redline';
 const REFRESH_DEBOUNCE_MS = 300;
@@ -77,6 +83,7 @@ interface RedlineEntry {
   taxonomyWatchers: vscode.FileSystemWatcher[];
   taxonomyWatcherSubscriptions: vscode.Disposable[];
   refreshGeneration: RefreshGeneration;
+  exportSnapshots: ReviewExportSnapshotStore;
 }
 
 // One panel per file; re-running the command refreshes it in place.
@@ -252,6 +259,19 @@ async function renderIntoPanel(
   const { html: inlineHtml, changeCount } = rendered.inline;
 
   if (!entry.refreshGeneration.isCurrent(generation)) return;
+  const exportStylesheets = await captureReviewExportStylesheets({
+    extensionUri: context.extensionUri,
+    configuredStyleUris: resolved.contentStylesheets.map((stylesheet) => stylesheet.uri),
+    managedCssText: inspection.renderCssText,
+    managedBaseUri: target
+      ? vscode.Uri.parse(target.uri, true)
+      : vscode.Uri.joinPath(reviewDocumentDirectory(selection.workspace), 'ditaeditor-managed.css'),
+    allowedFileRoots: [
+      context.extensionUri,
+      folder?.uri ?? reviewDocumentDirectory(selection.workspace),
+    ],
+  });
+  if (!entry.refreshGeneration.isCurrent(generation)) return;
   entry.managedStylesMessage = managedStyles.message;
   entry.managedStyleTarget = target;
   retargetManagedStyleWatcher(context, selection, entry, debug, folder, target);
@@ -289,6 +309,18 @@ async function renderIntoPanel(
     cspSource: entry.panel.webview.cspSource,
     scriptUris,
     nonce: makeNonce(),
+  });
+  entry.exportSnapshots.replace({
+    title: `Review: ${path.basename(selection.workspace.fsPath)}`,
+    defaultFilename: `${path.parse(selection.workspace.fsPath).name}-comparison.html`,
+    bodyHtml: renderReviewExportShell({
+      label,
+      note,
+      changeCount,
+      sideBySideHtml: rendered.sideBySide.html,
+    }),
+    stylesheets: exportStylesheets,
+    imageBaseUris: [`${reviewDocumentDirectory(selection.workspace).toString(true).replace(/\/$/, '')}/`],
   });
 }
 
@@ -353,6 +385,7 @@ export async function openRedlinePanel(
       taxonomyWatchers: [],
       taxonomyWatcherSubscriptions: [],
       refreshGeneration: createRefreshGeneration(),
+      exportSnapshots: new ReviewExportSnapshotStore(),
     };
     const styleFiles = createNodeManagedStyleFiles();
     const refreshForManagedStyleDocument = createManagedStyleDocumentRefreshHandler({
@@ -384,12 +417,27 @@ export async function openRedlinePanel(
       // this file. The file is marked first so the SCM intercept leaves the
       // requested diff tab alone (Review becomes the default again once the
       // user closes that tab).
-      panel.webview.onDidReceiveMessage((msg: { type?: string } | undefined) => {
-        if (msg?.type === 'redlineReady') {
+      panel.webview.onDidReceiveMessage((message: { type?: string } | undefined) => {
+        if (message?.type === 'redlineReady') {
           void panel.webview.postMessage(created.managedStylesMessage);
           return;
         }
-        if (msg?.type !== 'openSourceDiff') return;
+        if (message?.type === 'exportHtml') {
+          void saveReviewExport(
+            created.exportSnapshots,
+            reviewExportSaveAdapter(
+              reviewDocumentDirectory(selection.workspace),
+              debug,
+              [
+                context.extensionUri,
+                vscode.workspace.getWorkspaceFolder(selection.workspace)?.uri
+                  ?? reviewDocumentDirectory(selection.workspace),
+              ],
+            ),
+          );
+          return;
+        }
+        if (message?.type !== 'openSourceDiff') return;
         const historicalDiff = selection.base
           ? { original: selection.base, modified: selection.document }
           : undefined;

@@ -34,6 +34,7 @@ describe('CANVAS_SCRIPT_FILES', () => {
     expect(indexOf('canvas-command-structure.js')).toBeLessThan(indexOf('canvas-command-bar.js'));
     expect(indexOf('canvas-command-bar-ui.js')).toBeLessThan(indexOf('canvas-command-bar.js'));
     expect(indexOf('canvas-end-insert.js')).toBeLessThan(indexOf('canvas.js'));
+    expect(indexOf('canvas-scroll-anchor.js')).toBeLessThan(indexOf('canvas.js'));
     expect(indexOf('canvas-selection-summary.js')).toBeLessThan(indexOf('canvas-selection-controller.js'));
     expect(indexOf('canvas-selection-range.js')).toBeLessThan(indexOf('canvas-selection-controller.js'));
     expect(indexOf('canvas-selection-clipboard.js')).toBeLessThan(indexOf('canvas-selection-controller.js'));

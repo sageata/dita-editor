@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { renderReviewShell } from '../src/compare/review-shell';
+import { renderReviewExportShell, renderReviewShell } from '../src/compare/review-shell';
 
 describe('renderReviewShell', () => {
   test('keeps Track Changes as the default and exposes side-by-side and XML modes', () => {
@@ -16,6 +16,8 @@ describe('renderReviewShell', () => {
     expect(html).toContain('data-redline-view="inline"');
     expect(html).toContain('hidden data-redline-view="side-by-side"');
     expect(html).toContain('data-redline-action="openSourceDiff"');
+    expect(html).toContain('data-redline-action="exportHtml"');
+    expect(html).toContain('Export HTML');
     expect(html).toContain('Side-by-side XML diff');
     expect(html).toContain('3 changes');
   });
@@ -48,5 +50,21 @@ describe('renderReviewShell', () => {
     expect(html).toContain('&lt;older &amp; unsafe&gt;');
     expect(html).toContain('&quot;quoted&quot;');
     expect(html).not.toContain('<older & unsafe>');
+  });
+
+  test('renders a static side-by-side-only export shell', () => {
+    const html = renderReviewExportShell({
+      label: '<selected>',
+      note: 'working copy',
+      changeCount: 2,
+      sideBySideHtml: '<div data-redline-comparison>comparison</div>',
+    });
+
+    expect(html).toContain('Comparing with <strong>&lt;selected&gt;</strong>');
+    expect(html).toContain('working copy');
+    expect(html).toContain('2 changes');
+    expect(html).toContain('data-redline-comparison');
+    expect(html).not.toContain('<button');
+    expect(html).not.toContain('data-redline-view');
   });
 });

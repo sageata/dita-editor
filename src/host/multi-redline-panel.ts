@@ -5,8 +5,13 @@
 
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { renderMultiReviewShell, type MultiReviewFile } from '../compare/multi-review-shell';
+import {
+  renderMultiReviewExportShell,
+  renderMultiReviewShell,
+  type MultiReviewFile,
+} from '../compare/multi-review-shell';
 import { renderReviewDocuments } from '../compare/render-review';
+import { ReviewExportSnapshotStore, saveReviewExport } from '../compare/review-html-export';
 import { buildCanvasHtml } from '../webview/canvas-html';
 import { inspectAuthorStyleSource } from './author-style-source';
 import { gitRevisionLocation } from './git-revision-uri';
@@ -26,9 +31,18 @@ import {
   readWorkspaceVisualSettings,
   resolveVisualWorkspaceFiles,
 } from './workspace-files';
+import {
+  captureReviewExportStylesheets,
+  reviewDocumentDirectory,
+  reviewExportSaveAdapter,
+} from './review-html-export-host';
 
 const MULTI_REDLINE_VIEW_TYPE = 'ditaeditor.multiRedline';
-const panels = new Map<string, vscode.WebviewPanel>();
+interface MultiRedlineEntry {
+  panel: vscode.WebviewPanel;
+  exportSnapshots: ReviewExportSnapshotStore;
+}
+const panels = new Map<string, MultiRedlineEntry>();
 
 async function mapWithConcurrency<T, R>(
   values: readonly T[],
@@ -62,7 +76,7 @@ export async function openMultiRedlinePanel(
   const key = comparisons.map((comparison) => reviewComparisonIdentity(comparison)).join('\n');
   const existing = panels.get(key);
   if (existing) {
-    existing.reveal(undefined, false);
+    existing.panel.reveal(undefined, false);
     return;
   }
 
@@ -112,6 +126,21 @@ export async function openMultiRedlinePanel(
     log: (message) => debug.appendLine(message),
   });
   const managedStyles = redlineManagedStylePresentation(inspection);
+  const exportStylesheets = await captureReviewExportStylesheets({
+    extensionUri: context.extensionUri,
+    configuredStyleUris: resolved.contentStylesheets.map((stylesheet) => stylesheet.uri),
+    managedCssText: inspection.renderCssText,
+    managedBaseUri: target
+      ? vscode.Uri.parse(target.uri, true)
+      : vscode.Uri.joinPath(reviewDocumentDirectory(first.workspace), 'ditaeditor-managed.css'),
+    allowedFileRoots: [
+      context.extensionUri,
+      ...selections.map((selection) =>
+        vscode.workspace.getWorkspaceFolder(selection.workspace)?.uri
+          ?? reviewDocumentDirectory(selection.workspace)
+      ),
+    ],
+  });
   const repositoryBase = await resolveBaseRevision(first.workspace.fsPath);
   const openReviewSource = async (uri: vscode.Uri): Promise<{ getText(): string }> => {
     if (repositoryBase !== 'not-in-git') {
@@ -177,10 +206,33 @@ export async function openMultiRedlinePanel(
     vscode.ViewColumn.Active,
     {},
   );
-  panels.set(key, panel);
+  const entry: MultiRedlineEntry = {
+    panel,
+    exportSnapshots: new ReviewExportSnapshotStore(),
+  };
+  panels.set(key, entry);
   panel.onDidDispose(() => panels.delete(key));
   panel.webview.onDidReceiveMessage((message: { type?: string } | undefined) => {
-    if (message?.type === 'redlineReady') void panel.webview.postMessage(managedStyles.message);
+    if (message?.type === 'redlineReady') {
+      void panel.webview.postMessage(managedStyles.message);
+      return;
+    }
+    if (message?.type === 'exportHtml') {
+      void saveReviewExport(
+        entry.exportSnapshots,
+        reviewExportSaveAdapter(
+          reviewDocumentDirectory(first.workspace),
+          debug,
+          [
+            context.extensionUri,
+            ...selections.map((selection) =>
+              vscode.workspace.getWorkspaceFolder(selection.workspace)?.uri
+                ?? reviewDocumentDirectory(selection.workspace)
+            ),
+          ],
+        ),
+      );
+    }
   });
 
   const { contentStyleUris, surfaceStyleUri, baseHref, scriptUris } = configureRedlineWebviewResources({
@@ -205,5 +257,18 @@ export async function openMultiRedlinePanel(
     cspSource: panel.webview.cspSource,
     scriptUris,
     nonce: makeNonce(),
+  });
+  entry.exportSnapshots.replace({
+    title: `Review: ${title}`,
+    defaultFilename: 'dita-review-comparison.html',
+    bodyHtml: renderMultiReviewExportShell({
+      title,
+      files,
+      skippedFileCount: Math.max(0, totalTextDiffs - comparisons.length),
+    }),
+    stylesheets: exportStylesheets,
+    imageBaseUris: selections.map((selection) =>
+      `${reviewDocumentDirectory(selection.workspace).toString(true).replace(/\/$/, '')}/`
+    ),
   });
 }

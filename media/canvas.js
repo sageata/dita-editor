@@ -15,6 +15,12 @@
 (function () {
   const vscode = acquireVsCodeApi();
   const DEBOUNCE_MS = 250;
+  if (!window.DitaEditorCanvasScrollAnchor) throw new Error('DITA Editor scroll anchor script did not load before canvas.js');
+  const scrollAnchor = window.DitaEditorCanvasScrollAnchor.create({
+    document: document,
+    window: window,
+    postMessage: (message) => vscode.postMessage(Object.assign({ baseStructVersion: structVersion }, message)),
+  });
   // Host-computed keyboard navigation map: focusId -> { ArrowUp|...|End: NavResult }. Pushed by
   // the host on load (navready handshake) and on every rerender. The Arrow/Home/End handler does a
   // SYNCHRONOUS local lookup here; table Tab navigation uses rendered cell order locally. Neither
@@ -758,6 +764,12 @@
       showError(msg.message);
       return;
     }
+    if (msg.type === 'scrollToAnchor') {
+      if (!scrollAnchor.restore(msg.id)) {
+        vscode.postMessage({ type: 'scrollRestoreFailed', id: msg.id });
+      }
+      return;
+    }
     if (msg.type === 'navmap') {
       if (msg.navMap) navMap = msg.navMap; // load-handshake reply (no body changes)
       if (msg.cmdMap) cmdMap = msg.cmdMap; // P0-2: command availability for the current doc
@@ -843,6 +855,7 @@
     tableInsertPlus.refresh(); // the "+" anchored to a now-detached table boundary
     spellCtl.apply(main); // re-assert the author's spellcheck preference on the fresh editables
     restoreSelectionAfterRerender(main); // re-resolve/repaint or drop the element selection
+    scrollAnchor.didRerender(); // ids may have shifted; report the current logical viewport again
     nativeContextMenu.refresh();
     if (msg.focusId != null) {
       const el = main.querySelector('[data-autofocus]');
@@ -870,6 +883,7 @@
 
   // Initial pass for images that failed before the capture listener was attached.
   scanBrokenImages(document);
+  scrollAnchor.start();
 
   // The initial canvas comes from webview.html (no rerender message), so ping the host once now
   // that the message listener is registered; it replies with a {type:'navmap'} message carrying the

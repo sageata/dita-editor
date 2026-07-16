@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { renderMultiReviewShell } from '../src/compare/multi-review-shell';
+import { renderMultiReviewExportShell, renderMultiReviewShell } from '../src/compare/multi-review-shell';
 
 describe('renderMultiReviewShell', () => {
   test('stacks every rendered DITA comparison under one commit banner', () => {
@@ -19,6 +19,8 @@ describe('renderMultiReviewShell', () => {
     expect(html.match(/data-redline-nav="next"/g)?.length).toBe(1);
     expect(html).toContain('aria-label="Change navigation"');
     expect(html).toContain('data-redline-position');
+    expect(html).toContain('data-redline-action="exportHtml"');
+    expect(html).toContain('Export HTML');
     expect(html).not.toContain('data-redline-side-only');
     expect(html).toContain('one comparison');
     expect(html).toContain('two comparison');
@@ -40,5 +42,25 @@ describe('renderMultiReviewShell', () => {
     expect(html).toContain('&lt;topic&gt;.dita');
     expect(html).toContain('<div data-rendered>trusted</div>');
     expect(html).not.toContain('non-DITA');
+  });
+
+  test('renders a static multi-file export shell without VS Code controls', () => {
+    const html = renderMultiReviewExportShell({
+      title: 'Commit <title>',
+      files: [{
+        name: 'one.dita',
+        path: 'topics/one.dita',
+        changeCount: 1,
+        sideBySideHtml: '<div data-rendered>comparison</div>',
+      }],
+      skippedFileCount: 2,
+    });
+
+    expect(html).toContain('Commit &lt;title&gt;');
+    expect(html).toContain('1 DITA file · 1 change');
+    expect(html).toContain('2 non-DITA files omitted');
+    expect(html).toContain('data-redline-file');
+    expect(html).not.toContain('<button');
+    expect(html).not.toContain('data-redline-nav');
   });
 });

@@ -9,6 +9,8 @@ export interface ReviewShellOptions {
   sideBySideHtml: string;
 }
 
+export type ReviewExportShellOptions = Omit<ReviewShellOptions, 'inlineHtml'>;
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -31,6 +33,7 @@ export function renderReviewShell(options: ReviewShellOptions): string {
   const sourceDiff = label
     ? '<button type="button" class="redline-banner-btn" data-redline-action="openSourceDiff" title="Open the raw XML changes in the standard side-by-side diff">Side-by-side XML diff</button>'
     : '';
+  const exportHtml = '<button type="button" class="redline-banner-btn" data-redline-action="exportHtml" data-redline-side-only hidden title="Save this rendered side-by-side comparison as a self-contained HTML file">Export HTML</button>';
 
   const modes = '<div class="redline-mode-toggle" role="group" aria-label="Review layout">'
     + '<button type="button" class="redline-banner-btn" data-redline-mode="inline" aria-pressed="true">Track Changes</button>'
@@ -41,10 +44,25 @@ export function renderReviewShell(options: ReviewShellOptions): string {
     + '<button type="button" class="redline-banner-btn" data-redline-nav="next" title="Next change">Next</button>'
     + '<span class="redline-change-position" data-redline-position aria-live="polite"></span>'
     + '</div>';
-  const banner = `<div class="redline-banner"><span>${compared}</span>${noteHtml}${modes}${navigation}${sourceDiff}`
+  const banner = `<div class="redline-banner"><span>${compared}</span>${noteHtml}${modes}${navigation}${exportHtml}${sourceDiff}`
     + `<span class="redline-banner-count">${count}</span></div>`;
 
   return banner
     + `<section class="redline-review-view" data-redline-view="inline">${inlineHtml}</section>`
     + `<section class="redline-review-view" hidden data-redline-view="side-by-side">${sideBySideHtml}</section>`;
+}
+
+export function renderReviewExportShell(options: ReviewExportShellOptions): string {
+  const compared = options.label
+    ? `Comparing with <strong>${escapeHtml(options.label)}</strong>`
+    : 'No version-control base available';
+  const count = options.changeCount === 0
+    ? 'No changes'
+    : `${options.changeCount} change${options.changeCount === 1 ? '' : 's'}`;
+  const note = options.note
+    ? `<span class="redline-banner-note">${escapeHtml(options.note)}</span>`
+    : '';
+  return `<div class="redline-banner"><span>${compared}</span>${note}`
+    + `<span class="redline-banner-count">${count}</span></div>`
+    + `<section class="redline-review-view">${options.sideBySideHtml}</section>`;
 }
