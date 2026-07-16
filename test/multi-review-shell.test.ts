@@ -21,6 +21,8 @@ describe('renderMultiReviewShell', () => {
     expect(html).toContain('data-redline-position');
     expect(html).toContain('data-redline-action="exportHtml"');
     expect(html).toContain('Export HTML');
+    expect(html).toContain('data-redline-action="openSourceDiff"');
+    expect(html).toContain('Side-by-side XML diff');
     expect(html).not.toContain('data-redline-side-only');
     expect(html).toContain('one comparison');
     expect(html).toContain('two comparison');

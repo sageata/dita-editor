@@ -461,14 +461,10 @@ export function activate(context: vscode.ExtensionContext): void {
                 tab.label,
                 debug,
               );
-              const closed = await closeTabsIfStillOpen([tab], debug);
-              if (!closed) {
-                const detail = `VS Code returned false while closing the native multi-file diff "${tab.label}".`;
-                debug.appendLine(`dita-editor: multi-redline scm intercept failed: ${detail}`);
-                void vscode.window.showErrorMessage(
-                  `DITA Editor: the rendered commit review opened, but the native XML diff could not be closed. ${detail}`,
-                );
-              }
+              // Keep the native multi-file diff behind the rendered panel.
+              // Unlike a single-file diff, VS Code exposes no stable API for
+              // reconstructing this proposed editor input after it is closed.
+              // Review's XML button switches back with previousEditor.
             } catch (err) {
               const detail = err instanceof Error ? err.message : String(err);
               debug.appendLine(`dita-editor: multi-redline scm intercept failed for "${tab.label}": ${detail}`);

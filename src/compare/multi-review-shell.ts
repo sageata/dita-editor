@@ -34,6 +34,7 @@ export function renderMultiReviewShell(options: MultiReviewShellOptions): string
     + '<span class="redline-change-position" data-redline-position aria-live="polite"></span>'
     + '</div>';
   const exportHtml = '<button type="button" class="redline-banner-btn" data-redline-action="exportHtml" title="Save this rendered comparison as a self-contained HTML file">Export HTML</button>';
+  const sourceDiff = '<button type="button" class="redline-banner-btn" data-redline-action="openSourceDiff" title="Show all raw XML changes in the native multi-file diff">Side-by-side XML diff</button>';
   const sections = options.files.map((file) => {
     const count = file.changeCount === 0
       ? 'No content changes'
@@ -45,7 +46,7 @@ export function renderMultiReviewShell(options: MultiReviewShellOptions): string
       + '</section>';
   }).join('');
   return `<div class="redline-banner redline-multi-banner"><span><strong>${escapeHtml(options.title)}</strong></span>`
-    + `${skipped}${navigation}${exportHtml}<span class="redline-banner-count">${options.files.length} DITA file${options.files.length === 1 ? '' : 's'} · ${totalChanges} change${totalChanges === 1 ? '' : 's'}</span></div>`
+    + `${skipped}${navigation}${exportHtml}${sourceDiff}<span class="redline-banner-count">${options.files.length} DITA file${options.files.length === 1 ? '' : 's'} · ${totalChanges} change${totalChanges === 1 ? '' : 's'}</span></div>`
     + `<div class="redline-multi-files">${sections}</div>`;
 }
 
