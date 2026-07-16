@@ -1,7 +1,8 @@
 // Aggregate rendered Review for VS Code's Source Control Graph multi-file diff.
 // Historical URI pairs are read exactly as supplied by VS Code, then stacked in
 // one side-by-side webview. The native multi-diff remains open until this entire
-// panel has rendered successfully, so a failure never removes the fallback.
+// panel has rendered successfully. It then stays open behind Review so the
+// banner can switch back to the complete native XML comparison.
 
 import * as path from 'node:path';
 import * as vscode from 'vscode';
@@ -225,6 +226,10 @@ export async function openMultiRedlinePanel(
   panel.webview.onDidReceiveMessage((message: { type?: string } | undefined) => {
     if (message?.type === 'redlineReady') {
       void panel.webview.postMessage(managedStyles.message);
+      return;
+    }
+    if (message?.type === 'openSourceDiff') {
+      void vscode.commands.executeCommand('workbench.action.previousEditor');
       return;
     }
     if (message?.type === 'exportHtml') {
