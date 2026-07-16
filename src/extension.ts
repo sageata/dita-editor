@@ -17,6 +17,7 @@ import { DitaVisualEditorProvider, VIEW_TYPE, type VisualHost } from './host/vis
 import { openRedlinePanel } from './host/redline-panel';
 import { openMultiRedlinePanel } from './host/multi-redline-panel';
 import {
+  closeNativeTabsIfPresent,
   isManualSourceDiff,
   renderReviewBeforeClosingNative,
   reviewComparisonFromCustomEditorCandidates,
@@ -95,6 +96,29 @@ function isDitaUri(uri: vscode.Uri): boolean {
   return uri.fsPath.toLowerCase().endsWith('.dita');
 }
 
+function isTabOpen(tab: vscode.Tab): boolean {
+  return vscode.window.tabGroups.all.some((group) => group.tabs.includes(tab));
+}
+
+async function closeTabsIfStillOpen(
+  tabs: readonly vscode.Tab[],
+  debug: vscode.OutputChannel,
+): Promise<boolean> {
+  return closeNativeTabsIfPresent(
+    tabs,
+    isTabOpen,
+    (openTabs) => vscode.window.tabGroups.close([...openTabs], true),
+    (err) => {
+      const detail = err instanceof Error ? err.message : String(err);
+      const alreadyClosed = detail.includes('Tab close: Invalid tab not found');
+      if (alreadyClosed) {
+        debug.appendLine(`dita-editor: native diff was already closed during rendered-review cleanup: ${detail}`);
+      }
+      return alreadyClosed;
+    },
+  );
+}
+
 function diagnosticForIssue(document: vscode.TextDocument, issue: DitaLintIssue): vscode.Diagnostic {
   const diag = new vscode.Diagnostic(
     new vscode.Range(document.positionAt(issue.start), document.positionAt(issue.end)),
@@ -117,6 +141,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const debug = vscode.window.createOutputChannel('DITA Editor');
   const pendingMultiDiffTabs = new WeakSet<vscode.Tab>();
   const pendingCustomDiffs = new Set<string>();
+  const pendingTextDiffTabs = new WeakSet<vscode.Tab>();
   const manualCustomDiffs = new WeakMap<vscode.Tab, DiffTabShape<vscode.Uri>>();
 
   // C4: a status-bar trust indicator for the active visual editor — byte-safe vs. unsaved.
@@ -436,7 +461,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 tab.label,
                 debug,
               );
-              const closed = await vscode.window.tabGroups.close(tab, true);
+              const closed = await closeTabsIfStillOpen([tab], debug);
               if (!closed) {
                 const detail = `VS Code returned false while closing the native multi-file diff "${tab.label}".`;
                 debug.appendLine(`dita-editor: multi-redline scm intercept failed: ${detail}`);
@@ -494,7 +519,7 @@ export function activate(context: vscode.ExtensionContext): void {
             try {
               const closed = await renderReviewBeforeClosingNative(
                 () => openRedlinePanel(context, customPair.comparison, debug),
-                () => vscode.window.tabGroups.close([originalTab, modifiedTab], true),
+                () => closeTabsIfStillOpen([originalTab, modifiedTab], debug),
               );
               if (!closed) {
                 const detail = `VS Code returned false while closing the custom diff panes for ${diff.modified.toString(true)}.`;
@@ -524,6 +549,8 @@ export function activate(context: vscode.ExtensionContext): void {
         if (isManualSourceDiff(input)) continue;
         const comparison = reviewComparisonFromDiffTab(input);
         if (!comparison) continue;
+        if (pendingTextDiffTabs.has(tab)) continue;
+        pendingTextDiffTabs.add(tab);
         void (async () => {
           try {
             // The native diff is the fallback. Build the complete rendered review
@@ -531,7 +558,7 @@ export function activate(context: vscode.ExtensionContext): void {
             // and the Review webview rendered successfully.
             const closed = await renderReviewBeforeClosingNative(
               () => openRedlinePanel(context, comparison, debug),
-              () => vscode.window.tabGroups.close(tab, true),
+              () => closeTabsIfStillOpen([tab], debug),
             );
             if (!closed) {
               const detail = `VS Code returned false while closing the native diff for ${input.modified.toString(true)}.`;
@@ -548,6 +575,8 @@ export function activate(context: vscode.ExtensionContext): void {
             void vscode.window.showErrorMessage(
               `DITA Editor: could not build the rendered review; the native XML diff was kept open. ${detail}`,
             );
+          } finally {
+            pendingTextDiffTabs.delete(tab);
           }
         })();
       }

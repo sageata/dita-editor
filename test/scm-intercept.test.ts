@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  closeNativeTabsIfPresent,
   clearNextManualWorkingCopyDiff,
   isManualSourceDiff,
   markManualSourceDiff,
@@ -354,5 +355,37 @@ describe('native diff fallback ordering', () => {
 
   test('returns VS Code close refusal instead of treating it as success', async () => {
     expect(await renderReviewBeforeClosingNative(async () => {}, async () => false)).toBe(false);
+  });
+
+  test('treats a preview tab removed before cleanup as already closed', async () => {
+    const open = new Set(['diff']);
+    const result = await closeNativeTabsIfPresent(
+      ['diff'],
+      (tab) => open.has(tab),
+      async () => {
+        open.delete('diff');
+        throw new Error('Tab close: Invalid tab not found!');
+      },
+    );
+    expect(result).toBe(true);
+  });
+
+  test('accepts VS Code invalid-tab rejection during a stale tab-list window', async () => {
+    const result = await closeNativeTabsIfPresent(
+      ['diff'],
+      () => true,
+      async () => { throw new Error('Tab close: Invalid tab not found!'); },
+      (err) => err instanceof Error && err.message.includes('Tab close: Invalid tab not found'),
+    );
+    expect(result).toBe(true);
+  });
+
+  test('does not hide a close failure while the native tab remains open', async () => {
+    const open = new Set(['diff']);
+    await expect(closeNativeTabsIfPresent(
+      ['diff'],
+      (tab) => open.has(tab),
+      async () => { throw new Error('close failed'); },
+    )).rejects.toThrow('close failed');
   });
 });
