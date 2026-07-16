@@ -19,12 +19,19 @@ import { openMultiRedlinePanel } from './host/multi-redline-panel';
 import {
   isManualSourceDiff,
   renderReviewBeforeClosingNative,
+  reviewComparisonFromCustomEditorCandidates,
   reviewComparisonFromDiffTab,
+  reviewComparisonIdentity,
   reviewComparisonsFromMultiDiff,
   shouldInterceptScmDiff,
   unmarkManualSourceDiff,
+  type DiffTabShape,
   type ReviewComparison,
 } from './host/scm-intercept';
+import {
+  anchorAtSourceOffset,
+  openingTagOffsetForAnchor,
+} from './host/scroll-handoff';
 
 // Resolve the .dita document a command should act on: an explicit arg (passed by
 // the editor-title button), else the active custom/text tab, else the active text
@@ -50,7 +57,10 @@ function activeDitaDiff(): ReviewComparison<vscode.Uri> | undefined {
 // replace the current one), so we close the prior tab ourselves. Opening first and
 // closing second keeps the shared TextDocument open throughout, so no save prompt
 // fires even when the buffer is dirty. If no prior tab exists, this is a plain open.
-async function reopenInPlace(target: vscode.Uri, viewType: string): Promise<void> {
+async function reopenInPlace(
+  target: vscode.Uri,
+  viewType: string,
+): Promise<vscode.ViewColumn | undefined> {
   const key = target.toString();
   const isPriorTab = (tab: vscode.Tab): boolean => {
     const input = tab.input;
@@ -64,10 +74,11 @@ async function reopenInPlace(target: vscode.Uri, viewType: string): Promise<void
     }
     return false;
   };
-  let prior: vscode.Tab | undefined;
+  const activeGroup = vscode.window.tabGroups.activeTabGroup;
+  let prior = activeGroup.tabs.find(isPriorTab);
   for (const group of vscode.window.tabGroups.all) {
-    prior = group.tabs.find(isPriorTab);
     if (prior) break;
+    prior = group.tabs.find(isPriorTab);
   }
   const viewColumn = prior?.group.viewColumn;
   await vscode.commands.executeCommand('vscode.openWith', target, viewType, viewColumn);
@@ -77,6 +88,7 @@ async function reopenInPlace(target: vscode.Uri, viewType: string): Promise<void
   if (remainingPriorTabs.length > 0) {
     await vscode.window.tabGroups.close(remainingPriorTabs, false);
   }
+  return viewColumn;
 }
 
 function isDitaUri(uri: vscode.Uri): boolean {
@@ -104,6 +116,8 @@ export function activate(context: vscode.ExtensionContext): void {
   // why the channel QA looked at appeared empty (it did not exist).
   const debug = vscode.window.createOutputChannel('DITA Editor');
   const pendingMultiDiffTabs = new WeakSet<vscode.Tab>();
+  const pendingCustomDiffs = new Set<string>();
+  const manualCustomDiffs = new WeakMap<vscode.Tab, DiffTabShape<vscode.Uri>>();
 
   // C4: a status-bar trust indicator for the active visual editor — byte-safe vs. unsaved.
   const statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -148,6 +162,87 @@ export function activate(context: vscode.ExtensionContext): void {
     scheduleStatusRefresh,
   };
   const visualProvider = new DitaVisualEditorProvider(context, host);
+  const warnScrollHandoff = (detail: string, userMessage: string): void => {
+    debug.appendLine(`DITA Editor scroll handoff skipped: ${detail}`);
+    void vscode.window.showWarningMessage(userMessage);
+  };
+  const visibleSourceEditor = (
+    target: vscode.Uri,
+    preferredColumn = vscode.window.tabGroups.activeTabGroup.viewColumn,
+  ): vscode.TextEditor | undefined => {
+    const key = target.toString();
+    const matching = vscode.window.visibleTextEditors.filter(
+      (editor) => editor.document.uri.toString() === key,
+    );
+    const active = vscode.window.activeTextEditor;
+    if (
+      active?.document.uri.toString() === key &&
+      (active.viewColumn === preferredColumn || preferredColumn === undefined)
+    ) return active;
+    return matching.find((editor) => editor.viewColumn === preferredColumn)
+      ?? (preferredColumn === undefined ? matching[0] : undefined);
+  };
+  const openVisualPreservingScroll = async (target: vscode.Uri): Promise<void> => {
+    const sourceEditor = visibleSourceEditor(target);
+    if (!sourceEditor) {
+      await reopenInPlace(target, VIEW_TYPE);
+      return;
+    }
+    const topPosition = sourceEditor.visibleRanges[0]?.start;
+    let failure: string | null = null;
+    if (!topPosition) {
+      failure = `the source editor for ${target.toString(true)} had no visible range`;
+    } else {
+      const mapping = anchorAtSourceOffset(
+        sourceEditor.document.getText(),
+        sourceEditor.document.offsetAt(topPosition),
+      );
+      if (mapping.ok) visualProvider.queueVisualRestore(target, mapping.anchor);
+      else failure = mapping.reason;
+    }
+    await reopenInPlace(target, VIEW_TYPE);
+    if (failure) {
+      warnScrollHandoff(
+        `${target.toString(true)} (XML to Visual): ${failure}`,
+        'DITA Editor: switched to the Visual editor, but the previous source position could not be restored.',
+      );
+    }
+  };
+  const openSourcePreservingScroll = async (target: vscode.Uri): Promise<void> => {
+    const anchor = visualProvider.latestVisualAnchor(target);
+    let sourceDocument: vscode.TextDocument | null = null;
+    let offset: number | null = null;
+    let failure: string | null = null;
+    if (!anchor) {
+      failure = 'the visual canvas had not reported a current scroll anchor';
+    } else {
+      try {
+        sourceDocument = await vscode.workspace.openTextDocument(target);
+        const mapping = openingTagOffsetForAnchor(sourceDocument.getText(), anchor.id);
+        if (mapping.ok) offset = mapping.offset;
+        else failure = mapping.reason;
+      } catch (error) {
+        failure = `the source document could not be read: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    }
+    const reopenedColumn = await reopenInPlace(target, 'default');
+    if (offset !== null && sourceDocument) {
+      const sourceEditor = visibleSourceEditor(target, reopenedColumn);
+      if (sourceEditor) {
+        const position = sourceDocument.positionAt(offset);
+        sourceEditor.revealRange(
+          new vscode.Range(position, position),
+          vscode.TextEditorRevealType.AtTop,
+        );
+        return;
+      }
+      failure = 'VS Code did not expose the reopened source editor';
+    }
+    warnScrollHandoff(
+      `${target.toString(true)} (Visual to XML): ${failure ?? 'no source offset was available'}`,
+      'DITA Editor: switched to XML, but the previous visual position could not be restored.',
+    );
+  };
 
   // OPEN-1: persist the user's default-editor preference for *.dita as a
   // workbench.editorAssociations entry — the VS Code setting that OVERRIDES the
@@ -247,7 +342,7 @@ export function activate(context: vscode.ExtensionContext): void {
         );
         return;
       }
-      void reopenInPlace(target, VIEW_TYPE);
+      void openVisualPreservingScroll(target);
     }),
     // C4: reopen the same document in VS Code's default text editor (the raw DITA
     // XML). Read-only round-trip — it opens a different editor, it never edits.
@@ -260,7 +355,7 @@ export function activate(context: vscode.ExtensionContext): void {
         );
         return;
       }
-      void reopenInPlace(target, 'default');
+      void openSourcePreservingScroll(target);
     }),
     // OPEN-1: Command Palette toggles for the persisted default editor (see setDefaultEditor).
     vscode.commands.registerCommand('ditaeditor.useVisualByDefault', () =>
@@ -304,12 +399,11 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
     vscode.workspace.onDidSaveTextDocument(() => scheduleStatusRefresh()),
-    // Default review view: a Source-Control click on a modified .dita opens a raw
-    // XML text diff (per the workspace's git-scheme editorAssociations rule) — for
-    // authors we replace that tab with the rendered Review panel. SCM preview tabs
-    // are REUSED, so the diff can surface via `changed`, not just `opened`. No
-    // re-entrancy: closing fires only `closed`, and the webview panel is never a
-    // TabInputTextDiff. Escape hatch: ditaeditor.redline.openFromScm = false.
+    // Default review view: Source Control may surface a .dita comparison as one
+    // text-diff tab or as two custom-editor panes when the visual editor is the
+    // default. Replace either shape with the rendered Review panel. SCM preview
+    // tabs are REUSED, so the diff can surface via `changed`, not just `opened`.
+    // Escape hatch: ditaeditor.redline.openFromScm = false.
     vscode.window.tabGroups.onDidChangeTabs((event) => {
       // Bookkeeping first (runs even with openFromScm off): closing a manually
       // requested side-by-side diff re-arms Review as the default for that file.
@@ -317,6 +411,11 @@ export function activate(context: vscode.ExtensionContext): void {
         const input = tab.input;
         if (input instanceof vscode.TabInputTextDiff && shouldInterceptScmDiff(input)) {
           unmarkManualSourceDiff(input);
+        }
+        const customDiff = manualCustomDiffs.get(tab);
+        if (customDiff) {
+          unmarkManualSourceDiff(customDiff);
+          manualCustomDiffs.delete(tab);
         }
       }
       if (!vscode.workspace.getConfiguration('ditaeditor').get<boolean>('redline.openFromScm', true)) {
@@ -353,6 +452,67 @@ export function activate(context: vscode.ExtensionContext): void {
               );
             } finally {
               pendingMultiDiffTabs.delete(tab);
+            }
+          })();
+          continue;
+        }
+        if (input instanceof vscode.TabInputCustom && input.viewType === VIEW_TYPE) {
+          const candidateTabs = new Map<object, vscode.Tab>();
+          const candidates = vscode.window.tabGroups.all.flatMap((group) =>
+            group.tabs.flatMap((candidateTab, tabIndex) => {
+              const candidateInput = candidateTab.input;
+              if (!(candidateInput instanceof vscode.TabInputCustom) || candidateInput.viewType !== VIEW_TYPE) {
+                return [];
+              }
+              const candidate = {
+                target: candidateInput.uri,
+                order: (group.viewColumn * 10_000) + tabIndex,
+                triggered: candidateTab === tab,
+              };
+              candidateTabs.set(candidate, candidateTab);
+              return [candidate];
+            }),
+          );
+          const customPair = reviewComparisonFromCustomEditorCandidates(candidates);
+          if (!customPair) continue;
+          const originalTab = candidateTabs.get(customPair.original);
+          const modifiedTab = candidateTabs.get(customPair.modified);
+          if (!originalTab || !modifiedTab) continue;
+          const diff = {
+            original: customPair.original.target,
+            modified: customPair.modified.target,
+          };
+          if (isManualSourceDiff(diff)) {
+            manualCustomDiffs.set(originalTab, diff);
+            manualCustomDiffs.set(modifiedTab, diff);
+            continue;
+          }
+          const identity = reviewComparisonIdentity(customPair.comparison);
+          if (pendingCustomDiffs.has(identity)) continue;
+          pendingCustomDiffs.add(identity);
+          void (async () => {
+            try {
+              const closed = await renderReviewBeforeClosingNative(
+                () => openRedlinePanel(context, customPair.comparison, debug),
+                () => vscode.window.tabGroups.close([originalTab, modifiedTab], true),
+              );
+              if (!closed) {
+                const detail = `VS Code returned false while closing the custom diff panes for ${diff.modified.toString(true)}.`;
+                debug.appendLine(`dita-editor: custom-editor redline intercept failed: ${detail}`);
+                void vscode.window.showErrorMessage(
+                  `DITA Editor: the rendered review opened, but the visual diff panes could not be closed. ${detail}`,
+                );
+              }
+            } catch (err) {
+              const detail = err instanceof Error ? err.message : String(err);
+              debug.appendLine(
+                `dita-editor: custom-editor redline intercept failed for ${diff.original.toString(true)} -> ${diff.modified.toString(true)}: ${detail}`,
+              );
+              void vscode.window.showErrorMessage(
+                `DITA Editor: could not build the rendered review; the visual diff panes were kept open. ${detail}`,
+              );
+            } finally {
+              pendingCustomDiffs.delete(identity);
             }
           })();
           continue;

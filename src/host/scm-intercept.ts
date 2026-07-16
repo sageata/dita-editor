@@ -16,6 +16,18 @@ export interface DiffTabShape<T extends ReviewTargetShape = ReviewTargetShape> {
   modified: T;
 }
 
+export interface CustomReviewCandidate<T extends ReviewTargetShape = ReviewTargetShape> {
+  target: T;
+  order: number;
+  triggered: boolean;
+}
+
+export interface CustomReviewPair<T extends ReviewTargetShape = ReviewTargetShape> {
+  original: CustomReviewCandidate<T>;
+  modified: CustomReviewCandidate<T>;
+  comparison: ReviewComparison<T>;
+}
+
 /**
  * Runtime shape of VS Code's aggregate multi-file diff tab. The corresponding
  * `TabInputTextMultiDiff` API is still proposed, so production extensions cannot
@@ -48,8 +60,8 @@ export interface ReviewSelection<T extends ReviewTargetShape> {
   document: T;
   /** An explicit older/left-hand historical document. */
   base: T | undefined;
-  /** The real workspace file used only to resolve settings, CSS and images. */
-  workspace: T;
+  /** The local file used only to resolve settings, CSS and images when available. */
+  resource: T;
   /** Historical sources are immutable and never follow working-copy changes. */
   historical: boolean;
 }
@@ -58,7 +70,17 @@ function isDita(target: ReviewTargetShape): boolean {
   return target.fsPath.toLowerCase().endsWith('.dita');
 }
 
-const REVISION_SCHEMES = new Set(['git', 'gitlens', 'vscode-local-history']);
+const REVISION_SCHEMES = new Set([
+  'git',
+  'gitlens',
+  'vscode-local-history',
+  // GitHub Pull Requests uses review: for checked-out PR revisions and pr: for
+  // both sides of a PR that is not checked out locally.
+  'review',
+  'pr',
+]);
+const WORKING_COPY_BASE_SCHEMES = new Set(['git', 'review']);
+const AUTOMATIC_REVIEW_SCHEMES = new Set(['git', 'review', 'pr']);
 
 /**
  * Preserve the exact left/right pair for a committed-history diff. A working-copy
@@ -72,7 +94,7 @@ export function reviewComparisonFromDiffTab<T extends ReviewTargetShape>(
   if (REVISION_SCHEMES.has(tab.original.scheme) && REVISION_SCHEMES.has(tab.modified.scheme)) {
     return { kind: 'historical', original: tab.original, modified: tab.modified };
   }
-  if (tab.original.scheme === 'git' && tab.modified.scheme === 'file') {
+  if (WORKING_COPY_BASE_SCHEMES.has(tab.original.scheme) && tab.modified.scheme === 'file') {
     return { kind: 'working-copy', modified: tab.modified };
   }
   return undefined;
@@ -122,31 +144,60 @@ export function resolveReviewSelection<T extends ReviewTargetShape>(
   comparison: ReviewComparison<T>,
   dependencies: ReviewTargetDependencies<T>,
 ): ReviewSelection<T> {
-  if (comparison.kind === 'working-copy') {
-    return {
-      document: comparison.modified,
-      base: undefined,
-      workspace: comparison.modified,
-      historical: false,
-    };
-  }
-
-  const workingCopy = dependencies.fileUri(comparison.modified.fsPath);
+  const document = comparison.modified;
+  const localFile = document.scheme === 'file'
+    ? document
+    : dependencies.fileUri(document.fsPath);
+  const resource = document.scheme === 'file' || dependencies.isInWorkspace(localFile)
+    ? localFile
+    : document;
   return {
-    document: comparison.modified,
-    base: comparison.original,
-    workspace: dependencies.isInWorkspace(workingCopy) ? workingCopy : comparison.modified,
-    historical: true,
+    document,
+    base: comparison.kind === 'historical' ? comparison.original : undefined,
+    resource,
+    historical: comparison.kind === 'historical',
   };
 }
 
 export function shouldInterceptScmDiff(tab: DiffTabShape): boolean {
-  return (
-    tab.original.scheme === 'git' &&
-    (tab.modified.scheme === 'file' || tab.modified.scheme === 'git') &&
-    isDita(tab.original) &&
-    isDita(tab.modified)
-  );
+  if (!isDita(tab.original) || !isDita(tab.modified)) return false;
+  if (!AUTOMATIC_REVIEW_SCHEMES.has(tab.original.scheme)) return false;
+  if (tab.modified.scheme === 'file') {
+    return WORKING_COPY_BASE_SCHEMES.has(tab.original.scheme);
+  }
+  return tab.original.scheme === tab.modified.scheme
+    && AUTOMATIC_REVIEW_SCHEMES.has(tab.modified.scheme);
+}
+
+/** VS Code renders a diff as two custom-editor panes when our *.dita editor is the
+ * default. Pair those panes without requiring a scheme-specific editor association. */
+export function reviewComparisonFromCustomEditorCandidates<T extends ReviewTargetShape>(
+  candidates: readonly CustomReviewCandidate<T>[],
+): CustomReviewPair<T> | undefined {
+  for (let leftIndex = 0; leftIndex < candidates.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < candidates.length; rightIndex += 1) {
+      const left = candidates[leftIndex];
+      const right = candidates[rightIndex];
+      if (!left.triggered && !right.triggered) continue;
+      if (left.target.fsPath !== right.target.fsPath) continue;
+      if (left.target === right.target) continue;
+
+      let original = left.order <= right.order ? left : right;
+      let modified = original === left ? right : left;
+      if (left.target.scheme === 'file' && right.target.scheme !== 'file') {
+        original = right;
+        modified = left;
+      } else if (right.target.scheme === 'file' && left.target.scheme !== 'file') {
+        original = left;
+        modified = right;
+      }
+      const diff = { original: original.target, modified: modified.target };
+      if (!shouldInterceptScmDiff(diff)) continue;
+      const comparison = reviewComparisonFromDiffTab(diff);
+      if (comparison) return { original, modified, comparison };
+    }
+  }
+  return undefined;
 }
 
 /** Keep the native diff as fallback until the rendered Review is fully ready. */

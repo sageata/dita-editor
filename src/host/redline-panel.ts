@@ -14,7 +14,8 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { renderReviewDocuments } from '../compare/render-review';
-import { renderReviewShell } from '../compare/review-shell';
+import { renderReviewExportShell, renderReviewShell } from '../compare/review-shell';
+import { ReviewExportSnapshotStore, saveReviewExport } from '../compare/review-html-export';
 import { buildCanvasHtml } from '../webview/canvas-html';
 import { readFileAtRevision, resolveBaseRevision } from './revision-source';
 import { configureRedlineWebviewResources } from './webview-resources';
@@ -57,6 +58,11 @@ import {
   workspaceResourceWatcherSpecifications,
   type WorkspaceResourceWatchTarget,
 } from './resource-watch-target';
+import {
+  captureReviewExportStylesheets,
+  reviewDocumentDirectory,
+  reviewExportSaveAdapter,
+} from './review-html-export-host';
 
 const REDLINE_VIEW_TYPE = 'ditaeditor.redline';
 const REFRESH_DEBOUNCE_MS = 300;
@@ -77,6 +83,7 @@ interface RedlineEntry {
   taxonomyWatchers: vscode.FileSystemWatcher[];
   taxonomyWatcherSubscriptions: vscode.Disposable[];
   refreshGeneration: RefreshGeneration;
+  exportSnapshots: ReviewExportSnapshotStore;
 }
 
 // One panel per file; re-running the command refreshes it in place.
@@ -193,13 +200,13 @@ async function renderIntoPanel(
   const generation = entry.refreshGeneration.begin();
   if (generation === null) return;
 
-  const folder = vscode.workspace.getWorkspaceFolder(selection.workspace);
+  const folder = vscode.workspace.getWorkspaceFolder(selection.resource);
   // Friendly formatting labels: className → style name from the workspace's
   // managed author-style sheet, re-inspected per refresh so dirty/refused state
   // and renamed labels cannot diverge from the canvas host.
   const styleFiles = createNodeManagedStyleFiles();
   const settings = readWorkspaceVisualSettings(
-    vscode.workspace.getConfiguration('ditaeditor.visual', selection.workspace),
+    vscode.workspace.getConfiguration('ditaeditor.visual', selection.resource),
   );
   const resolved = await resolveVisualWorkspaceFiles({
     folder,
@@ -252,6 +259,19 @@ async function renderIntoPanel(
   const { html: inlineHtml, changeCount } = rendered.inline;
 
   if (!entry.refreshGeneration.isCurrent(generation)) return;
+  const exportStylesheets = await captureReviewExportStylesheets({
+    extensionUri: context.extensionUri,
+    configuredStyleUris: resolved.contentStylesheets.map((stylesheet) => stylesheet.uri),
+    managedCssText: inspection.renderCssText,
+    managedBaseUri: target
+      ? vscode.Uri.parse(target.uri, true)
+      : vscode.Uri.joinPath(reviewDocumentDirectory(selection.resource), 'ditaeditor-managed.css'),
+    allowedFileRoots: [
+      context.extensionUri,
+      folder?.uri ?? reviewDocumentDirectory(selection.resource),
+    ],
+  });
+  if (!entry.refreshGeneration.isCurrent(generation)) return;
   entry.managedStylesMessage = managedStyles.message;
   entry.managedStyleTarget = target;
   retargetManagedStyleWatcher(context, selection, entry, debug, folder, target);
@@ -268,7 +288,7 @@ async function renderIntoPanel(
   const { contentStyleUris, surfaceStyleUri, baseHref, scriptUris } = configureRedlineWebviewResources({
     webview: entry.panel.webview,
     extensionUri: context.extensionUri,
-    documentUri: selection.workspace,
+    resourceUri: selection.resource,
     folder,
     contentStylesheets: resolved.contentStylesheets,
     joinPath: vscode.Uri.joinPath,
@@ -289,6 +309,18 @@ async function renderIntoPanel(
     cspSource: entry.panel.webview.cspSource,
     scriptUris,
     nonce: makeNonce(),
+  });
+  entry.exportSnapshots.replace({
+    title: `Review: ${path.basename(selection.resource.fsPath)}`,
+    defaultFilename: `${path.parse(selection.resource.fsPath).name}-comparison.html`,
+    bodyHtml: renderReviewExportShell({
+      label,
+      note,
+      changeCount,
+      sideBySideHtml: rendered.sideBySide.html,
+    }),
+    stylesheets: exportStylesheets,
+    imageBaseUris: [`${reviewDocumentDirectory(selection.resource).toString(true).replace(/\/$/, '')}/`],
   });
 }
 
@@ -324,9 +356,9 @@ export async function openRedlinePanel(
     fileUri: vscode.Uri.file,
     isInWorkspace: (candidate) => vscode.workspace.getWorkspaceFolder(candidate) !== undefined,
   });
-  if (selection.workspace !== selection.document) {
+  if (selection.resource.toString(true) !== selection.document.toString(true)) {
     debug.appendLine(
-      `dita-editor: preserving ${selection.document.scheme}: review content and using the workspace file only for resources for ${path.basename(selection.workspace.fsPath)}.`,
+      `dita-editor: review content URI ${selection.document.toString(true)} uses local resource URI ${selection.resource.toString(true)}.`,
     );
   }
   const key = reviewComparisonIdentity(comparison);
@@ -335,7 +367,7 @@ export async function openRedlinePanel(
   if (!entry) {
     const panel = vscode.window.createWebviewPanel(
       REDLINE_VIEW_TYPE,
-      `Review: ${path.basename(selection.workspace.fsPath)}`,
+      `Review: ${path.basename(selection.resource.fsPath)}`,
       vscode.ViewColumn.Active,
       {},
     );
@@ -353,6 +385,7 @@ export async function openRedlinePanel(
       taxonomyWatchers: [],
       taxonomyWatcherSubscriptions: [],
       refreshGeneration: createRefreshGeneration(),
+      exportSnapshots: new ReviewExportSnapshotStore(),
     };
     const styleFiles = createNodeManagedStyleFiles();
     const refreshForManagedStyleDocument = createManagedStyleDocumentRefreshHandler({
@@ -368,7 +401,7 @@ export async function openRedlinePanel(
     const refreshForTaxonomyDocument = createManagedStyleDocumentRefreshHandler({
       matches: (document: vscode.TextDocument) => matchesManagedStyleDocumentTarget(
         document,
-        taxonomyDocumentTarget(created, vscode.workspace.getWorkspaceFolder(selection.workspace)),
+        taxonomyDocumentTarget(created, vscode.workspace.getWorkspaceFolder(selection.resource)),
         styleFiles,
         process.platform,
       ),
@@ -384,28 +417,43 @@ export async function openRedlinePanel(
       // this file. The file is marked first so the SCM intercept leaves the
       // requested diff tab alone (Review becomes the default again once the
       // user closes that tab).
-      panel.webview.onDidReceiveMessage((msg: { type?: string } | undefined) => {
-        if (msg?.type === 'redlineReady') {
+      panel.webview.onDidReceiveMessage((message: { type?: string } | undefined) => {
+        if (message?.type === 'redlineReady') {
           void panel.webview.postMessage(created.managedStylesMessage);
           return;
         }
-        if (msg?.type !== 'openSourceDiff') return;
+        if (message?.type === 'exportHtml') {
+          void saveReviewExport(
+            created.exportSnapshots,
+            reviewExportSaveAdapter(
+              reviewDocumentDirectory(selection.resource),
+              debug,
+              [
+                context.extensionUri,
+                vscode.workspace.getWorkspaceFolder(selection.resource)?.uri
+                  ?? reviewDocumentDirectory(selection.resource),
+              ],
+            ),
+          );
+          return;
+        }
+        if (message?.type !== 'openSourceDiff') return;
         const historicalDiff = selection.base
           ? { original: selection.base, modified: selection.document }
           : undefined;
         if (historicalDiff) markManualSourceDiff(historicalDiff);
-        else markNextManualWorkingCopyDiff(selection.workspace);
+        else markNextManualWorkingCopyDiff(selection.resource);
         const openDiff = historicalDiff
           ? vscode.commands.executeCommand(
               'vscode.diff',
               historicalDiff.original,
               historicalDiff.modified,
-              `${path.basename(selection.workspace.fsPath)} (selected revisions)`,
+              `${path.basename(selection.resource.fsPath)} (selected revisions)`,
             )
-          : vscode.commands.executeCommand('git.openChange', selection.workspace);
+          : vscode.commands.executeCommand('git.openChange', selection.resource);
         void Promise.resolve(openDiff).catch((err: unknown) => {
           if (historicalDiff) unmarkManualSourceDiff(historicalDiff);
-          else clearNextManualWorkingCopyDiff(selection.workspace);
+          else clearNextManualWorkingCopyDiff(selection.resource);
           debug.appendLine(`dita-editor: opening the side-by-side diff failed: ${String(err)}`);
           void vscode.window.showErrorMessage(
             'DITA Editor: could not open the side-by-side diff (is the built-in Git extension enabled?).',
@@ -426,7 +474,7 @@ export async function openRedlinePanel(
       vscode.workspace.onDidOpenTextDocument(refreshForResourceDocument),
       vscode.workspace.onDidCloseTextDocument(refreshForResourceDocument),
       vscode.workspace.onDidChangeConfiguration((event) => {
-        if (event.affectsConfiguration('ditaeditor.visual', selection.workspace)) {
+        if (event.affectsConfiguration('ditaeditor.visual', selection.resource)) {
           scheduleRefresh(context, selection, created, debug);
         }
       }),

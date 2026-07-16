@@ -1,4 +1,5 @@
 import type * as vscode from 'vscode';
+import { parseFragment, serialize } from 'parse5';
 import { CANVAS_SCRIPT_FILES } from '../webview/canvas-scripts';
 import type { ResolvedWorkspaceFile } from './workspace-files';
 
@@ -53,6 +54,42 @@ export interface RedlineWebviewResourceUris {
   scriptUris: string[];
 }
 
+interface ReviewHtmlNode {
+  tagName?: string;
+  attrs?: Array<{ name: string; value: string }>;
+  childNodes?: ReviewHtmlNode[];
+}
+
+function isRelativeImageReference(value: string): boolean {
+  const pathEnd = value.search(/[?#]/);
+  const pathValue = pathEnd < 0 ? value : value.slice(0, pathEnd);
+  return pathValue !== ''
+    && !value.startsWith('#')
+    && !value.startsWith('/')
+    && !value.startsWith('\\')
+    && !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value);
+}
+
+/** Rewrite generated review images without touching absolute/data/web URLs. Multi-file
+ *  panels use this per topic because one HTML document cannot have multiple <base>s. */
+export function rewriteRedlineImageSources(
+  html: string,
+  resolveRelativeSource: (source: string) => string,
+): string {
+  const fragment = parseFragment(html);
+  const visit = (node: ReviewHtmlNode): void => {
+    if (node.tagName === 'img') {
+      const source = node.attrs?.find((attribute) => attribute.name === 'src');
+      if (source && isRelativeImageReference(source.value)) {
+        source.value = resolveRelativeSource(source.value);
+      }
+    }
+    node.childNodes?.forEach(visit);
+  };
+  visit(fragment as unknown as ReviewHtmlNode);
+  return serialize(fragment);
+}
+
 /** Resource wiring for the read-only Review Changes panel. Same
  *  corpus sheets as the canvas, but redline.css instead of editor.css (no editing
  *  chrome on this surface). The ONLY script is media/redline-review.js — persisted
@@ -60,14 +97,34 @@ export interface RedlineWebviewResourceUris {
 export function configureRedlineWebviewResources(params: {
   webview: vscode.Webview;
   extensionUri: vscode.Uri;
-  documentUri: vscode.Uri;
+  resourceUri: vscode.Uri;
+  additionalResourceUris?: readonly vscode.Uri[];
   folder: vscode.WorkspaceFolder | undefined;
   contentStylesheets: ResolvedWorkspaceFile[];
   joinPath(base: vscode.Uri, ...pathSegments: string[]): vscode.Uri;
 }): RedlineWebviewResourceUris {
-  const { webview, extensionUri, documentUri, folder, contentStylesheets, joinPath } = params;
-  const localResourceRoots = [extensionUri];
-  if (folder) localResourceRoots.push(folder.uri);
+  const {
+    webview,
+    extensionUri,
+    resourceUri,
+    additionalResourceUris = [],
+    folder,
+    contentStylesheets,
+    joinPath,
+  } = params;
+  const localResourceRoots: vscode.Uri[] = [];
+  const rootKeys = new Set<string>();
+  const addRoot = (root: vscode.Uri): void => {
+    const key = root.toString(true);
+    if (rootKeys.has(key)) return;
+    rootKeys.add(key);
+    localResourceRoots.push(root);
+  };
+  addRoot(extensionUri);
+  if (folder) addRoot(folder.uri);
+  for (const candidate of [resourceUri, ...additionalResourceUris]) {
+    if (candidate.scheme === 'file') addRoot(joinPath(candidate, '..'));
+  }
   webview.options = { enableScripts: true, localResourceRoots };
 
   const neutralThemeUri = webview
@@ -80,10 +137,8 @@ export function configureRedlineWebviewResources(params: {
   const surfaceStyleUri = webview
     .asWebviewUri(joinPath(extensionUri, 'media', 'redline.css'))
     .toString() + `?v=${REDLINE_RESOURCE_REVISION}`;
-  // Same file:-scheme guard as the canvas; the panel always receives the
-  // working-copy uri, so this holds in practice.
-  const baseHref = folder && documentUri.scheme === 'file'
-    ? `${webview.asWebviewUri(joinPath(documentUri, '..')).toString()}/`
+  const baseHref = resourceUri.scheme === 'file'
+    ? `${webview.asWebviewUri(joinPath(resourceUri, '..')).toString()}/`
     : '';
   const scriptUris = [
     webview.asWebviewUri(joinPath(extensionUri, 'media', 'redline-review.js')).toString()

@@ -33,6 +33,7 @@ export function renderMultiReviewShell(options: MultiReviewShellOptions): string
     + '<button type="button" class="redline-banner-btn" data-redline-nav="next" title="Next change">Next</button>'
     + '<span class="redline-change-position" data-redline-position aria-live="polite"></span>'
     + '</div>';
+  const exportHtml = '<button type="button" class="redline-banner-btn" data-redline-action="exportHtml" title="Save this rendered comparison as a self-contained HTML file">Export HTML</button>';
   const sections = options.files.map((file) => {
     const count = file.changeCount === 0
       ? 'No content changes'
@@ -44,6 +45,26 @@ export function renderMultiReviewShell(options: MultiReviewShellOptions): string
       + '</section>';
   }).join('');
   return `<div class="redline-banner redline-multi-banner"><span><strong>${escapeHtml(options.title)}</strong></span>`
-    + `${skipped}${navigation}<span class="redline-banner-count">${options.files.length} DITA file${options.files.length === 1 ? '' : 's'} · ${totalChanges} change${totalChanges === 1 ? '' : 's'}</span></div>`
+    + `${skipped}${navigation}${exportHtml}<span class="redline-banner-count">${options.files.length} DITA file${options.files.length === 1 ? '' : 's'} · ${totalChanges} change${totalChanges === 1 ? '' : 's'}</span></div>`
+    + `<div class="redline-multi-files">${sections}</div>`;
+}
+
+export function renderMultiReviewExportShell(options: MultiReviewShellOptions): string {
+  const totalChanges = options.files.reduce((sum, file) => sum + file.changeCount, 0);
+  const skipped = options.skippedFileCount > 0
+    ? `<span class="redline-banner-note">${options.skippedFileCount} non-DITA file${options.skippedFileCount === 1 ? '' : 's'} omitted</span>`
+    : '';
+  const sections = options.files.map((file) => {
+    const count = file.changeCount === 0
+      ? 'No content changes'
+      : `${file.changeCount} change${file.changeCount === 1 ? '' : 's'}`;
+    return `<section class="redline-multi-file" data-redline-file>`
+      + `<header class="redline-multi-file-header"><span><strong>${escapeHtml(file.name)}</strong>`
+      + `<small>${escapeHtml(file.path)}</small></span><span>${count}</span></header>`
+      + file.sideBySideHtml
+      + '</section>';
+  }).join('');
+  return `<div class="redline-banner redline-multi-banner"><span><strong>${escapeHtml(options.title)}</strong></span>`
+    + `${skipped}<span class="redline-banner-count">${options.files.length} DITA file${options.files.length === 1 ? '' : 's'} · ${totalChanges} change${totalChanges === 1 ? '' : 's'}</span></div>`
     + `<div class="redline-multi-files">${sections}</div>`;
 }

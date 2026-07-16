@@ -50,6 +50,7 @@ export const CANVAS_SCRIPT_FILES = [
   'canvas-selection-restore.js',
   'canvas-selection-dependencies.js',
   'canvas-selection-controller.js',
+  'canvas-scroll-anchor.js',
   'canvas.js',
 ] as const;
 

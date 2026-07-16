@@ -331,6 +331,18 @@ describe('public content scanner', () => {
     )).toEqual([]);
   });
 
+  test('rejects source-map directives at line starts and after generated code', () => {
+    const marker = ['source', 'MappingURL='].join('');
+    for (const source of [
+      `//# ${marker}bundle.js.map\n`,
+      `code();//# ${marker}bundle.js.map\n`,
+      `body{}/*# ${marker}styles.css.map */\n`,
+    ]) {
+      expect(modules.scanTextForPrivateContent('mapped.js', source)
+        .map((finding) => finding.rule)).toContain('source-map');
+    }
+  });
+
   test('rejects the full private organization name inside camelCase source and paths', () => {
     const sourceIdentifier = ['eti', 'hadAirwaysConfig'].join('');
     const pathIdentifier = ['eti', 'hadConfig.ts'].join('');

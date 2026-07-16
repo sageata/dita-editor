@@ -102,6 +102,10 @@ import {
   routeNativeContextCommand,
   withoutNativeContextTransportMetadata,
 } from './native-context-routing';
+import {
+  createScrollHandoffStore,
+  type ScrollAnchor,
+} from './scroll-handoff';
 
 export const VIEW_TYPE = 'ditaeditor.visual';
 export { NATIVE_CONTEXT_COMMAND_PREFIX } from './native-context-routing';
@@ -127,11 +131,20 @@ export interface VisualHost {
 
 export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider {
   private readonly nativeContextWebviews = new Map<string, vscode.Webview>();
+  private readonly scrollHandoffs = createScrollHandoffStore();
 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly host: VisualHost,
   ) {}
+
+  latestVisualAnchor(uri: vscode.Uri): ScrollAnchor | null {
+    return this.scrollHandoffs.latestVisualAnchor(uri.toString(true));
+  }
+
+  queueVisualRestore(uri: vscode.Uri, anchor: ScrollAnchor): void {
+    this.scrollHandoffs.queueVisualRestore(uri.toString(true), anchor);
+  }
 
   registerNativeContextCommands(): vscode.Disposable[] {
     return nativeContextCommandIds(this.context.extension.packageJSON)
@@ -525,6 +538,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
     // webview.html reloads the iframe (flicker, lost scroll), so structural and
     // external edits use pushBody instead.
     const render = (focusId?: string | null) => {
+      this.scrollHandoffs.forgetVisualAnchor(document.uri.toString(true));
       const { contentStyleUris, surfaceStyleUri, baseHref, scriptUris } = webviewResources;
       webview.html = buildCanvasHtml({
         bodyHtml: renderState.renderBody(focusId),
@@ -628,6 +642,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
     // Flicker-free re-render: swap just the <main> content in place and restore
     // the caret. Delegated listeners in canvas.js survive the innerHTML swap.
     const pushBody = (focusId: string | null, caretOffset: number | null) => {
+      this.scrollHandoffs.forgetVisualAnchor(document.uri.toString(true));
       const body = renderState.renderBody(focusId);
       const renderSnapshot = renderState.snapshot();
       void webview.postMessage({
@@ -1055,6 +1070,27 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         refuseStaleNativeContext,
       );
       const runWhenNativeContextFresh = nativeContextGate.run;
+      if (msg && msg.type === 'scrollAnchor') {
+        if (
+          typeof msg.id === 'string' &&
+          /^e\d+$/.test(msg.id) &&
+          msg.baseStructVersion === structVersion
+        ) {
+          this.scrollHandoffs.rememberVisualAnchor(document.uri.toString(true), { id: msg.id });
+        } else {
+          this.host.debug.appendLine(`scroll anchor ignored for ${document.uri.toString(true)}: invalid or stale element id`);
+        }
+        return;
+      }
+      if (msg && msg.type === 'scrollRestoreFailed') {
+        const id = typeof msg.id === 'string' ? msg.id : '(invalid id)';
+        const detail = `scroll restoration skipped for ${document.uri.toString(true)}: anchor ${id} is not present in the rendered canvas`;
+        this.host.debug.appendLine(detail);
+        void vscode.window.showWarningMessage(
+          'DITA Editor: switched to the Visual editor, but the previous source position could not be restored.',
+        );
+        return;
+      }
       if (msg && msg.type === 'resumeStyleSave') {
         if (!isValidStyleSaveRequestId(msg.requestId)) {
           styleLog('Ignored an invalid resumed style save request ID.');
@@ -1105,6 +1141,10 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
           taxonomy: currentTaxonomy,
           structVersion, // sync the load-cycle token so the first structural op isn't seen as stale
         });
+        const pendingScrollAnchor = this.scrollHandoffs.consumeVisualRestore(document.uri.toString(true));
+        if (pendingScrollAnchor) {
+          void webview.postMessage({ type: 'scrollToAnchor', id: pendingScrollAnchor.id });
+        }
         pushLint();
         return;
       }
