@@ -256,10 +256,26 @@ async function dispatchKey(
 }
 
 async function openVisualEditorFromCommandPalette(workbench: CdpClient): Promise<void> {
+  await runCommandFromPalette(workbench, 'DITA Editor: Open Visual Editor');
+}
+
+async function openFileFromQuickOpen(workbench: CdpClient, filename: string): Promise<void> {
   const { cdpMask } = shortcutModifier(process.platform);
+  await workbench.send('Page.bringToFront');
+  await dispatchKey(workbench, 'P', 'KeyP', 80, cdpMask);
+  await sleep(500);
+  await workbench.send('Input.insertText', { text: filename });
+  await sleep(500);
+  await dispatchKey(workbench, 'Enter', 'Enter', 13);
+  await sleep(750);
+}
+
+async function runCommandFromPalette(workbench: CdpClient, command: string): Promise<void> {
+  const { cdpMask } = shortcutModifier(process.platform);
+  await workbench.send('Page.bringToFront');
   await dispatchKey(workbench, 'P', 'KeyP', 80, cdpMask | 8);
   await sleep(500);
-  await workbench.send('Input.insertText', { text: 'DITA Editor: Open Visual Editor' });
+  await workbench.send('Input.insertText', { text: command });
   await sleep(500);
   await dispatchKey(workbench, 'Enter', 'Enter', 13);
 }
@@ -281,19 +297,34 @@ async function createTempProject(): Promise<{ root: string; fixture: string }> {
   const workspaceDir = join(root, 'workspace');
   await mkdir(userDir, { recursive: true });
   await mkdir(workspaceDir, { recursive: true });
+  await writeFile(join(root, 'review-e2e.code-workspace'), JSON.stringify({
+    folders: [{ path: 'workspace' }],
+  }, null, 2));
   await writeFile(join(userDir, 'settings.json'), JSON.stringify({
-    'workbench.editorAssociations': { '*.dita': 'ditaeditor.visual' },
     'security.workspace.trust.enabled': false,
     'workbench.startupEditor': 'none',
     'telemetry.telemetryLevel': 'off',
     'update.mode': 'none',
   }, null, 2));
+  await mkdir(join(workspaceDir, '.vscode'), { recursive: true });
+  await writeFile(join(workspaceDir, '.vscode', 'settings.json'), JSON.stringify({
+    'ditaeditor.visual.contentStylesheets': ['brand.css'],
+  }, null, 2));
   const fixture = join(workspaceDir, 'real-webview-table-transform.dita');
   await writeFile(fixture, FIXTURE_SOURCE);
+  await writeFile(join(workspaceDir, 'brand.css'), '.redline-review-view { --review-e2e-style: loaded; }\n');
   await writeFile(
     join(workspaceDir, 'diagram.svg'),
     '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="#0b6bcb"/></svg>',
   );
+  const git = spawnSync('git', ['init', '-b', 'main'], { cwd: workspaceDir, encoding: 'utf8' });
+  if (git.status !== 0) throw new Error(`git init failed: ${git.stderr}`);
+  spawnSync('git', ['config', 'user.name', 'DITA Editor E2E'], { cwd: workspaceDir });
+  spawnSync('git', ['config', 'user.email', 'dita-editor-e2e@example.invalid'], { cwd: workspaceDir });
+  const commit = spawnSync('git', ['add', '.'], { cwd: workspaceDir, encoding: 'utf8' });
+  if (commit.status !== 0) throw new Error(`git add failed: ${commit.stderr}`);
+  const committed = spawnSync('git', ['commit', '-m', 'Initial DITA fixture'], { cwd: workspaceDir, encoding: 'utf8' });
+  if (committed.status !== 0) throw new Error(`git commit failed: ${committed.stderr}`);
   return { root, fixture };
 }
 
@@ -308,7 +339,7 @@ function launchCode(root: string, fixture: string, port: number): ChildProcessWi
     `--extensionDevelopmentPath=${EXTENSION_ROOT}`,
     '--disable-workspace-trust',
     '--skip-welcome',
-    fixture,
+    join(dirname(dirname(fixture)), 'review-e2e.code-workspace'),
   ], {
     cwd: dirname(fixture),
     stdio: 'pipe',
@@ -340,6 +371,7 @@ async function runRealWebviewSmoke(): Promise<void> {
   let browser: CdpClient | undefined;
   let workbench: CdpClient | undefined;
   let webview: CdpClient | undefined;
+  let reviewWebview: CdpClient | undefined;
 
   try {
     console.log(`[real-webview-e2e] launching VS Code on CDP port ${port}`);
@@ -362,6 +394,8 @@ async function runRealWebviewSmoke(): Promise<void> {
     await workbench.send('Input.setIgnoreInputEvents', { ignore: false });
     await workbench.send('Page.bringToFront');
 
+    console.log('[real-webview-e2e] opening DITA fixture inside the clean workspace');
+    await openFileFromQuickOpen(workbench, 'real-webview-table-transform.dita');
     console.log('[real-webview-e2e] opening visual editor from the command palette');
     await openVisualEditorFromCommandPalette(workbench);
 
@@ -770,10 +804,81 @@ async function runRealWebviewSmoke(): Promise<void> {
     expect(saved).toContain('<p>List leadList tail</p>');
     expect(saved).not.toContain('<li>List tail</li>');
     expect(saved).toContain('<ul><li>Keep listed</li></ul>');
+
+    console.log('[real-webview-e2e] opening a Git working-copy review without editor associations');
+    await runCommandFromPalette(workbench, 'DITA Editor: View/Edit Source');
+    await sleep(750);
+    await runCommandFromPalette(workbench, 'Git: Open Changes');
+    const reviewTarget = await waitFor('DITA Editor Review WebView target', async () => {
+      const targets = await listTargets(port);
+      return targets.find((candidate) =>
+        candidate.id !== target.id && (
+          candidate.url.includes('extensionId=paul-razvan-sarbu.dita-editor') ||
+          candidate.url.includes('extensionId%3Dpaul-razvan-sarbu.dita-editor')
+        )
+      );
+    }, 45_000);
+    reviewWebview = await CdpClient.connect(webviewWsUrl(port, reviewTarget));
+    await reviewWebview.send('Runtime.enable');
+    await waitFor('DITA Editor Review WebView default execution context', async () =>
+      reviewWebview!.defaultContextId() ? true : null, 5_000);
+    const reviewContextId = await waitFor('DITA Editor Review frame execution context', async () => {
+      for (const contextId of reviewWebview!.defaultContextIds()) {
+        try {
+          const found = await evaluate(
+            reviewWebview!,
+            `document.querySelector('.redline-review-view') ? true : null`,
+            contextId,
+          );
+          if (found) return contextId;
+        } catch {
+          // Some default contexts may be transient during WebView boot.
+        }
+      }
+      return null;
+    }, 10_000);
+    const reviewState = await waitFor('review image and configured author stylesheet', async () => {
+      const state = await evaluate(reviewWebview!, `(() => {
+        const view = document.querySelector('.redline-review-view');
+        const images = Array.from(document.querySelectorAll('img[src]'))
+          .filter((image) => image.getAttribute('src').includes('diagram.svg'));
+        const xmlDiff = document.querySelector('[data-redline-action="openSourceDiff"]');
+        if (!view || images.length === 0 || !xmlDiff) return null;
+        return {
+          baseHref: document.querySelector('base')?.href || '',
+          styleLoaded: getComputedStyle(view).getPropertyValue('--review-e2e-style').trim(),
+          imagesLoaded: images.every((image) => image.complete && image.naturalWidth > 0),
+          imageSources: images.map((image) => image.src),
+          xmlDiffLabel: xmlDiff.textContent.trim(),
+        };
+      })()`, reviewContextId);
+      return state?.imagesLoaded && state?.styleLoaded === 'loaded' ? state : null;
+    }, 20_000);
+    expect(reviewState.baseHref).toContain('ditaeditor-real-webview-');
+    expect(reviewState.styleLoaded).toBe('loaded');
+    expect(reviewState.imagesLoaded).toBe(true);
+    expect(reviewState.imageSources.every((source: string) => source.includes('diagram.svg'))).toBe(true);
+    expect(reviewState.xmlDiffLabel).toBe('Side-by-side XML diff');
+
+    const tabsBeforeSourceDiff = await evaluate(
+      workbench,
+      `document.querySelectorAll('.tabs-container .tab').length`,
+    );
+    await evaluate(reviewWebview, `(() => {
+      const button = document.querySelector('[data-redline-action="openSourceDiff"]');
+      if (!button) throw new Error('Side-by-side XML diff button is absent');
+      button.click();
+      return true;
+    })()`, reviewContextId);
+    await waitFor('native side-by-side XML diff tab', async () => {
+      const count = await evaluate(workbench!, `document.querySelectorAll('.tabs-container .tab').length`);
+      return count > tabsBeforeSourceDiff ? count : null;
+    }, 20_000);
   } finally {
     console.log('[real-webview-e2e] cleanup');
     if (proc) await quitCode(proc, browser);
     webview?.close();
+    reviewWebview?.close();
     workbench?.close();
     browser?.close();
     await rm(project.root, { recursive: true, force: true });
@@ -781,7 +886,7 @@ async function runRealWebviewSmoke(): Promise<void> {
 }
 
 (RUN_REAL_E2E ? test : test.skip)(
-  'real VS Code WebView toolbar click transforms a direct table entry and saves the file',
+  'real VS Code visual editing and association-free Git Review preserve resources and XML diff',
   runRealWebviewSmoke,
   TEST_TIMEOUT_MS,
 );

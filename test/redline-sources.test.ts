@@ -17,7 +17,7 @@ function historicalSelection(): ReviewSelection<TestUri> {
   return {
     document: { scheme: 'git', fsPath: '/ws/topics/history.dita', id: 'commit-b' },
     base: { scheme: 'git', fsPath: '/ws/topics/history.dita', id: 'commit-a' },
-    workspace: { scheme: 'file', fsPath: '/ws/topics/history.dita', id: 'working-tree' },
+    resource: { scheme: 'file', fsPath: '/ws/topics/history.dita', id: 'working-tree' },
     historical: true,
   };
 }
@@ -61,7 +61,7 @@ describe('renderReviewSources', () => {
       selection,
       {
         openTextDocument: async (target) => {
-          if (target === selection.workspace) {
+          if (target === selection.resource) {
             workingTreeWasOpened = true;
             return { getText: () => workingTreeAtHead };
           }
@@ -86,7 +86,7 @@ describe('renderReviewSources', () => {
     const selection: ReviewSelection<TestUri> = {
       document: working,
       base: undefined,
-      workspace: working,
+      resource: working,
       historical: false,
     };
     const resolvedPaths: string[] = [];
@@ -115,7 +115,7 @@ describe('historical snapshot refresh behavior', () => {
 
   test('working-file edits do not refresh an immutable historical comparison', () => {
     const selection = historicalSelection();
-    expect(shouldRefreshReviewContent(selection, selection.workspace, identity)).toBe(false);
+    expect(shouldRefreshReviewContent(selection, selection.resource, identity)).toBe(false);
   });
 
   test('working-copy reviews still refresh when their document changes', () => {
@@ -123,7 +123,7 @@ describe('historical snapshot refresh behavior', () => {
     const selection: ReviewSelection<TestUri> = {
       document: working,
       base: undefined,
-      workspace: working,
+      resource: working,
       historical: false,
     };
     expect(shouldRefreshReviewContent(selection, working, identity)).toBe(true);

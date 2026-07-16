@@ -8,6 +8,7 @@ import {
   resolveReviewSelection,
   reviewComparisonIdentity,
   reviewComparisonFromDiffTab,
+  reviewComparisonFromCustomEditorCandidates,
   reviewComparisonsFromMultiDiff,
   shouldInterceptScmDiff,
   sourceDiffIdentity,
@@ -44,6 +45,14 @@ describe('shouldInterceptScmDiff', () => {
 
   test('git original vs git .dita intercepts for committed history', () => {
     expect(shouldInterceptScmDiff(diffTab('git', 'git', '/ws/topics/01-intro.dita'))).toBe(true);
+  });
+
+  test('GitHub checked-out PR review original vs file .dita intercepts', () => {
+    expect(shouldInterceptScmDiff(diffTab('review', 'file', '/ws/topics/01-intro.dita'))).toBe(true);
+  });
+
+  test('GitHub remote PR virtual pair intercepts', () => {
+    expect(shouldInterceptScmDiff(diffTab('pr', 'pr', '/ws/topics/01-intro.dita'))).toBe(true);
   });
 
   test('.DITA matches case-insensitively', () => {
@@ -125,6 +134,27 @@ describe('reviewComparisonFromDiffTab', () => {
     });
   });
 
+  test('preserves checked-out GitHub PR content as a working-copy review', () => {
+    const original = uri('review', '/ws/topics/01-intro.dita', 'base=true');
+    const modified = uri('file', '/ws/topics/01-intro.dita');
+
+    expect(reviewComparisonFromDiffTab({ original, modified })).toEqual({
+      kind: 'working-copy',
+      modified,
+    });
+  });
+
+  test('preserves both virtual GitHub PR documents for a remote PR', () => {
+    const original = uri('pr', '/ws/topics/01-intro.dita', 'isBase=true');
+    const modified = uri('pr', '/ws/topics/01-intro.dita', 'isBase=false');
+
+    expect(reviewComparisonFromDiffTab({ original, modified })).toEqual({
+      kind: 'historical',
+      original,
+      modified,
+    });
+  });
+
   test('ignores a native diff that is not a DITA topic', () => {
     const older = uri('git', '/ws/README.md', 'ref=older');
     const newer = uri('git', '/ws/README.md', 'ref=newer');
@@ -146,6 +176,36 @@ describe('reviewComparisonFromDiffTab', () => {
   });
 });
 
+describe('reviewComparisonFromCustomEditorCandidates', () => {
+  test('pairs a virtual Git pane with its local working-copy pane regardless of event order', () => {
+    const original = uri('git', '/ws/topics/01-intro.dita', 'ref=base');
+    const modified = uri('file', '/ws/topics/01-intro.dita');
+    const pair = reviewComparisonFromCustomEditorCandidates([
+      { target: modified, order: 2, triggered: true },
+      { target: original, order: 1, triggered: false },
+    ]);
+    expect(pair?.original.target).toBe(original);
+    expect(pair?.modified.target).toBe(modified);
+    expect(pair?.comparison).toEqual({ kind: 'working-copy', modified });
+  });
+
+  test('orders two remote PR panes left-to-right and preserves both virtual sources', () => {
+    const original = uri('pr', '/ws/topics/01-intro.dita', 'isBase=true');
+    const modified = uri('pr', '/ws/topics/01-intro.dita', 'isBase=false');
+    expect(reviewComparisonFromCustomEditorCandidates([
+      { target: modified, order: 2, triggered: false },
+      { target: original, order: 1, triggered: true },
+    ])?.comparison).toEqual({ kind: 'historical', original, modified });
+  });
+
+  test('does not pair unrelated topics or ordinary duplicate visual tabs', () => {
+    expect(reviewComparisonFromCustomEditorCandidates([
+      { target: uri('file', '/ws/topics/a.dita'), order: 1, triggered: true },
+      { target: uri('file', '/ws/topics/b.dita'), order: 2, triggered: false },
+    ])).toBeUndefined();
+  });
+});
+
 describe('resolveReviewSelection', () => {
   const fileUri = (fsPath: string) => uri('file', fsPath);
   const isInWorkspace = (target: { fsPath: string }) => target.fsPath.startsWith('/ws/');
@@ -160,12 +220,12 @@ describe('resolveReviewSelection', () => {
     );
     expect(selection.document).toBe(newer);
     expect(selection.base).toBe(older);
-    expect(selection.workspace.scheme).toBe('file');
-    expect(selection.workspace.fsPath).toBe('/ws/topics/01-intro.dita');
+    expect(selection.resource.scheme).toBe('file');
+    expect(selection.resource.fsPath).toBe('/ws/topics/01-intro.dita');
     expect(selection.historical).toBe(true);
   });
 
-  test('uses an existing working-copy file as the document and workspace target', () => {
+  test('uses an existing working-copy file as the document and resource target', () => {
     const workingCopy = uri('file', '/ws/topics/01-intro.dita');
 
     expect(resolveReviewSelection(
@@ -174,7 +234,34 @@ describe('resolveReviewSelection', () => {
     )).toEqual({
       document: workingCopy,
       base: undefined,
-      workspace: workingCopy,
+      resource: workingCopy,
+      historical: false,
+    });
+  });
+
+  test('uses a local workspace file only for resources when working-copy content is virtual', () => {
+    const virtualDocument = uri('review', '/ws/topics/01-intro.dita', 'base=false');
+
+    const selection = resolveReviewSelection(
+      { kind: 'working-copy', modified: virtualDocument },
+      { fileUri, isInWorkspace },
+    );
+    expect(selection.document).toBe(virtualDocument);
+    expect(selection.resource.scheme).toBe('file');
+    expect(selection.resource.fsPath).toBe('/ws/topics/01-intro.dita');
+    expect(selection.historical).toBe(false);
+  });
+
+  test('keeps an unmappable virtual working-copy resource virtual', () => {
+    const virtualDocument = uri('review', '/other/topics/01-intro.dita', 'base=false');
+
+    expect(resolveReviewSelection(
+      { kind: 'working-copy', modified: virtualDocument },
+      { fileUri, isInWorkspace },
+    )).toEqual({
+      document: virtualDocument,
+      base: undefined,
+      resource: virtualDocument,
       historical: false,
     });
   });
@@ -189,7 +276,7 @@ describe('resolveReviewSelection', () => {
     )).toEqual({
       document: newer,
       base: older,
-      workspace: newer,
+      resource: newer,
       historical: true,
     });
   });

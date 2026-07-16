@@ -1431,7 +1431,7 @@
   },
   {
     "path": "src/extension.ts",
-    "sha256": "12d3308b3105724b7be4b8e17fef7b09b43a53afbf277225ec755d727f634176",
+    "sha256": "5808a5d384e1eb919109b7f6a3d456378b52fb963bf3861c6e44aa6141e01962",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1592,7 +1592,7 @@
     "reviewer": "Paul Razvan Sarbu",
     "reviewDate": "2026-07-16",
     "approved": true,
-    "sha256": "792e2aa10ec07757b29443a7c205c6570adcca32c5bfcce37f07a0a713e171f6"
+    "sha256": "089a6b3c6a045adb168b899f3de8f65a2e10f86def0becb47d92dd03f60daf85"
   },
   {
     "path": "src/host/native-context-routing.ts",
@@ -1640,7 +1640,7 @@
   },
   {
     "path": "src/host/redline-panel.ts",
-    "sha256": "70eebea4c923328b64d8b640afc2673cb3c631d663633963d90fe3aecb1c541b",
+    "sha256": "717d005ece76dd317d066416d75731872d98185c59e5d992a0d053294eb75632",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1706,7 +1706,7 @@
   },
   {
     "path": "src/host/scm-intercept.ts",
-    "sha256": "efc25f28b5cbfbb94f2935710fff147fd6644bd46f399284ce573c5d5121eff8",
+    "sha256": "5f25f9eee0e5a546e09e1798cc3d200ccee1d5e787a9ba70c2e9bdac61eb62b8",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -1794,7 +1794,7 @@
   },
   {
     "path": "src/host/webview-resources.ts",
-    "sha256": "c3deb137106c953d5afa5c75586fda59c02a96cc94ecd305d7d9aeec6178bf46",
+    "sha256": "ac789833316de50db404aabe80a81bceb70a5ae323b140bd74045a9dbf4bb639",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3235,7 +3235,7 @@
   },
   {
     "path": "test/real-webview.e2e.test.ts",
-    "sha256": "e50216e11dc8f404b953d268e8a6120e6faa7c24ae9510e9c41738f0be0fff2d",
+    "sha256": "ab8bbe0db4164a0ceedec1072b942a5fa98c5a5700360b2ef6cf606251e64b64",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3257,7 +3257,7 @@
   },
   {
     "path": "test/redline-webview-resources.test.ts",
-    "sha256": "3e85280aa69e05ae468a1cb3600f2d7991c536d30c5697ad3de467b6bb972858",
+    "sha256": "80335412e3b376ca469923a8be76f4297892665bfe5836fcc0c8da35f25f6131",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",
@@ -3400,7 +3400,7 @@
   },
   {
     "path": "test/scm-intercept.test.ts",
-    "sha256": "b88dc3df222b5237136be29dccb11cd3ae41f603de8504902cae28a1457c316a",
+    "sha256": "31a5bc522796654c21e15492ec67a5f4fde4039193ac0b989b9f72458c29f166",
     "origin": "DITA Editor project",
     "authorOrOwner": "DITA Editor contributors",
     "licenseBasis": "Apache-2.0",

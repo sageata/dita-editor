@@ -25,7 +25,10 @@ import {
   reviewComparisonIdentity,
   type ReviewComparison,
 } from './scm-intercept';
-import { configureRedlineWebviewResources } from './webview-resources';
+import {
+  configureRedlineWebviewResources,
+  rewriteRedlineImageSources,
+} from './webview-resources';
 import {
   canonicalIdentity,
   readWorkspaceVisualSettings,
@@ -84,11 +87,18 @@ export async function openMultiRedlinePanel(
     fileUri: vscode.Uri.file,
     isInWorkspace: (candidate) => vscode.workspace.getWorkspaceFolder(candidate) !== undefined,
   }));
+  for (const selection of selections) {
+    if (selection.resource.toString(true) !== selection.document.toString(true)) {
+      debug.appendLine(
+        `dita-editor: review content URI ${selection.document.toString(true)} uses local resource URI ${selection.resource.toString(true)}.`,
+      );
+    }
+  }
   const first = selections[0];
-  const folder = vscode.workspace.getWorkspaceFolder(first.workspace);
+  const folder = vscode.workspace.getWorkspaceFolder(first.resource);
   const styleFiles = createNodeManagedStyleFiles();
   const settings = readWorkspaceVisualSettings(
-    vscode.workspace.getConfiguration('ditaeditor.visual', first.workspace),
+    vscode.workspace.getConfiguration('ditaeditor.visual', first.resource),
   );
   const resolved = await resolveVisualWorkspaceFiles({
     folder,
@@ -132,16 +142,16 @@ export async function openMultiRedlinePanel(
     managedCssText: inspection.renderCssText,
     managedBaseUri: target
       ? vscode.Uri.parse(target.uri, true)
-      : vscode.Uri.joinPath(reviewDocumentDirectory(first.workspace), 'ditaeditor-managed.css'),
+      : vscode.Uri.joinPath(reviewDocumentDirectory(first.resource), 'ditaeditor-managed.css'),
     allowedFileRoots: [
       context.extensionUri,
       ...selections.map((selection) =>
-        vscode.workspace.getWorkspaceFolder(selection.workspace)?.uri
-          ?? reviewDocumentDirectory(selection.workspace)
+        vscode.workspace.getWorkspaceFolder(selection.resource)?.uri
+          ?? reviewDocumentDirectory(selection.resource)
       ),
     ],
   });
-  const repositoryBase = await resolveBaseRevision(first.workspace.fsPath);
+  const repositoryBase = await resolveBaseRevision(first.resource.fsPath);
   const openReviewSource = async (uri: vscode.Uri): Promise<{ getText(): string }> => {
     if (repositoryBase !== 'not-in-git') {
       const location = gitRevisionLocation(uri, repositoryBase.repoRoot);
@@ -189,10 +199,10 @@ export async function openMultiRedlinePanel(
           message: `${completed}/${selections.length}`,
         });
         return {
-          name: path.basename(selection.workspace.fsPath),
+          name: path.basename(selection.resource.fsPath),
           path: folder
-            ? path.relative(folder.uri.fsPath, selection.workspace.fsPath)
-            : selection.workspace.fsPath,
+            ? path.relative(folder.uri.fsPath, selection.resource.fsPath)
+            : selection.resource.fsPath,
           changeCount: rendered.inline.changeCount,
           sideBySideHtml: rendered.sideBySide.html,
         };
@@ -221,13 +231,13 @@ export async function openMultiRedlinePanel(
       void saveReviewExport(
         entry.exportSnapshots,
         reviewExportSaveAdapter(
-          reviewDocumentDirectory(first.workspace),
+          reviewDocumentDirectory(first.resource),
           debug,
           [
             context.extensionUri,
             ...selections.map((selection) =>
-              vscode.workspace.getWorkspaceFolder(selection.workspace)?.uri
-                ?? reviewDocumentDirectory(selection.workspace)
+              vscode.workspace.getWorkspaceFolder(selection.resource)?.uri
+                ?? reviewDocumentDirectory(selection.resource)
             ),
           ],
         ),
@@ -235,25 +245,46 @@ export async function openMultiRedlinePanel(
     }
   });
 
-  const { contentStyleUris, surfaceStyleUri, baseHref, scriptUris } = configureRedlineWebviewResources({
+  const { contentStyleUris, surfaceStyleUri, scriptUris } = configureRedlineWebviewResources({
     webview: panel.webview,
     extensionUri: context.extensionUri,
-    documentUri: first.workspace,
+    resourceUri: first.resource,
+    additionalResourceUris: selections.slice(1).map((selection) => selection.resource),
     folder,
     contentStylesheets: resolved.contentStylesheets,
     joinPath: vscode.Uri.joinPath,
   });
+  const liveFiles = files.map((file, index) => {
+    const resource = selections[index].resource;
+    if (resource.scheme !== 'file') return file;
+    return {
+      ...file,
+      sideBySideHtml: rewriteRedlineImageSources(file.sideBySideHtml, (source) => {
+        const suffixAt = source.search(/[?#]/);
+        const relativePath = suffixAt < 0 ? source : source.slice(0, suffixAt);
+        const suffix = suffixAt < 0 ? '' : source.slice(suffixAt);
+        const localImage = vscode.Uri.joinPath(
+          resource,
+          '..',
+          relativePath.replace(/\\/g, '/'),
+        );
+        return `${panel.webview.asWebviewUri(localImage).toString()}${suffix}`;
+      }),
+    };
+  });
   panel.webview.html = buildCanvasHtml({
     bodyHtml: renderMultiReviewShell({
       title,
-      files,
+      files: liveFiles,
       skippedFileCount: Math.max(0, totalTextDiffs - comparisons.length),
     }),
     contentStyleUris,
     managedStyleCss: inspection.renderCssText,
     managedStyleConsumer: 'redline',
     surfaceStyleUri,
-    baseHref,
+    // Each topic's relative image URLs are rewritten against its own resource URI.
+    // A global base would resolve every later topic against the first topic's folder.
+    baseHref: '',
     cspSource: panel.webview.cspSource,
     scriptUris,
     nonce: makeNonce(),
@@ -268,7 +299,7 @@ export async function openMultiRedlinePanel(
     }),
     stylesheets: exportStylesheets,
     imageBaseUris: selections.map((selection) =>
-      `${reviewDocumentDirectory(selection.workspace).toString(true).replace(/\/$/, '')}/`
+      `${reviewDocumentDirectory(selection.resource).toString(true).replace(/\/$/, '')}/`
     ),
   });
 }

@@ -41,7 +41,7 @@ export async function renderReviewSources<T extends ReviewTargetShape, B extends
     oldSource = baseDocument.getText();
     label = 'the selected earlier revision';
   } else {
-    const base = await dependencies.resolveBaseRevision(selection.workspace.fsPath);
+    const base = await dependencies.resolveBaseRevision(selection.resource.fsPath);
     if (base === 'not-in-git') {
       note = 'This file is not under version control — the whole topic shows as new.';
     } else {
