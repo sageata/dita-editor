@@ -180,6 +180,95 @@
       vscode.postMessage(message);
     }
 
+    let shadeDialog = null;
+    function openCustomShadeDialog(id, context) {
+      const previousFocus = document.activeElement;
+      if (!shadeDialog) {
+        const dialog = document.createElement('dialog');
+        dialog.className = 'ditaeditor-color-dialog';
+        dialog.setAttribute('aria-labelledby', 'ditaeditor-shade-title');
+        dialog.style.cssText = 'width:min(360px,calc(100vw - 32px));border:1px solid #cbd2d9;border-radius:10px;padding:18px;background:#fff;color:#1f2937;font:13px system-ui,sans-serif;box-shadow:0 14px 40px rgb(15 23 42 / 24%);';
+        const title = document.createElement('h2');
+        title.id = 'ditaeditor-shade-title';
+        title.textContent = 'Custom shading color';
+        title.style.cssText = 'margin:0 0 12px;font-size:16px;';
+        const controls = document.createElement('div');
+        controls.style.cssText = 'display:grid;grid-template-columns:48px minmax(0,1fr);gap:8px;align-items:center;';
+        const picker = document.createElement('input');
+        picker.type = 'color';
+        picker.value = '#ffe8b3';
+        picker.setAttribute('aria-label', 'Choose shading color');
+        picker.style.cssText = 'width:48px;height:38px;padding:2px;border:1px solid #9ca3af;border-radius:6px;background:#fff;';
+        const value = document.createElement('input');
+        value.type = 'text';
+        value.value = '#ffe8b3';
+        value.placeholder = '#RRGGBB';
+        value.setAttribute('aria-label', 'Shading hex color');
+        value.style.cssText = 'min-width:0;padding:8px;border:1px solid #9ca3af;border-radius:6px;font:13px ui-monospace,monospace;';
+        const error = document.createElement('div');
+        error.setAttribute('role', 'alert');
+        error.style.cssText = 'grid-column:1 / -1;min-height:18px;color:#9c2f2f;font-size:12px;';
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:14px;';
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.textContent = 'Cancel';
+        const apply = document.createElement('button');
+        apply.type = 'button';
+        apply.textContent = 'Apply';
+        for (const button of [cancel, apply]) {
+          button.style.cssText = 'padding:7px 12px;border:1px solid #9ca3af;border-radius:6px;background:#fff;color:#1f2937;font:600 12px system-ui,sans-serif;cursor:pointer;';
+        }
+        controls.append(picker, value, error);
+        actions.append(cancel, apply);
+        dialog.append(title, controls, actions);
+        document.body.appendChild(dialog);
+        shadeDialog = { dialog: dialog, picker: picker, value: value, error: error, apply: apply, context: null, id: '', previousFocus: null };
+
+        function validate() {
+          const valid = /^#[0-9a-f]{6}$/i.test(value.value.trim());
+          apply.disabled = !valid;
+          apply.setAttribute('aria-disabled', String(!valid));
+          error.textContent = valid ? '' : 'Enter a six-digit hex color such as #ffe8b3.';
+          if (valid) picker.value = value.value.trim().toLowerCase();
+          return valid;
+        }
+        picker.addEventListener('input', function () {
+          value.value = String(picker.value || '').toLowerCase();
+          validate();
+        });
+        value.addEventListener('input', validate);
+        cancel.addEventListener('click', function () { dialog.close(); });
+        apply.addEventListener('click', function () {
+          if (!validate() || !shadeDialog.context) return;
+          post({
+            type: 'applyShade',
+            ids: [shadeDialog.id],
+            color: value.value.trim().toLowerCase(),
+            sourceHash: shadeDialog.context.ditaNativeSourceHash,
+            targetToken: shadeDialog.context.ditaNativeTargetToken,
+          }, shadeDialog.context);
+          dialog.close();
+        });
+        dialog.addEventListener('close', function () {
+          const focus = shadeDialog && shadeDialog.previousFocus;
+          shadeDialog.context = null;
+          if (focus && typeof focus.focus === 'function') focus.focus();
+        });
+      }
+      shadeDialog.context = context;
+      shadeDialog.id = id;
+      shadeDialog.previousFocus = previousFocus;
+      shadeDialog.value.value = '#ffe8b3';
+      shadeDialog.picker.value = '#ffe8b3';
+      shadeDialog.error.textContent = '';
+      shadeDialog.apply.disabled = false;
+      shadeDialog.apply.setAttribute('aria-disabled', 'false');
+      if (typeof shadeDialog.dialog.showModal === 'function') shadeDialog.dialog.showModal();
+      else shadeDialog.dialog.setAttribute('open', '');
+      if (typeof shadeDialog.value.focus === 'function') shadeDialog.value.focus();
+    }
+
     function execute(command, context) {
       if (typeof command !== 'string' || !command.startsWith(PREFIX) || !context) return false;
       const action = suffix(command);
@@ -224,9 +313,13 @@
         const parts = action.split('.');
         const id = parts[1] === 'cell' ? context.ditaNativeCellId : context.ditaNativeRowId;
         const color = SHADE[parts[2]];
-        const message = { type: color ? 'applyShade' : 'clearShade', ids: [id], sourceHash: context.ditaNativeSourceHash, targetToken: context.ditaNativeTargetToken };
-        if (color) message.color = color;
-        post(message, context);
+        if (color === 'custom') {
+          openCustomShadeDialog(id, context);
+        } else {
+          const message = { type: color ? 'applyShade' : 'clearShade', ids: [id], sourceHash: context.ditaNativeSourceHash, targetToken: context.ditaNativeTargetToken };
+          if (color) message.color = color;
+          post(message, context);
+        }
       } else if (action.startsWith('tgroup.grid.')) {
         const value = { all: '1', none: '0', default: '' }[action.slice(12)];
         post({ type: 'setTgroupAttr', id: context.ditaNativeTableId, attrs: [{ name: 'colsep', value: value }, { name: 'rowsep', value: value }] }, context);

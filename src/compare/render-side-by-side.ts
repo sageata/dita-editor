@@ -7,6 +7,10 @@ import type { Document, ElementNode } from '../cst/types';
 import { isElement } from '../cst/types';
 import { deriveTableNames, renderFragment } from '../render/to-html';
 import {
+  reviewChangeKey,
+  type ReviewRevertPresentation,
+} from './revert-change';
+import {
   diffTopics,
   topicRootChange,
   type BlockChange,
@@ -27,12 +31,14 @@ interface CompareRow {
   newAncestors: ElementNode[];
   moveId?: number;
   nestedKinds?: ChangeKind[];
+  changeKey: string;
 }
 
 interface RenderContext {
   oldTableNames: Map<ElementNode, string>;
   newTableNames: Map<ElementNode, string>;
   idPrefix: string;
+  revertActions?: ReadonlyMap<string, ReviewRevertPresentation>;
 }
 
 function rootElement(doc: Document): ElementNode | undefined {
@@ -99,6 +105,7 @@ function flattenChanges(
       nestedKinds: change.kind === 'modified' && change.children
         ? nestedLeafKinds(change)
         : undefined,
+      changeKey: reviewChangeKey(change),
     });
   }
   return rows;
@@ -177,9 +184,14 @@ function renderCell(row: CompareRow, side: 'old' | 'new', context: RenderContext
 function renderRow(row: CompareRow, context: RenderContext): string {
   const changed = row.kind === 'same' ? '' : ' data-redline-change tabindex="-1"';
   const move = row.moveId === undefined ? '' : ` data-redline-move="${row.moveId}"`;
+  const revert = context.revertActions?.get(row.changeKey);
+  const action = revert
+    ? `<button type="button" class="redline-revert-change" data-redline-action="revertChange" data-redline-revert-token="${escapeHtml(revert.token)}" aria-label="${escapeHtml(`${revert.label} from Earlier`)}">Revert to Earlier</button>`
+    : '';
   return `<div id="${context.idPrefix}${row.id}" class="redline-compare-row redline-compare-row-${row.kind}"${changed}${move}>`
     + renderCell(row, 'old', context)
     + renderCell(row, 'new', context)
+    + action
     + '</div>';
 }
 
@@ -252,7 +264,10 @@ function renderRootChange(change: TopicRootChange, idPrefix: string): string {
 export function renderSideBySide(
   oldDoc: Document,
   newDoc: Document,
-  options: { idPrefix?: string } = {},
+  options: {
+    idPrefix?: string;
+    revertActions?: ReadonlyMap<string, ReviewRevertPresentation>;
+  } = {},
 ): SideBySideResult {
   const changes = diffTopics(oldDoc, newDoc);
   const oldRoot = rootElement(oldDoc);
@@ -261,6 +276,7 @@ export function renderSideBySide(
     oldTableNames: deriveTableNames(oldDoc),
     newTableNames: deriveTableNames(newDoc),
     idPrefix: options.idPrefix ?? '',
+    revertActions: options.revertActions,
   };
   const rows = flattenChanges(
     changes,

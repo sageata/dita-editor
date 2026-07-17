@@ -40,6 +40,7 @@
     }
 
     let level = storedLevel();
+    let toolbarHeight = BASE_TOP_PAD;
 
     function label() {
       return Math.round(level * 100) + '%';
@@ -51,8 +52,14 @@
       main.style.zoom = level === 1 ? '' : String(level);
       // The command-bar clearance is padding INSIDE the zoomed root, so
       // counter-scale it to stay visually constant under the fixed bar.
-      const pad = Math.round(BASE_TOP_PAD / level);
+      const pad = Math.round(toolbarHeight / level);
       main.style.paddingTop = pad + 'px';
+    }
+
+    function setToolbarHeight(height) {
+      if (typeof height !== 'number' || !Number.isFinite(height) || height <= 0) return;
+      toolbarHeight = Math.ceil(height);
+      apply();
     }
 
     function setLevel(next) {
@@ -101,6 +108,7 @@
       label: label,
       level: () => level,
       apply: apply,
+      setToolbarHeight: setToolbarHeight,
     };
   }
 

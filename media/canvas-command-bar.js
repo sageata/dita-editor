@@ -36,15 +36,51 @@
     if (!commandBarUi) throw new Error('DITA Editor command bar UI script did not load before canvas-command-bar.js');
     const ui = commandBarUi.createCommandBarUi({
       document: document,
+      window: windowObj,
       fontFamily: fontFamily,
       controls: controls,
       menuIcons: menuIcons,
       barIcons: barIcons,
     });
     const cmdBar = ui.cmdBar;
+    let toolbarHeight = 0;
+    function syncToolbarHeight() {
+      const rect = typeof cmdBar.getBoundingClientRect === 'function' ? cmdBar.getBoundingClientRect() : null;
+      const measured = Math.ceil((rect && rect.height) || cmdBar.offsetHeight || 72);
+      if (measured === toolbarHeight) return;
+      toolbarHeight = measured;
+      if (
+        document.documentElement
+        && document.documentElement.style
+        && typeof document.documentElement.style.setProperty === 'function'
+      ) {
+        document.documentElement.style.setProperty('--ditaeditor-toolbar-height', measured + 'px');
+      }
+      if (typeof opts.onToolbarHeightChange === 'function') opts.onToolbarHeightChange(measured);
+      else {
+        const main = document.querySelector('main');
+        if (main) main.style.paddingTop = measured + 'px';
+      }
+    }
+    if (typeof windowObj.ResizeObserver === 'function') {
+      const toolbarObserver = new windowObj.ResizeObserver(syncToolbarHeight);
+      toolbarObserver.observe(cmdBar);
+    } else if (typeof windowObj.addEventListener === 'function') {
+      windowObj.addEventListener('resize', syncToolbarHeight);
+    }
+    syncToolbarHeight();
+
     const hUndo = ui.hUndo;
     const hRedo = ui.hRedo;
     const hFind = ui.hFind;
+    const eSave = ui.eSave;
+    const eCopy = ui.eCopy;
+    const ePasteBefore = ui.ePasteBefore;
+    const ePasteAfter = ui.ePasteAfter;
+    const eDelete = ui.eDelete;
+    const eMoveEarlier = ui.eMoveEarlier;
+    const eMoveLater = ui.eMoveLater;
+    eSave._barRun = function () { vscode.postMessage({ type: 'saveDocument' }); };
     hUndo._barRun = function () { vscode.postMessage({ type: 'history', op: 'undo' }); };
     hRedo._barRun = function () { vscode.postMessage({ type: 'history', op: 'redo' }); };
     hFind._barRun = function () { vscode.postMessage({ type: 'history', op: 'find' }); };
@@ -391,6 +427,67 @@
       return barCurrent;
     }
 
+    function selectedActionIds() {
+      const selection = getSelection ? getSelection() : null;
+      let ids = [];
+      if (selection) {
+        if (selection.mode === 'single' && selection.id != null) ids = [selection.id];
+        else if (selection.mode === 'multiSet') ids = (selection.units || []).map((unit) => unit && unit.id);
+        else ids = (selection.members || []).map((member) => member && member.id);
+      }
+      if (!ids.length) {
+        const current = refreshBarCurrent();
+        if (current && current.id != null) ids = [current.id];
+      }
+      return ids.filter((id, index) => id != null && ids.indexOf(id) === index).map(String);
+    }
+
+    function structuralSibling(el, direction) {
+      if (!el) return null;
+      let sibling = direction < 0 ? el.previousElementSibling : el.nextElementSibling;
+      while (sibling && !(sibling.hasAttribute && sibling.hasAttribute('data-struct-id'))) {
+        sibling = direction < 0 ? sibling.previousElementSibling : sibling.nextElementSibling;
+      }
+      return sibling;
+    }
+
+    function moveCurrent(direction) {
+      const current = refreshBarCurrent();
+      const sibling = current && structuralSibling(current.structEl, direction);
+      if (!current || current.id == null || !sibling) return;
+      const refId = sibling.getAttribute('data-struct-id');
+      if (refId == null) return;
+      postStructural(direction < 0 ? 'moveBefore' : 'moveAfter', current.id, {
+        refId: refId,
+        announceOnSuccess: direction < 0 ? 'Moved the element earlier.' : 'Moved the element later.',
+      });
+    }
+
+    eCopy._barRun = function () {
+      const ids = selectedActionIds();
+      if (ids.length) vscode.postMessage({ type: 'copyDita', ids: ids });
+    };
+    ePasteBefore._barRun = function () {
+      const current = refreshBarCurrent();
+      if (current && current.id != null) vscode.postMessage({
+        type: 'pasteDita', id: String(current.id), op: 'before', baseStructVersion: getStructVersion(),
+      });
+    };
+    ePasteAfter._barRun = function () {
+      const current = refreshBarCurrent();
+      if (current && current.id != null) vscode.postMessage({
+        type: 'pasteDita', id: String(current.id), op: 'after', baseStructVersion: getStructVersion(),
+      });
+    };
+    eDelete._barRun = function () {
+      const current = refreshBarCurrent();
+      if (current && current.id != null) {
+        postStructural('deleteElement', current.id, withStructuralSuccess('deleteElement', current.kind));
+      }
+    };
+    eMoveEarlier._barRun = function () { moveCurrent(-1); };
+    eMoveLater._barRun = function () { moveCurrent(1); };
+
     let cmdRovingIdx = 0;
     function visibleCmdBtns() {
       return cmdBtns.filter((b) => b.style.display !== 'none');
@@ -698,6 +795,38 @@
       const multiListIds = selectedListItemIds();
       const multiListTransform = hasMultiListItemSelection();
       const hasMultiSelection = hasCanvasMultiSelection();
+      const actionIds = selectedActionIds();
+      setBtnEnabled(eSave, true, 'Save document');
+      setBtnEnabled(
+        eCopy,
+        actionIds.length > 0,
+        actionIds.length > 0 ? 'Copy selected element as DITA' : 'Select an element to copy as DITA',
+      );
+      const hasSingleTarget = !hasMultiSelection && !!(c && c.id != null);
+      setBtnEnabled(
+        ePasteBefore,
+        hasSingleTarget,
+        hasSingleTarget ? 'Paste DITA before selected element' : 'Select one element to paste before',
+      );
+      setBtnEnabled(
+        ePasteAfter,
+        hasSingleTarget,
+        hasSingleTarget ? 'Paste DITA after selected element' : 'Select one element to paste after',
+      );
+      if (hasSingleTarget) applyAvail(eDelete, c.id, 'deleteElement', 'Delete selected element');
+      else setBtnEnabled(eDelete, false, 'Select one element to delete');
+      const previous = hasSingleTarget ? structuralSibling(c.structEl, -1) : null;
+      const next = hasSingleTarget ? structuralSibling(c.structEl, 1) : null;
+      setBtnEnabled(
+        eMoveEarlier,
+        !!previous,
+        previous ? 'Move selected element earlier' : 'The selected element is already first in its container',
+      );
+      setBtnEnabled(
+        eMoveLater,
+        !!next,
+        next ? 'Move selected element later' : 'The selected element is already last in its container',
+      );
 
       const fmtTarget = currentFormatTarget();
       const canFormat = !!((fmtTarget && fmtTarget.mid !== '') || formattableSelectionIds().length);

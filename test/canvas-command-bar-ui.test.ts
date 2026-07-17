@@ -34,6 +34,15 @@ function loadHelper() {
     fmtBtnByOp: Record<string, TestElement>;
     fmtBold: TestElement;
     tableDivider: TestElement;
+    editGroup: { wrap: TestElement; label: TestElement };
+    editDivider: TestElement;
+    eSave: TestElement;
+    eCopy: TestElement;
+    ePasteBefore: TestElement;
+    ePasteAfter: TestElement;
+    eDelete: TestElement;
+    eMoveEarlier: TestElement;
+    eMoveLater: TestElement;
     biLines: TestElement;
   }
   const win = {} as {
@@ -58,11 +67,26 @@ describe('canvas-command-bar-ui', () => {
     const { doc, ui } = loadHelper();
 
     expect((ui.cmdBar as TestElement).getAttribute('role')).toBe('toolbar');
-    expect(doc.main.style.paddingTop).toBe('72px');
-    expect(ui.cmdBtns as TestElement[]).toHaveLength(39);
+    expect(ui.editGroup.wrap.getAttribute('role')).toBe('group');
+    expect(ui.editGroup.wrap.getAttribute('aria-labelledby')).toBe(ui.editGroup.label.id);
+    expect(ui.editDivider.getAttribute('aria-hidden')).toBe('true');
+    expect(doc.main.style.paddingTop).toBe('var(--ditaeditor-toolbar-height, 72px)');
+    expect(ui.cmdBtns as TestElement[]).toHaveLength(46);
     expect((ui as unknown as { vZoomPct: TestElement }).vZoomPct.textContent).toBe('100%');
     expect((ui as unknown as { vHelp: TestElement }).vHelp.getAttribute('aria-label')).toBe('Keyboard shortcuts');
     expect((ui.cmdStatus as TestElement).textContent).toBe('DITA · visual');
+    expect([
+      ui.eSave, ui.eCopy, ui.ePasteBefore, ui.ePasteAfter,
+      ui.eDelete, ui.eMoveEarlier, ui.eMoveLater,
+    ].map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Save document',
+      'Copy selected element as DITA',
+      'Paste DITA before selected element',
+      'Paste DITA after selected element',
+      'Delete selected element',
+      'Move selected element earlier',
+      'Move selected element later',
+    ]);
     expect((ui.biParagraph as TestElement).getAttribute('aria-label')).toBe('Paragraph');
     expect((ui.aiList as TestElement).getAttribute('aria-label')).toBe('Alphabetic list');
     expect((ui.biLines as TestElement).getAttribute('aria-label')).toBe('Lines');

@@ -11,7 +11,10 @@ function snapshot(overrides: Partial<ReviewExportSnapshot> = {}): ReviewExportSn
   return {
     title: 'Review <one>',
     defaultFilename: 'one-comparison.html',
-    bodyHtml: '<div class="redline-banner"><button data-redline-action="exportHtml">Export</button></div>'
+    bodyHtml: '<div class="redline-banner"><button data-redline-action="exportHtml">Export</button>'
+      + '<button data-redline-nav="previous">Previous</button><button data-redline-nav="next">Next</button>'
+      + '<span data-redline-position></span></div>'
+      + '<div data-redline-change><button data-redline-action="revertChange" data-redline-revert-token="secret">Revert</button></div>'
       + '<section data-redline-unchanged-group="u"><button data-redline-expand="u">2 unchanged</button>'
       + '<div hidden data-redline-unchanged-rows="u"><p>All content</p></div></section>'
       + '<script>throw new Error("must not export")</script>',
@@ -39,9 +42,12 @@ describe('buildReviewExportHtml', () => {
     expect(html.indexOf('color:managed')).toBeLessThan(html.indexOf('color:redline'));
     expect(html).toContain('<p>All content</p>');
     expect(html).not.toContain(' hidden');
-    expect(html).not.toContain('<button');
-    expect(html).not.toContain('<script');
+    expect(html).toContain('data-redline-nav="previous"');
+    expect(html).toContain('data-redline-nav="next"');
+    expect(html).toContain('<script>');
+    expect(html).not.toContain('acquireVsCodeApi');
     expect(html).not.toContain('data-redline-action');
+    expect(html).not.toContain('data-redline-revert-token');
   });
 
   test('recursively inlines imported CSS and every CSS image or font resource', async () => {

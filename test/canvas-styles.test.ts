@@ -437,7 +437,9 @@ describe('canvas-styles', () => {
 
     const target = selects.find((select) => select.getAttribute('aria-label') === 'Target') as TestElement & { value: string };
     const weight = selects.find((select) => select.getAttribute('aria-label') === 'Weight') as TestElement & { value: string };
-    const textColor = selects.find((select) => select.getAttribute('aria-label') === 'Text') as TestElement & { value: string };
+    const textColor = form!.querySelectorAll('input').find((input) =>
+      input.getAttribute('aria-label') === 'Text CSS color value'
+    ) as TestElement & { value: string };
     const textCase = selects.find((select) => select.getAttribute('aria-label') === 'Case') as TestElement & { value: string };
     const after = selects.find((select) => select.getAttribute('aria-label') === 'After') as TestElement & { value: string };
     expect(target).toBeInstanceOf(TestElement);
@@ -477,6 +479,33 @@ describe('canvas-styles', () => {
       textTransform: 'uppercase',
       spacingAfter: '20px',
     });
+  });
+
+  test('preserves arbitrary authored CSS colors until the picker is explicitly changed', () => {
+    const authored = 'color-mix(in srgb, var(--brand) 70%, white)';
+    const styles = DEFAULT_AUTHOR_STYLES.map((style) =>
+      style.className === 'dc-all-muted' ? { ...style, color: authored } : style
+    );
+    const { panel, messages } = loadHelper({ styles });
+
+    expandGroup(panel.panel, 'All elements');
+    buttonByLabel(panel.panel, 'Expand editor for Muted element').click();
+    const form = panel.panel.querySelector('form')!;
+    const raw = form.querySelectorAll('input').find((input) =>
+      input.getAttribute('aria-label') === 'Text CSS color value'
+    ) as TestElement & { value: string };
+    const picker = form.querySelectorAll('input').find((input) =>
+      input.getAttribute('aria-label') === 'Pick text color'
+    ) as TestElement & { value: string };
+
+    expect(raw.value).toBe(authored);
+    expect(picker.getAttribute('data-color-representable')).toBe('false');
+    expect(messages).toHaveLength(0);
+
+    picker.value = '#aabbcc';
+    picker.dispatch('input', { target: picker });
+    const saved = messages.at(-1) as { styles: Array<{ className: string; color?: string }> };
+    expect(saved.styles.find((style) => style.className === 'dc-all-muted')?.color).toBe('#aabbcc');
   });
 
   test('a non-forced refresh (the post-autosave styleState push) never steals focus from an open style-editor field', () => {
@@ -1788,7 +1817,11 @@ describe('canvas-styles', () => {
 
     const form = panel.panel.querySelector('form');
     expect(form).toBeInstanceOf(TestElement);
-    expect(form!.querySelectorAll('input')).toHaveLength(1); // Name only
+    expect(form!.querySelectorAll('input').some((input) => input.getAttribute('aria-label') === 'Class')).toBe(false);
+    expect(form!.querySelectorAll('input').some((input) => input.getAttribute('aria-label') === 'Name')).toBe(true);
+    expect(form!.querySelectorAll('input').filter((input) =>
+      (input as TestElement & { type?: string }).type === 'color'
+    )).toHaveLength(3);
     expect(form!.querySelectorAll('select').some((s) => s.getAttribute('aria-label') === 'Target')).toBe(false);
 
     const weight = form!.querySelectorAll('select').find((s) => s.getAttribute('aria-label') === 'Weight') as TestElement & { value: string };
@@ -1930,8 +1963,8 @@ describe('canvas-styles', () => {
     };
     expect(emptyOptionOf('Size')).toBe('16px (default)');
     expect(emptyOptionOf('Weight')).toBe('400 (default)');
-    expect(emptyOptionOf('Text')).toBe('#25323a (default)'); // rgb() shown as hex
-    expect(emptyOptionOf('Fill')).toBe('transparent (default)'); // rgba(0,0,0,0)
+    expect(emptyOptionOf('Text color preset')).toBe('#25323a (default)'); // rgb() shown as hex
+    expect(emptyOptionOf('Fill color preset')).toBe('transparent (default)'); // rgba(0,0,0,0)
     expect(emptyOptionOf('After')).toBe('12px (default)');
   });
 
@@ -2006,19 +2039,22 @@ describe('canvas-styles', () => {
     const form = panel.panel.querySelector('form');
     expect(form).toBeInstanceOf(TestElement);
     expect(form!.textContent).toContain('Page style — sets the document canvas');
-    const valueSelects = form!.querySelectorAll('select').filter((s) => s.getAttribute('data-style-field'));
-    const selectLabels = valueSelects.map((s) => s.getAttribute('aria-label'));
+    const valueControls = [
+      ...form!.querySelectorAll('select'),
+      ...form!.querySelectorAll('input'),
+    ].filter((control) => control.getAttribute('data-style-field'));
+    const controlLabels = valueControls.map((control) => control.getAttribute('aria-label'));
     // The Page group now also exposes the app-shell "site chrome" controls.
-    expect(selectLabels).toContain('Page fill');
-    expect(selectLabels).toContain('Content width');
-    expect(selectLabels).toContain('Table shadow');
-    expect(selectLabels).toContain('Sidebar fill');
-    expect(selectLabels).toContain('Link hover');
+    expect(controlLabels).toContain('Page fill CSS color value');
+    expect(controlLabels).toContain('Content width');
+    expect(controlLabels).toContain('Table shadow');
+    expect(controlLabels).toContain('Sidebar fill CSS color value');
+    expect(controlLabels).toContain('Link hover CSS color value');
     // The masthead title is a free-text field, not a select.
     const titleInput = form!.querySelectorAll('input').find((i) => i.getAttribute('data-style-field') === 'mastheadTitle');
     expect(titleInput).toBeInstanceOf(TestElement);
 
-    const width = valueSelects.find((s) => s.getAttribute('aria-label') === 'Content width') as TestElement & { value: string };
+    const width = form!.querySelectorAll('select').find((s) => s.getAttribute('aria-label') === 'Content width') as TestElement & { value: string };
     changeControlValue(width, '840px');
 
     const last = messages.at(-1) as { type: string; styles: Array<Record<string, unknown>> };

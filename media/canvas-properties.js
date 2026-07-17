@@ -70,7 +70,7 @@
     resizeHandle.setAttribute('aria-valuemin', String(MIN_PANEL_WIDTH));
     resizeHandle.tabIndex = 0;
     resizeHandle.style.cssText =
-      'position:fixed;top:72px;bottom:0;left:304px;width:8px;z-index:76;box-sizing:border-box;' +
+      'position:fixed;top:var(--ditaeditor-toolbar-height,72px);bottom:0;left:304px;width:8px;z-index:76;box-sizing:border-box;' +
       'cursor:col-resize;background:linear-gradient(to right,transparent 0 3px,#e1e1e1 3px 4px,transparent 4px);';
     resizeHandle.style.top = TOP_CHROME_FALLBACK + 'px';
     document.body.appendChild(resizeHandle);
@@ -97,7 +97,7 @@
     showButton.setAttribute('aria-controls', 'ditaeditor-properties-panel');
     showButton.setAttribute('aria-expanded', 'false');
     showButton.style.cssText =
-      'position:fixed;left:0;top:72px;bottom:0;width:36px;box-sizing:border-box;z-index:74;display:none;' +
+      'position:fixed;left:0;top:var(--ditaeditor-toolbar-height,72px);bottom:0;width:36px;box-sizing:border-box;z-index:74;display:none;' +
       'align-items:flex-start;justify-content:center;padding-top:12px;border:0;border-right:1px solid #ececec;' +
       'background:#fafafa;color:#737373;cursor:pointer;font:600 20px/1 ' + fontFamily + ';';
     showButton.style.top = TOP_CHROME_FALLBACK + 'px';

@@ -6,6 +6,7 @@
     const makeBtn = opts.controls.makeBtn;
     const menuIcons = opts.menuIcons;
     const barIcons = opts.barIcons;
+    let groupSequence = 0;
 
     function makeBarBtn(content, title, isSvg) {
       const b = makeBtn('', title);
@@ -20,12 +21,17 @@
     }
 
     function makeBarGroup(label) {
+      groupSequence += 1;
       const wrap = document.createElement('div');
+      const labelId = 'ditaeditor-command-group-' + groupSequence;
       wrap.className = 'cmd-group';
-      wrap.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:7px;';
+      wrap.setAttribute('role', 'group');
+      wrap.setAttribute('aria-labelledby', labelId);
+      wrap.style.cssText = 'display:flex;flex:0 0 auto;flex-direction:column;align-items:flex-start;gap:7px;';
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:2px;';
       const lab = document.createElement('div');
+      lab.id = labelId;
       lab.className = 'cmd-group-label';
       lab.textContent = label;
       lab.style.cssText =
@@ -36,7 +42,9 @@
 
     function makeBarDivider() {
       const d = document.createElement('div');
-      d.style.cssText = 'width:1px;align-self:stretch;background:#ececec;margin:0 12px;';
+      d.setAttribute('role', 'presentation');
+      d.setAttribute('aria-hidden', 'true');
+      d.style.cssText = 'width:1px;flex:0 0 1px;align-self:stretch;background:#ececec;margin:0 12px;';
       return d;
     }
 
@@ -46,17 +54,29 @@
     cmdBar.className = 'cmd-bar';
     cmdBar.style.cssText =
       'position:fixed;top:0;left:0;right:0;z-index:75;display:flex;align-items:flex-start;gap:0;' +
-      'box-sizing:border-box;min-height:36px;padding:8px 14px;background:#fafafa;' +
+      'box-sizing:border-box;min-height:36px;padding:8px 14px;overflow-x:auto;overflow-y:hidden;background:#fafafa;' +
       'border-bottom:1px solid #ebebeb;font-family:' + fontFamily + ';';
     document.body.appendChild(cmdBar);
 
     const cmdMain = document.querySelector('main');
-    if (cmdMain) cmdMain.style.paddingTop = '72px';
+    if (cmdMain) cmdMain.style.paddingTop = 'var(--ditaeditor-toolbar-height, 72px)';
 
     const topicGroup = makeBarGroup('Topic');
     const tPrev = makeBarBtn('‹', 'Previous topic in this folder', false);
     const tNext = makeBarBtn('›', 'Next topic in this folder', false);
     topicGroup.row.append(tPrev, tNext);
+
+    const editGroup = makeBarGroup('Edit');
+    const eSave = makeBarBtn('Save', 'Save document', false);
+    eSave.style.width = 'auto';
+    eSave.style.padding = '0 7px';
+    const eCopy = makeBarBtn('⧉', 'Copy selected element as DITA', false);
+    const ePasteBefore = makeBarBtn('↑▣', 'Paste DITA before selected element', false);
+    const ePasteAfter = makeBarBtn('↓▣', 'Paste DITA after selected element', false);
+    const eDelete = makeBarBtn('⌫', 'Delete selected element', false);
+    const eMoveEarlier = makeBarBtn('↑', 'Move selected element earlier', false);
+    const eMoveLater = makeBarBtn('↓', 'Move selected element later', false);
+    editGroup.row.append(eSave, eCopy, ePasteBefore, ePasteAfter, eDelete, eMoveEarlier, eMoveLater);
 
     const historyGroup = makeBarGroup('History');
     const hUndo = makeBarBtn(barIcons.undo, 'Undo', true);
@@ -138,6 +158,7 @@
     viewGroup.row.append(vZoomOut, vZoomPct, vZoomIn, vSpell, vHelp);
 
     const topicDivider = makeBarDivider();
+    const editDivider = makeBarDivider();
     const historyDivider = makeBarDivider();
     const formatDivider = makeBarDivider();
     const tableDivider = makeBarDivider();
@@ -149,9 +170,10 @@
     cmdStatus.textContent = 'DITA · visual';
     cmdStatus.setAttribute('aria-label', 'DITA Editor visual editor');
     cmdStatus.style.cssText =
-      'margin-left:auto;align-self:center;font:11px/1.5 ' + fontFamily + ';color:#5a6b78;white-space:nowrap;';
+      'margin-left:auto;flex:0 0 auto;align-self:center;font:11px/1.5 ' + fontFamily + ';color:#5a6b78;white-space:nowrap;';
     cmdBar.append(
       topicGroup.wrap, topicDivider,
+      editGroup.wrap, editDivider,
       historyGroup.wrap, historyDivider,
       fmtGroup.wrap, formatDivider,
       structGroup.wrap, insertDivider, insertGroup.wrap,
@@ -162,6 +184,7 @@
 
     const cmdBtns = [
       tPrev, tNext,
+      eSave, eCopy, ePasteBefore, ePasteAfter, eDelete, eMoveEarlier, eMoveLater,
       hUndo, hRedo, hFind, hReplace,
       fmtBold, fmtItalic, fmtUnderline, fmtStrike, fmtCode, fmtSub, fmtSup, fmtClear,
       biParagraph, biSection, biList, aiList, niList, biLines, biNote, biCode, biIndent, biOutdent, biTable, biImage, biXref, biConref,
@@ -171,6 +194,15 @@
 
     return {
       cmdBar: cmdBar,
+      editGroup: editGroup,
+      editDivider: editDivider,
+      eSave: eSave,
+      eCopy: eCopy,
+      ePasteBefore: ePasteBefore,
+      ePasteAfter: ePasteAfter,
+      eDelete: eDelete,
+      eMoveEarlier: eMoveEarlier,
+      eMoveLater: eMoveLater,
       historyGroup: historyGroup,
       fmtGroup: fmtGroup,
       structGroup: structGroup,

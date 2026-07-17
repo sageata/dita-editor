@@ -64,6 +64,15 @@ describe('redline managed stylesheet script', () => {
     expect(posted).toEqual([{ type: 'redlineReady' }]);
   });
 
+  test('posts only the opaque token for a Review revert and handles host results', () => {
+    const source = readFileSync(new URL('../media/redline-review.js', import.meta.url), 'utf8');
+
+    expect(source).toContain("getAttribute('data-redline-revert-token')");
+    expect(source).toContain("vscode.postMessage({ type: type, token: token })");
+    expect(source).toContain("message.type === 'revertResult'");
+    expect(source).not.toContain('validation.plan.replacement');
+  });
+
   test('restores mode, toggles groups and views, and navigates visible changes', () => {
     const source = readFileSync(new URL('../media/redline-review.js', import.meta.url), 'utf8');
     const documentListeners = new Map<string, Array<(event: { target: FakeElement }) => void>>();

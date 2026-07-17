@@ -15,6 +15,12 @@ function loadNativeContextMenu() {
   return win.DitaEditorCanvasNativeContextMenu;
 }
 
+function buttonByText(root: TestElement, text: string): TestElement {
+  const button = root.querySelectorAll('button').find((candidate) => candidate.textContent === text);
+  expect(button).toBeInstanceOf(TestElement);
+  return button!;
+}
+
 function contextOf(element: TestElement): Record<string, any> {
   return JSON.parse(element.getAttribute('data-vscode-context') || '{}');
 }
@@ -186,6 +192,38 @@ describe('canvas native context menu', () => {
       'ditaNativeHas.figureAfter': true,
       'ditaNativeTarget.figureAfter': 'fig1',
     });
+  });
+
+  test('opens an accessible color picker for custom shading and posts normalized hex only on Apply', () => {
+    const { document, messages, cell, menu } = fixture();
+    const context = contextOf(cell);
+
+    expect(menu.execute('ditaeditor.context.shade.cell.custom', context)).toBe(true);
+    expect(messages).toEqual([]);
+    const dialog = document.body.querySelector('dialog') as TestElement & { close?: () => void };
+    expect(dialog).toBeInstanceOf(TestElement);
+    expect(dialog.getAttribute('aria-labelledby')).toBe('ditaeditor-shade-title');
+    dialog.close = () => dialog.dispatch('close', {});
+    const value = dialog.querySelectorAll('input').find((input) =>
+      input.getAttribute('aria-label') === 'Shading hex color'
+    ) as TestElement & { value: string };
+    const picker = dialog.querySelectorAll('input').find((input) =>
+      (input as TestElement & { type?: string }).type === 'color'
+    );
+    expect(picker).toBeInstanceOf(TestElement);
+
+    value.value = '#AbCdEf';
+    value.dispatch('input', { target: value });
+    buttonByText(dialog, 'Apply').click();
+    expect(messages).toEqual([{
+      type: 'applyShade',
+      ids: ['cell1'],
+      color: '#abcdef',
+      sourceHash: 'hash-a',
+      targetToken: 'target-a',
+      nativeContextSession: 'session-a',
+      baseStructVersion: 7,
+    }]);
   });
 
   test('executes each command family with captured target ids, session, and generation', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { parse } from '../src/cst/parse';
 import { renderSideBySide } from '../src/compare/render-side-by-side';
+import { planReviewReverts } from '../src/compare/revert-change';
 
 function compare(oldSource: string, newSource: string): string {
   return renderSideBySide(parse(oldSource), parse(newSource)).html;
@@ -22,6 +23,20 @@ describe('renderSideBySide', () => {
     expect(html).toContain('<p class="p">Old wording</p>');
     expect(html).toContain('<p class="p">New wording</p>');
     expect(html).toContain('<article role="article" class="nested0 topic"><div class="body">');
+  });
+
+  test('renders an opaque revert action only for an eligible working-copy row', () => {
+    const earlier = '<topic><body><p>Earlier wording</p></body></topic>';
+    const newer = '<topic><body><p>Newer wording</p></body></topic>';
+    const plan = planReviewReverts(earlier, newer)[0];
+    const html = renderSideBySide(parse(earlier), parse(newer), {
+      revertActions: new Map([[plan.key, { token: 'opaque-token', label: plan.label }]]),
+    }).html;
+
+    expect(html).toContain('data-redline-action="revertChange"');
+    expect(html).toContain('data-redline-revert-token="opaque-token"');
+    expect(html).toContain('aria-label="Restore changed &lt;p&gt; from Earlier"');
+    expect(html).not.toContain('Earlier wording</button>');
   });
 
   test('renders insertions and deletions against explicit empty placeholders', () => {

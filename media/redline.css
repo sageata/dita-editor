@@ -180,6 +180,51 @@ body.ditaeditor-canvas main[role="main"] {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
+.redline-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.redline-compare-row {
+  position: relative;
+}
+
+.redline-revert-change {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  padding: 4px 9px;
+  border: 1px solid var(--dc-color-border, #9ca3af);
+  border-radius: 4px;
+  background: var(--dc-color-surface, #fff);
+  color: var(--dc-color-text, #111827);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.redline-compare-row:hover .redline-revert-change,
+.redline-compare-row:focus-within .redline-revert-change,
+.redline-revert-change:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.redline-revert-change:focus-visible {
+  outline: 3px solid var(--dc-color-focus, #2563eb);
+  outline-offset: 2px;
+}
+
 .redline-compare-row[data-redline-active="true"] {
   box-shadow: inset 0 0 0 3px var(--dc-color-accent-strong, #1d4ed8);
 }

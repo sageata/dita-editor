@@ -187,9 +187,9 @@
         ['700', 'Bold'],
       ],
     },
-    { key: 'color', label: 'Text', choices: COLOR_CHOICES },
-    { key: 'backgroundColor', label: 'Fill', choices: FILL_CHOICES },
-    { key: 'borderColor', label: 'Accent', choices: COLOR_CHOICES },
+    { key: 'color', label: 'Text', color: true, choices: COLOR_CHOICES },
+    { key: 'backgroundColor', label: 'Fill', color: true, choices: FILL_CHOICES },
+    { key: 'borderColor', label: 'Accent', color: true, choices: COLOR_CHOICES },
     {
       key: 'textTransform',
       label: 'Case',
@@ -265,6 +265,7 @@
     {
       key: 'backgroundColor',
       label: 'Page fill',
+      color: true,
       choices: [
         ['', 'Default'],
         ['var(--dc-color-surface-muted, #f3f4f6)', 'Muted surface'],
@@ -297,9 +298,9 @@
     // :root --dc-chrome-* custom properties the published/editor shell reads; an
     // empty value leaves the shell's own default (today's look) in place.
     { key: 'mastheadTitle', label: 'Masthead title', text: true },
-    { key: 'mastheadBg', label: 'Masthead fill', choices: FILL_CHOICES },
-    { key: 'mastheadText', label: 'Masthead text', choices: COLOR_CHOICES },
-    { key: 'mastheadAccent', label: 'Masthead accent', choices: COLOR_CHOICES },
+    { key: 'mastheadBg', label: 'Masthead fill', color: true, choices: FILL_CHOICES },
+    { key: 'mastheadText', label: 'Masthead text', color: true, choices: COLOR_CHOICES },
+    { key: 'mastheadAccent', label: 'Masthead accent', color: true, choices: COLOR_CHOICES },
     {
       key: 'sidebarWidth',
       label: 'Sidebar width',
@@ -311,14 +312,14 @@
         ['400px', '400 px'],
       ],
     },
-    { key: 'sidebarBg', label: 'Sidebar fill', choices: FILL_CHOICES },
-    { key: 'sidebarLink', label: 'Sidebar text', choices: COLOR_CHOICES },
-    { key: 'sidebarHover', label: 'Sidebar hover', choices: FILL_CHOICES },
-    { key: 'sidebarActive', label: 'Sidebar active', choices: FILL_CHOICES },
-    { key: 'sidebarAccent', label: 'Sidebar accent', choices: COLOR_CHOICES },
-    { key: 'sidebarCaption', label: 'Sidebar caption', choices: COLOR_CHOICES },
-    { key: 'linkColor', label: 'Link color', choices: COLOR_CHOICES },
-    { key: 'linkHover', label: 'Link hover', choices: COLOR_CHOICES },
+    { key: 'sidebarBg', label: 'Sidebar fill', color: true, choices: FILL_CHOICES },
+    { key: 'sidebarLink', label: 'Sidebar text', color: true, choices: COLOR_CHOICES },
+    { key: 'sidebarHover', label: 'Sidebar hover', color: true, choices: FILL_CHOICES },
+    { key: 'sidebarActive', label: 'Sidebar active', color: true, choices: FILL_CHOICES },
+    { key: 'sidebarAccent', label: 'Sidebar accent', color: true, choices: COLOR_CHOICES },
+    { key: 'sidebarCaption', label: 'Sidebar caption', color: true, choices: COLOR_CHOICES },
+    { key: 'linkColor', label: 'Link color', color: true, choices: COLOR_CHOICES },
+    { key: 'linkHover', label: 'Link hover', color: true, choices: COLOR_CHOICES },
   ];
   const CLASS_NAME_RE = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
@@ -431,7 +432,7 @@
     resizeHandle.setAttribute('aria-valuemin', String(MIN_PANEL_WIDTH));
     resizeHandle.tabIndex = 0;
     resizeHandle.style.cssText =
-      'position:fixed;top:72px;bottom:0;right:320px;width:8px;z-index:76;box-sizing:border-box;' +
+      'position:fixed;top:var(--ditaeditor-toolbar-height,72px);bottom:0;right:320px;width:8px;z-index:76;box-sizing:border-box;' +
       'cursor:col-resize;background:linear-gradient(to right,transparent 0 3px,#e1e1e1 3px 4px,transparent 4px);';
     document.body.appendChild(resizeHandle);
 
@@ -454,7 +455,7 @@
     showButton.setAttribute('aria-controls', 'ditaeditor-styles-panel');
     showButton.setAttribute('aria-expanded', 'false');
     showButton.style.cssText =
-      'position:fixed;right:0;top:72px;bottom:0;width:36px;box-sizing:border-box;z-index:74;display:none;' +
+      'position:fixed;right:0;top:var(--ditaeditor-toolbar-height,72px);bottom:0;width:36px;box-sizing:border-box;z-index:74;display:none;' +
       'align-items:flex-start;justify-content:center;padding-top:12px;border:0;border-left:1px solid #ececec;' +
       'background:#fbfbfa;color:#737373;cursor:pointer;font:600 20px/1 ' + fontFamily + ';';
     document.body.appendChild(showButton);
@@ -1633,8 +1634,12 @@
       });
 
       for (const control of controls) {
-        control.addEventListener('input', () => scheduleAutoSave());
-        control.addEventListener('change', () => scheduleAutoSave());
+        if (typeof control._ditaeditorSubscribe === 'function') {
+          control._ditaeditorSubscribe(scheduleAutoSave);
+        } else {
+          control.addEventListener('input', () => scheduleAutoSave());
+          control.addEventListener('change', () => scheduleAutoSave());
+        }
       }
 
       function scheduleAutoSave() {
@@ -2096,7 +2101,118 @@
       return input;
     }
 
+    function pickerHex(value) {
+      const text = String(value || '').trim();
+      const short = text.match(/^#([0-9a-f]{3})$/i);
+      if (short) return '#' + short[1].split('').map(function (part) { return part + part; }).join('').toLowerCase();
+      const full = text.match(/^#([0-9a-f]{6})$/i);
+      if (full) return '#' + full[1].toLowerCase();
+      const rgb = text.match(/^rgba?\(\s*(\d{1,3})[\s,]+(\d{1,3})[\s,]+(\d{1,3})/i);
+      if (rgb) {
+        return '#' + rgb.slice(1, 4).map(function (part) {
+          return Math.max(0, Math.min(255, Number(part))).toString(16).padStart(2, '0');
+        }).join('');
+      }
+      const fallback = text.match(/#[0-9a-f]{6}/i);
+      return fallback ? fallback[0].toLowerCase() : '#000000';
+    }
+
+    function colorChoiceField(config, value, inheritedValue) {
+      const wrap = document.createElement('div');
+      wrap.className = 'style-color-control';
+      wrap.setAttribute('role', 'group');
+      wrap.setAttribute('aria-label', config.label + ' color controls');
+      wrap.style.cssText = 'display:grid;grid-template-columns:36px minmax(0,1fr);gap:6px;align-items:center;';
+      wrap._ditaeditorCompound = true;
+
+      const picker = document.createElement('input');
+      picker.type = 'color';
+      picker.value = pickerHex(value || inheritedValue);
+      picker.setAttribute('aria-label', 'Pick ' + config.label.toLowerCase() + ' color');
+      picker.className = 'style-color-picker';
+      picker.style.cssText = 'width:36px;height:32px;padding:2px;border:1px solid ' + GRAY_HAIRLINE + ';border-radius:6px;background:#fff;cursor:pointer;';
+
+      const raw = document.createElement('input');
+      raw.type = 'text';
+      raw.value = value || '';
+      raw.placeholder = inheritedValue || 'Default or CSS color value';
+      raw.setAttribute('aria-label', config.label + ' CSS color value');
+      raw.setAttribute('data-style-field', config.key);
+      raw.className = 'style-field style-color-value';
+      raw.style.cssText = fieldCss(fontFamily);
+
+      const presets = document.createElement('select');
+      presets.setAttribute('aria-label', config.label + ' color preset');
+      presets.className = 'style-field style-color-preset';
+      presets.style.cssText = fieldCss(fontFamily) + 'grid-column:1 / -1;';
+      let matched = false;
+      for (const choice of config.choices) {
+        const option = document.createElement('option');
+        option.value = choice[0];
+        option.textContent = choice[0] === '' && inheritedValue
+          ? inheritedValue + ' (default)'
+          : choice[1];
+        if (value === choice[0]) matched = true;
+        presets.appendChild(option);
+      }
+      if (value && !matched) {
+        const custom = document.createElement('option');
+        custom.value = value;
+        custom.textContent = 'Custom: ' + value;
+        presets.appendChild(custom);
+      }
+      presets.value = value || '';
+
+      const defaultButton = smallButton(document, 'Default', fontFamily);
+      defaultButton.setAttribute('aria-label', 'Clear ' + config.label.toLowerCase() + ' color and use the default');
+      defaultButton.style.gridColumn = '1 / -1';
+
+      function syncPicker() {
+        const normalized = pickerHex(raw.value);
+        picker.value = normalized;
+        const representable = /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(raw.value.trim())
+          || /^rgb\(/i.test(raw.value.trim());
+        picker.setAttribute('data-color-representable', String(representable));
+        picker.title = representable || raw.value.trim() === ''
+          ? 'Choose color'
+          : 'The authored CSS value is preserved in the text field; choosing here replaces it with a hex color.';
+      }
+      syncPicker();
+      wrap.append(picker, raw, presets, defaultButton);
+      wrap._ditaeditorSubscribe = function (save) {
+        picker.addEventListener('input', function () {
+          raw.value = String(picker.value || '').toLowerCase();
+          presets.value = '';
+          syncPicker();
+          save();
+        });
+        presets.addEventListener('change', function () {
+          raw.value = presets.value || '';
+          syncPicker();
+          save();
+        });
+        defaultButton.addEventListener('click', function (event) {
+          if (event.preventDefault) event.preventDefault();
+          raw.value = '';
+          presets.value = '';
+          syncPicker();
+          save();
+        });
+        raw.addEventListener('input', function () {
+          presets.value = config.choices.some(function (choice) { return choice[0] === raw.value; }) ? raw.value : '';
+          syncPicker();
+          save();
+        });
+        raw.addEventListener('change', function () {
+          syncPicker();
+          save();
+        });
+      };
+      return wrap;
+    }
+
     function choiceField(config, value, inheritedValue) {
+      if (config.color) return colorChoiceField(config, value, inheritedValue);
       if (config.text) {
         // Free-text value field (e.g. the masthead title). Carries data-style-field so
         // readDraft collects it exactly like a choice select.
@@ -2149,11 +2265,12 @@
   }
 
   function labelWrap(document, label, control) {
-    const wrap = document.createElement('label');
+    const wrap = document.createElement(control && control._ditaeditorCompound ? 'div' : 'label');
     wrap.style.cssText = 'display:grid;grid-template-columns:72px minmax(0,1fr);gap:8px;align-items:center;';
     const text = document.createElement('span');
     text.textContent = label;
     text.style.cssText = 'font-size:11.5px;color:' + GRAY_LABEL + ';';
+    if (control && control._ditaeditorCompound) text.setAttribute('aria-hidden', 'true');
     wrap.append(text, control);
     return wrap;
   }

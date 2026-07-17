@@ -85,7 +85,8 @@ function removeAttribute(node: HtmlNode, name: string): void {
 function makeStatic(node: HtmlNode): void {
   if (!node.childNodes) return;
   node.childNodes = node.childNodes.filter((child) => {
-    if (child.tagName === 'script' || child.tagName === 'button') return false;
+    if (child.tagName === 'script') return false;
+    if (child.tagName === 'button' && !hasAttribute(child, 'data-redline-nav')) return false;
     makeStatic(child);
     return true;
   });
@@ -123,6 +124,18 @@ async function inlineHtmlImages(
 function safeStyleText(css: string): string {
   return css.replace(/<\/style/gi, '<\\/style');
 }
+
+function safeScriptText(script: string): string {
+  return script.replace(/<\/script/gi, '<\\/script');
+}
+
+const EXPORT_NAVIGATION_SCRIPT = '(function(){var i=-1,q=function(s){return Array.from(document.querySelectorAll(s));},c=function(){return q("[data-redline-change]");};' +
+  'function u(a){q("[data-redline-position]").forEach(function(s){s.textContent="Change "+(i<0?0:i+1)+" of "+a.length;});' +
+  'q("[data-redline-nav]").forEach(function(b){b.disabled=!a.length;b.setAttribute("aria-disabled",String(!a.length));});}' +
+  'function n(d){var a=c();if(!a.length){i=-1;u(a);return;}i=i<0?(d==="previous"?a.length-1:0):d==="previous"?(i<=0?a.length-1:i-1):(i>=a.length-1?0:i+1);' +
+  'a.forEach(function(r,x){if(x===i){r.setAttribute("data-redline-active","true");r.setAttribute("aria-current","true");}else{r.removeAttribute("data-redline-active");r.removeAttribute("aria-current");}});u(a);' +
+  'a[i].scrollIntoView({block:"center",behavior:"auto"});a[i].focus({preventScroll:true});}' +
+  'document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-redline-nav]");if(b&&!b.disabled)n(b.getAttribute("data-redline-nav"));});u(c());})();';
 
 function resourceUri(reference: string, baseUri: string): string {
   let resolved: URL;
@@ -326,7 +339,7 @@ export async function buildReviewExportHtml(
     + `<style>${safeStyleText(sheets.join('\n'))}</style>`
     + '</head><body class="ditaeditor-canvas"><main role="main">'
     + body
-    + '</main></body></html>';
+    + `</main><script>${safeScriptText(EXPORT_NAVIGATION_SCRIPT)}</script></body></html>`;
 }
 
 export async function saveReviewExport(

@@ -66,6 +66,10 @@ export function renderMultiReviewExportShell(options: MultiReviewShellOptions): 
       + '</section>';
   }).join('');
   return `<div class="redline-banner redline-multi-banner"><span><strong>${escapeHtml(options.title)}</strong></span>`
-    + `${skipped}<span class="redline-banner-count">${options.files.length} DITA file${options.files.length === 1 ? '' : 's'} · ${totalChanges} change${totalChanges === 1 ? '' : 's'}</span></div>`
+    + `${skipped}<div class="redline-change-nav" role="group" aria-label="Change navigation">`
+    + '<button type="button" class="redline-banner-btn" data-redline-nav="previous">Previous</button>'
+    + '<button type="button" class="redline-banner-btn" data-redline-nav="next">Next</button>'
+    + `<span class="redline-change-position" data-redline-position aria-live="polite">Change 0 of ${totalChanges}</span></div>`
+    + `<span class="redline-banner-count">${options.files.length} DITA file${options.files.length === 1 ? '' : 's'} · ${totalChanges} change${totalChanges === 1 ? '' : 's'}</span></div>`
     + `<div class="redline-multi-files">${sections}</div>`;
 }
