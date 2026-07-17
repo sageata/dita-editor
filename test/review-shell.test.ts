@@ -22,7 +22,7 @@ describe('renderReviewShell', () => {
     expect(html).toContain('3 changes');
   });
 
-  test('includes side-by-side-only previous and next controls', () => {
+  test('includes previous and next controls in both rendered layouts', () => {
     const html = renderReviewShell({
       label: '',
       note: 'No base',
@@ -33,7 +33,9 @@ describe('renderReviewShell', () => {
 
     expect(html).toContain('data-redline-nav="previous"');
     expect(html).toContain('data-redline-nav="next"');
-    expect(html).toContain('data-redline-side-only');
+    expect(html).toContain('role="group" aria-label="Change navigation"');
+    expect(html).toContain('Change 0 of 0');
+    expect(html).toContain('data-redline-status role="status"');
     expect(html).toContain('No changes');
     expect(html).not.toContain('openSourceDiff');
   });
@@ -64,7 +66,9 @@ describe('renderReviewShell', () => {
     expect(html).toContain('working copy');
     expect(html).toContain('2 changes');
     expect(html).toContain('data-redline-comparison');
-    expect(html).not.toContain('<button');
+    expect(html).toContain('data-redline-nav="previous"');
+    expect(html).toContain('data-redline-nav="next"');
+    expect(html).not.toContain('data-redline-action');
     expect(html).not.toContain('data-redline-view');
   });
 });

@@ -451,11 +451,12 @@
     withStructuralSuccess: withStructuralSuccess,
     postTransform: postTransform,
     announceNav: announceNav,
+    onToolbarHeightChange: zoomCtl.setToolbarHeight,
     viewTools: { zoom: zoomCtl, spellcheck: spellCtl, help: helpCtl, findReplace: findReplace },
   });
   const refreshCmdBar = commandBar.refresh;
-  // The command-bar UI just re-asserted main's 72px top clearance; re-apply the
-  // persisted zoom so the counter-scaled clearance wins when zoom ≠ 100%.
+  // Re-apply the persisted zoom after command-bar measurement so its clearance
+  // remains visually constant when zoom is not 100%.
   zoomCtl.apply();
 
   // ==================== Properties sidebar (Frame A left bar; FILE-LEVEL attribute editor) ====================

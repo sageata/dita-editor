@@ -8,8 +8,8 @@
     if (visibleCount <= 0) return -1;
     const last = visibleCount - 1;
     const cur = Math.max(0, Math.min(currentIdx, last));
-    if (key === 'ArrowRight') return Math.min(cur + 1, last);
-    if (key === 'ArrowLeft') return Math.max(cur - 1, 0);
+    if (key === 'ArrowRight') return cur >= last ? 0 : cur + 1;
+    if (key === 'ArrowLeft') return cur <= 0 ? last : cur - 1;
     if (key === 'Home') return 0;
     if (key === 'End') return last;
     return cur;
@@ -34,6 +34,7 @@
   }
 
   function setBtnEnabled(btn, ok, title) {
+    const action = btn.dataset.action || title;
     if (ok) {
       btn.removeAttribute('aria-disabled');
       btn.style.opacity = '';
@@ -43,8 +44,8 @@
       btn.style.opacity = '0.5';
       btn.style.cursor = 'not-allowed';
     }
-    btn.title = title;
-    btn.setAttribute('aria-label', title);
+    btn.title = ok || title === action ? title : action + '. Unavailable: ' + title;
+    btn.setAttribute('aria-label', btn.title);
   }
 
   function makeSep() {

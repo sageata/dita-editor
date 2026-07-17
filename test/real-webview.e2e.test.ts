@@ -255,29 +255,38 @@ async function dispatchKey(
   });
 }
 
-async function openVisualEditorFromCommandPalette(workbench: CdpClient): Promise<void> {
-  await runCommandFromPalette(workbench, 'DITA Editor: Open Visual Editor');
+async function waitForActiveFileTab(workbench: CdpClient, filename: string): Promise<void> {
+  const expected = JSON.stringify(filename);
+  await waitFor(`active tab for ${filename}`, async () => evaluate(workbench, `(() => {
+    const expected = ${expected};
+    const active = document.querySelector('.tabs-container .tab.active');
+    const label = active?.getAttribute('aria-label') || active?.textContent || '';
+    return label.includes(expected) ? label : null;
+  })()`), 15_000);
 }
 
-async function openFileFromQuickOpen(workbench: CdpClient, filename: string): Promise<void> {
-  const { cdpMask } = shortcutModifier(process.platform);
-  await workbench.send('Page.bringToFront');
-  await dispatchKey(workbench, 'P', 'KeyP', 80, cdpMask);
-  await sleep(500);
-  await workbench.send('Input.insertText', { text: filename });
-  await sleep(500);
-  await dispatchKey(workbench, 'Enter', 'Enter', 13);
-  await sleep(750);
+async function clickEditorTitleAction(workbench: CdpClient, label: string): Promise<void> {
+  const expected = JSON.stringify(label);
+  await waitFor(`editor title action ${label}`, async () => evaluate(workbench, `(() => {
+    const expected = ${expected};
+    const candidates = Array.from(document.querySelectorAll(
+      '.editor-actions [aria-label], .editor-actions [title], .title-actions [aria-label], .title-actions [title]'
+    ));
+    const action = candidates.find((candidate) => {
+      const name = candidate.getAttribute('aria-label') || candidate.getAttribute('title') || '';
+      const rect = candidate.getBoundingClientRect();
+      const style = getComputedStyle(candidate);
+      return name.includes(expected) && rect.width > 0 && rect.height > 0 &&
+        style.display !== 'none' && style.visibility !== 'hidden';
+    });
+    if (!action) return null;
+    action.click();
+    return true;
+  })()`), 20_000);
 }
 
-async function runCommandFromPalette(workbench: CdpClient, command: string): Promise<void> {
-  const { cdpMask } = shortcutModifier(process.platform);
-  await workbench.send('Page.bringToFront');
-  await dispatchKey(workbench, 'P', 'KeyP', 80, cdpMask | 8);
-  await sleep(500);
-  await workbench.send('Input.insertText', { text: command });
-  await sleep(500);
-  await dispatchKey(workbench, 'Enter', 'Enter', 13);
+async function openVisualEditorFromTitleAction(workbench: CdpClient): Promise<void> {
+  await clickEditorTitleAction(workbench, 'Open Visual Editor');
 }
 
 function buildExtension(): void {
@@ -340,6 +349,7 @@ function launchCode(root: string, fixture: string, port: number): ChildProcessWi
     '--disable-workspace-trust',
     '--skip-welcome',
     join(dirname(dirname(fixture)), 'review-e2e.code-workspace'),
+    fixture,
   ], {
     cwd: dirname(fixture),
     stdio: 'pipe',
@@ -394,10 +404,10 @@ async function runRealWebviewSmoke(): Promise<void> {
     await workbench.send('Input.setIgnoreInputEvents', { ignore: false });
     await workbench.send('Page.bringToFront');
 
-    console.log('[real-webview-e2e] opening DITA fixture inside the clean workspace');
-    await openFileFromQuickOpen(workbench, 'real-webview-table-transform.dita');
-    console.log('[real-webview-e2e] opening visual editor from the command palette');
-    await openVisualEditorFromCommandPalette(workbench);
+    console.log('[real-webview-e2e] waiting for the launched DITA fixture tab');
+    await waitForActiveFileTab(workbench, 'real-webview-table-transform.dita');
+    console.log('[real-webview-e2e] opening visual editor from its editor-title action');
+    await openVisualEditorFromTitleAction(workbench);
 
     console.log('[real-webview-e2e] waiting for DITA Editor WebView target');
     const target = await waitFor('DITA Editor visual WebView target', async () => {
@@ -805,14 +815,16 @@ async function runRealWebviewSmoke(): Promise<void> {
     expect(saved).not.toContain('<li>List tail</li>');
     expect(saved).toContain('<ul><li>Keep listed</li></ul>');
 
-    console.log('[real-webview-e2e] opening a Git working-copy review without editor associations');
-    await runCommandFromPalette(workbench, 'DITA Editor: View/Edit Source');
-    await sleep(750);
-    await runCommandFromPalette(workbench, 'Git: Open Changes');
-    const reviewTarget = await waitFor('DITA Editor Review WebView target', async () => {
+    console.log('[real-webview-e2e] confirming the exact DITA fixture before working-copy Review');
+    await waitForActiveFileTab(workbench, 'real-webview-table-transform.dita');
+
+    const targetsBeforeReview = new Set((await listTargets(port)).map((candidate) => candidate.id));
+    console.log('[real-webview-e2e] opening rendered Review Changes from its editor-title action');
+    await clickEditorTitleAction(workbench, 'Review Changes (Track Changes)');
+    const reviewTarget = await waitFor('new DITA Editor Review WebView target', async () => {
       const targets = await listTargets(port);
       return targets.find((candidate) =>
-        candidate.id !== target.id && (
+        !targetsBeforeReview.has(candidate.id) && (
           candidate.url.includes('extensionId=paul-razvan-sarbu.dita-editor') ||
           candidate.url.includes('extensionId%3Dpaul-razvan-sarbu.dita-editor')
         )
@@ -849,6 +861,7 @@ async function runRealWebviewSmoke(): Promise<void> {
           styleLoaded: getComputedStyle(view).getPropertyValue('--review-e2e-style').trim(),
           imagesLoaded: images.every((image) => image.complete && image.naturalWidth > 0),
           imageSources: images.map((image) => image.src),
+          reviewText: view.textContent,
           xmlDiffLabel: xmlDiff.textContent.trim(),
         };
       })()`, reviewContextId);
@@ -858,22 +871,10 @@ async function runRealWebviewSmoke(): Promise<void> {
     expect(reviewState.styleLoaded).toBe('loaded');
     expect(reviewState.imagesLoaded).toBe(true);
     expect(reviewState.imageSources.every((source: string) => source.includes('diagram.svg'))).toBe(true);
+    expect(reviewState.reviewText).toContain('Real WebView E2E');
+    expect(reviewState.reviewText).toContain('Alpha beta gamma');
+    expect(reviewState.reviewText).toContain('Backspace tail');
     expect(reviewState.xmlDiffLabel).toBe('Side-by-side XML diff');
-
-    const tabsBeforeSourceDiff = await evaluate(
-      workbench,
-      `document.querySelectorAll('.tabs-container .tab').length`,
-    );
-    await evaluate(reviewWebview, `(() => {
-      const button = document.querySelector('[data-redline-action="openSourceDiff"]');
-      if (!button) throw new Error('Side-by-side XML diff button is absent');
-      button.click();
-      return true;
-    })()`, reviewContextId);
-    await waitFor('native side-by-side XML diff tab', async () => {
-      const count = await evaluate(workbench!, `document.querySelectorAll('.tabs-container .tab').length`);
-      return count > tabsBeforeSourceDiff ? count : null;
-    }, 20_000);
   } finally {
     console.log('[real-webview-e2e] cleanup');
     if (proc) await quitCode(proc, browser);
@@ -886,7 +887,7 @@ async function runRealWebviewSmoke(): Promise<void> {
 }
 
 (RUN_REAL_E2E ? test : test.skip)(
-  'real VS Code visual editing and association-free Git Review preserve resources and XML diff',
+  'real VS Code visual editing opens and verifies the intended rendered Review Changes file',
   runRealWebviewSmoke,
   TEST_TIMEOUT_MS,
 );

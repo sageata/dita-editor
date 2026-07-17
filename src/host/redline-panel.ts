@@ -14,6 +14,10 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { renderReviewDocuments } from '../compare/render-review';
+import {
+  planReviewReverts,
+  type ReviewRevertPresentation,
+} from '../compare/revert-change';
 import { renderReviewExportShell, renderReviewShell } from '../compare/review-shell';
 import { ReviewExportSnapshotStore, saveReviewExport } from '../compare/review-html-export';
 import { buildCanvasHtml } from '../webview/canvas-html';
@@ -59,6 +63,10 @@ import {
   type WorkspaceResourceWatchTarget,
 } from './resource-watch-target';
 import {
+  validateReviewRevert,
+  type ReviewRevertAuthorization,
+} from './review-revert-authorization';
+import {
   captureReviewExportStylesheets,
   reviewDocumentDirectory,
   reviewExportSaveAdapter,
@@ -84,10 +92,76 @@ interface RedlineEntry {
   taxonomyWatcherSubscriptions: vscode.Disposable[];
   refreshGeneration: RefreshGeneration;
   exportSnapshots: ReviewExportSnapshotStore;
+  revertActions: Map<string, ReviewRevertAuthorization>;
+  revertQueue: Promise<void>;
 }
 
 // One panel per file; re-running the command refreshes it in place.
 const panels = new Map<string, RedlineEntry>();
+
+function postRevertResult(entry: RedlineEntry, ok: boolean, message: string): void {
+  void entry.panel.webview.postMessage({ type: 'revertResult', ok, message });
+}
+
+async function applyReviewRevert(
+  entry: RedlineEntry,
+  token: string,
+  debug: vscode.OutputChannel,
+): Promise<void> {
+  const authorization = entry.revertActions.get(token);
+  if (!authorization) {
+    const reason = 'This Review action is unknown or has already been used.';
+    debug.appendLine(`dita-editor: Review revert refused: ${reason}`);
+    postRevertResult(entry, false, `DITA Editor: ${reason}`);
+    return;
+  }
+  entry.revertActions.delete(token);
+
+  try {
+    const uri = vscode.Uri.parse(authorization.uri, true);
+    const document = await vscode.workspace.openTextDocument(uri);
+    const source = document.getText();
+    const validation = validateReviewRevert(authorization, {
+      uri: document.uri.toString(true),
+      generation: entry.refreshGeneration.isCurrent(authorization.generation)
+        ? authorization.generation
+        : -1,
+      documentVersion: document.version,
+      source,
+    });
+    if (!validation.ok) {
+      debug.appendLine(`dita-editor: Review revert refused: ${validation.reason}`);
+      postRevertResult(entry, false, `DITA Editor: ${validation.reason}`);
+      return;
+    }
+
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(
+      document.uri,
+      new vscode.Range(
+        document.positionAt(validation.plan.start),
+        document.positionAt(validation.plan.end),
+      ),
+      validation.plan.replacement,
+    );
+    const applied = await vscode.workspace.applyEdit(edit);
+    if (!applied) {
+      const reason = 'VS Code refused the change; the document was not modified.';
+      debug.appendLine(`dita-editor: Review revert failed: ${reason}`);
+      postRevertResult(entry, false, `DITA Editor: ${reason}`);
+      return;
+    }
+    postRevertResult(
+      entry,
+      true,
+      `DITA Editor: ${validation.plan.label}. The document is unsaved; Undo is available.`,
+    );
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    debug.appendLine(`dita-editor: Review revert failed: ${detail}`);
+    postRevertResult(entry, false, `DITA Editor: could not revert this change: ${detail}`);
+  }
+}
 
 function disposeManagedStyleWatcher(entry: RedlineEntry): void {
   for (const subscription of entry.managedStyleWatcherSubscriptions) subscription.dispose();
@@ -245,6 +319,10 @@ async function renderIntoPanel(
   });
   const managedStyles = redlineManagedStylePresentation(inspection);
 
+  const editableDocument = !selection.historical && selection.document.scheme === 'file'
+    ? await vscode.workspace.openTextDocument(selection.document)
+    : undefined;
+  const nextRevertActions = new Map<string, ReviewRevertAuthorization>();
   const { label, note, rendered } = await renderReviewSources(
     selection,
     {
@@ -252,9 +330,29 @@ async function renderIntoPanel(
       resolveBaseRevision,
       readFileAtRevision,
     },
-    (oldSource, newSource) => renderReviewDocuments(oldSource, newSource, {
-      styleNames: managedStyles.styleNames,
-    }),
+    (oldSource, newSource) => {
+      const presentations = new Map<string, ReviewRevertPresentation>();
+      if (editableDocument && editableDocument.getText() === newSource) {
+        const uri = editableDocument.uri.toString(true);
+        const version = editableDocument.version;
+        for (const plan of planReviewReverts(oldSource, newSource)) {
+          const token = makeNonce();
+          presentations.set(plan.key, { token, label: plan.label });
+          nextRevertActions.set(token, {
+            ...plan,
+            token,
+            uri,
+            generation,
+            documentVersion: version,
+            source: newSource,
+          });
+        }
+      }
+      return renderReviewDocuments(oldSource, newSource, {
+        styleNames: managedStyles.styleNames,
+        revertActions: presentations,
+      });
+    },
   );
   const { html: inlineHtml, changeCount } = rendered.inline;
 
@@ -293,6 +391,7 @@ async function renderIntoPanel(
     contentStylesheets: resolved.contentStylesheets,
     joinPath: vscode.Uri.joinPath,
   });
+  entry.revertActions = nextRevertActions;
   entry.panel.webview.html = buildCanvasHtml({
     bodyHtml: renderReviewShell({
       label,
@@ -337,6 +436,7 @@ function scheduleRefresh(
   // Cancel any render already awaiting Git/filesystem work. The debounced
   // render gets a fresh generation when it starts.
   entry.refreshGeneration.invalidate();
+  entry.revertActions.clear();
   if (entry.timer !== undefined) clearTimeout(entry.timer);
   entry.timer = setTimeout(() => {
     entry.timer = undefined;
@@ -386,6 +486,8 @@ export async function openRedlinePanel(
       taxonomyWatcherSubscriptions: [],
       refreshGeneration: createRefreshGeneration(),
       exportSnapshots: new ReviewExportSnapshotStore(),
+      revertActions: new Map(),
+      revertQueue: Promise.resolve(),
     };
     const styleFiles = createNodeManagedStyleFiles();
     const refreshForManagedStyleDocument = createManagedStyleDocumentRefreshHandler({
@@ -417,9 +519,21 @@ export async function openRedlinePanel(
       // this file. The file is marked first so the SCM intercept leaves the
       // requested diff tab alone (Review becomes the default again once the
       // user closes that tab).
-      panel.webview.onDidReceiveMessage((message: { type?: string } | undefined) => {
+      panel.webview.onDidReceiveMessage((message: { type?: string; token?: unknown } | undefined) => {
         if (message?.type === 'redlineReady') {
           void panel.webview.postMessage(created.managedStylesMessage);
+          return;
+        }
+        if (message?.type === 'revertChange') {
+          if (typeof message.token !== 'string') {
+            const reason = 'The Review revert request did not include a valid action token.';
+            debug.appendLine(`dita-editor: Review revert refused: ${reason}`);
+            postRevertResult(created, false, `DITA Editor: ${reason}`);
+            return;
+          }
+          created.revertQueue = created.revertQueue.then(() =>
+            applyReviewRevert(created, message.token as string, debug)
+          );
           return;
         }
         if (message?.type === 'exportHtml') {

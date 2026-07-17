@@ -3,7 +3,7 @@ import { parseFragment, serialize } from 'parse5';
 import { CANVAS_SCRIPT_FILES } from '../webview/canvas-scripts';
 import type { ResolvedWorkspaceFile } from './workspace-files';
 
-const REDLINE_RESOURCE_REVISION = 'navigation-3';
+const REDLINE_RESOURCE_REVISION = 'navigation-4';
 
 export interface VisualWebviewResourceUris {
   contentStyleUris: string[];

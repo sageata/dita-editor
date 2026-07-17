@@ -46,7 +46,7 @@ describe('renderMultiReviewShell', () => {
     expect(html).not.toContain('non-DITA');
   });
 
-  test('renders a static multi-file export shell without VS Code controls', () => {
+  test('renders a static multi-file export shell with standalone navigation', () => {
     const html = renderMultiReviewExportShell({
       title: 'Commit <title>',
       files: [{
@@ -62,7 +62,8 @@ describe('renderMultiReviewShell', () => {
     expect(html).toContain('1 DITA file · 1 change');
     expect(html).toContain('2 non-DITA files omitted');
     expect(html).toContain('data-redline-file');
-    expect(html).not.toContain('<button');
-    expect(html).not.toContain('data-redline-nav');
+    expect(html).toContain('data-redline-nav="previous"');
+    expect(html).toContain('data-redline-nav="next"');
+    expect(html).not.toContain('data-redline-action');
   });
 });

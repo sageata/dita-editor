@@ -41,9 +41,9 @@ const REGISTRY: Record<string, number[]> = {
   'media/canvas-table-insert-plus.js': [49],
   'media/canvas-table-resize.js': [48],
   'media/editor.css': [80],
-  // Separate Review Changes webview: sticky per-file headers (8) remain below
-  // the commit/mode banner (10); nothing from the canvas ladder appears there.
-  'media/redline.css': [8, 10],
+  // Separate Review Changes webview: row-local actions (2) remain below sticky
+  // per-file headers (8) and the commit/mode banner (10).
+  'media/redline.css': [2, 8, 10],
 };
 
 // Layers that anchor to document content; they must never cover an open menu.

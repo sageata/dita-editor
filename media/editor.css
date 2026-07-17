@@ -4,7 +4,7 @@
 
 /* Clear the fixed command bar so the first editable block remains reachable. */
 body.ditaeditor-canvas main {
-  padding-top: 72px;
+  padding-top: var(--ditaeditor-toolbar-height, 72px);
 }
 
 /* ── Persistent top command bar (built by canvas.js as a body sibling; render-only chrome). Frame A of
@@ -17,7 +17,14 @@ body.ditaeditor-canvas .cmd-bar {
   padding: 8px 14px;
   background: #fafafa;
   border-bottom: 1px solid #ebebeb;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
   font-family: var(--dc-font-family, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+}
+body.ditaeditor-canvas .cmd-bar .cmd-group {
+  flex: 0 0 auto;
 }
 body.ditaeditor-canvas .cmd-bar .cmd-group-label {
   font-weight: 600;
@@ -42,6 +49,18 @@ body.ditaeditor-canvas .cmd-bar .cmd-status {
   white-space: nowrap;
 }
 /* Keyboard focus ring on the bar's buttons matches the rest of the chrome (button:focus-visible above). */
+
+body.ditaeditor-canvas .ditaeditor-color-dialog::backdrop {
+  background: rgb(15 23 42 / 42%);
+}
+body.ditaeditor-canvas .ditaeditor-color-dialog input:focus-visible,
+body.ditaeditor-canvas .ditaeditor-color-dialog button:focus-visible,
+body.ditaeditor-canvas .style-color-control input:focus-visible,
+body.ditaeditor-canvas .style-color-control select:focus-visible,
+body.ditaeditor-canvas .style-color-control button:focus-visible {
+  outline: 3px solid var(--dc-color-focus, #2563eb);
+  outline-offset: 2px;
+}
 
 /* ── Context menu (Frame D of the design): a rounded card with grouped sections. The menu DOM is built by
  *    canvas.js (createMenu) with load-bearing inline layout; these rules add the hover/affordance states
@@ -661,6 +680,20 @@ body.ditaeditor-canvas pre.dita-parse-error {
    * all-around selection (Highlight) and current (CanvasText) outlines. */
   body.ditaeditor-canvas .is-insert-anchor {
     border-bottom: 3px solid CanvasText;
+  }
+  body.ditaeditor-canvas .ditaeditor-color-dialog,
+  body.ditaeditor-canvas .ditaeditor-color-dialog input,
+  body.ditaeditor-canvas .ditaeditor-color-dialog button,
+  body.ditaeditor-canvas .style-color-control input,
+  body.ditaeditor-canvas .style-color-control select,
+  body.ditaeditor-canvas .style-color-control button {
+    border: 1px solid CanvasText;
+    forced-color-adjust: auto;
+  }
+  body.ditaeditor-canvas .ditaeditor-color-dialog input:focus-visible,
+  body.ditaeditor-canvas .ditaeditor-color-dialog button:focus-visible,
+  body.ditaeditor-canvas .style-color-control :focus-visible {
+    outline-color: Highlight;
   }
 }
 

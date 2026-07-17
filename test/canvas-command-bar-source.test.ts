@@ -4,6 +4,8 @@ import { describe, expect, test } from 'bun:test';
 const source = readFileSync(new URL('../media/canvas-command-bar.js', import.meta.url), 'utf8');
 const uiSource = readFileSync(new URL('../media/canvas-command-bar-ui.js', import.meta.url), 'utf8');
 
+const providerSource = readFileSync(new URL('../src/host/visual-editor-provider.ts', import.meta.url), 'utf8');
+
 describe('canvas-command-bar source contract', () => {
   test('exposes paragraph insertion as a first-class persistent Structure command', () => {
     expect(uiSource).toContain("const biParagraph = makeBarBtn(menuIcons.paragraph, 'Paragraph', true);");
@@ -58,6 +60,17 @@ describe('canvas-command-bar source contract', () => {
     expect(source).toContain("const inCell = !!(c && c.cellEntryId);");
     expect(source).toContain("postStructural('addRowAfter', barCurrent.rowId");
     expect(source).toContain("postStructural('addColumnAfter', barCurrent.cellEntryId");
+  });
+
+  test('adds guarded edit commands and a serialized explicit save', () => {
+    expect(uiSource).toContain("const editGroup = makeBarGroup('Edit');");
+    expect(source).toContain("vscode.postMessage({ type: 'saveDocument' })");
+    expect(source).toContain("vscode.postMessage({ type: 'copyDita', ids: ids })");
+    expect(source).toContain("type: 'pasteDita', id: String(current.id), op: 'before'");
+    expect(source).toContain("postStructural('deleteElement'");
+    expect(source).toContain("direction < 0 ? 'moveBefore' : 'moveAfter'");
+    expect(providerSource).toContain("msg.type === 'saveDocument'");
+    expect(providerSource).toContain('const saved = await document.save();');
   });
 
   test('prioritizes the selected block or image over a stale DOM caret', () => {

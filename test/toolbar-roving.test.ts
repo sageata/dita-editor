@@ -5,7 +5,7 @@
 // so a keyboard/SR user can land on one and hear WHY it's unavailable. Disabled-ness is NOT a
 // roving criterion: aria-disabled buttons stay focusable (unlike a native `<button disabled>`), and
 // HIDDEN buttons are excluded by the CALLER (canvas builds the visible-button list) — not here.
-// So the helper is a pure index walk over a count: ArrowLeft/Right move one (no wrap), Home/End jump
+// So the helper is a pure index walk over a count: ArrowLeft/Right wrap, while Home/End jump
 // to the ends.
 
 import { describe, expect, test } from 'bun:test';
@@ -23,7 +23,7 @@ function loadControls(): CanvasControls {
   return win.DitaEditorCanvasControls;
 }
 
-describe('nextRovingIndex — APG roving over all visible buttons (no wrap)', () => {
+describe('nextRovingIndex — APG roving over all visible buttons with wraparound', () => {
   test('ArrowRight advances one, ArrowLeft retreats one', () => {
     const { nextRovingIndex } = loadControls();
 
@@ -31,11 +31,11 @@ describe('nextRovingIndex — APG roving over all visible buttons (no wrap)', ()
     expect(nextRovingIndex(5, 3, 'ArrowLeft')).toBe(2);
   });
 
-  test('no wrap at either end', () => {
+  test('wraps at either end', () => {
     const { nextRovingIndex } = loadControls();
 
-    expect(nextRovingIndex(5, 4, 'ArrowRight')).toBe(4);
-    expect(nextRovingIndex(5, 0, 'ArrowLeft')).toBe(0);
+    expect(nextRovingIndex(5, 4, 'ArrowRight')).toBe(0);
+    expect(nextRovingIndex(5, 0, 'ArrowLeft')).toBe(4);
   });
 
   test('Home -> first, End -> last', () => {
@@ -66,7 +66,7 @@ describe('nextRovingIndex — APG roving over all visible buttons (no wrap)', ()
   test('an out-of-range current index is clamped, THEN the move is applied', () => {
     const { nextRovingIndex } = loadControls();
 
-    expect(nextRovingIndex(3, 9, 'ArrowRight')).toBe(2); // clamp 9->2, stays at last
+    expect(nextRovingIndex(3, 9, 'ArrowRight')).toBe(0); // clamp 9->2, then wrap
     expect(nextRovingIndex(3, 9, 'ArrowLeft')).toBe(1); // clamp 9->2, ArrowLeft -> 1
     expect(nextRovingIndex(3, -4, 'ArrowRight')).toBe(1); // clamp -4->0, ArrowRight -> 1
     expect(nextRovingIndex(3, -4, 'Home')).toBe(0);

@@ -39,15 +39,16 @@ export function renderReviewShell(options: ReviewShellOptions): string {
     + '<button type="button" class="redline-banner-btn" data-redline-mode="inline" aria-pressed="true">Track Changes</button>'
     + '<button type="button" class="redline-banner-btn" data-redline-mode="side-by-side" aria-pressed="false">Side by side</button>'
     + '</div>';
-  const navigation = '<div class="redline-change-nav" data-redline-side-only hidden>'
-    + '<button type="button" class="redline-banner-btn" data-redline-nav="previous" title="Previous change">Previous</button>'
-    + '<button type="button" class="redline-banner-btn" data-redline-nav="next" title="Next change">Next</button>'
-    + '<span class="redline-change-position" data-redline-position aria-live="polite"></span>'
+  const navigation = '<div class="redline-change-nav" role="group" aria-label="Change navigation">'
+    + `<button type="button" class="redline-banner-btn" data-redline-nav="previous" title="Previous change"${changeCount === 0 ? ' disabled aria-disabled="true"' : ''}>Previous</button>`
+    + `<button type="button" class="redline-banner-btn" data-redline-nav="next" title="Next change"${changeCount === 0 ? ' disabled aria-disabled="true"' : ''}>Next</button>`
+    + `<span class="redline-change-position" data-redline-position aria-live="polite">Change 0 of ${changeCount}</span>`
     + '</div>';
   const banner = `<div class="redline-banner"><span>${compared}</span>${noteHtml}${modes}${navigation}${exportHtml}${sourceDiff}`
     + `<span class="redline-banner-count">${count}</span></div>`;
 
   return banner
+    + '<div class="redline-status" data-redline-status role="status" aria-live="polite"></div>'
     + `<section class="redline-review-view" data-redline-view="inline">${inlineHtml}</section>`
     + `<section class="redline-review-view" hidden data-redline-view="side-by-side">${sideBySideHtml}</section>`;
 }
@@ -63,6 +64,10 @@ export function renderReviewExportShell(options: ReviewExportShellOptions): stri
     ? `<span class="redline-banner-note">${escapeHtml(options.note)}</span>`
     : '';
   return `<div class="redline-banner"><span>${compared}</span>${note}`
+    + '<div class="redline-change-nav" role="group" aria-label="Change navigation">'
+    + '<button type="button" class="redline-banner-btn" data-redline-nav="previous">Previous</button>'
+    + '<button type="button" class="redline-banner-btn" data-redline-nav="next">Next</button>'
+    + `<span class="redline-change-position" data-redline-position aria-live="polite">Change 0 of ${options.changeCount}</span></div>`
     + `<span class="redline-banner-count">${count}</span></div>`
     + `<section class="redline-review-view">${options.sideBySideHtml}</section>`;
 }

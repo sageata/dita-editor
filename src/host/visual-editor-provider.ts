@@ -942,36 +942,14 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
       initialAction: Extract<AuthorizedAttributeAction, { kind: 'shade' }>,
       message: CanvasMessage,
     ): Promise<void> => {
-      let action = initialAction;
-      let color = action.color;
+      const action = initialAction;
+      const color = action.color;
       if (color === 'custom') {
-        const picked = await vscode.window.showInputBox({
-          title: 'Custom shading color',
-          prompt: 'Hex color for the shading',
-          placeHolder: '#RRGGBB (e.g. #ffe8b3)',
-          validateInput: (value) => (/^#[0-9a-fA-F]{6}$/.test(value.trim()) ? undefined : 'Enter a hex color like #ffe8b3'),
-        });
-        if (!picked) return;
-        color = picked.trim().toLowerCase() as `#${string}`;
-        const refreshed = authorizeAttributeMessage({
-          source: document.getText(),
-          message: {
-            type: 'applyShade',
-            ids: action.ids,
-            color,
-            sourceHash: message.sourceHash,
-            targetToken: message.targetToken,
-            baseStructVersion: message.baseStructVersion,
-          },
-          taxonomy: currentTaxonomy,
-          styles: authorStyleInspection.styles,
-          structVersion,
-        });
-        if (!refreshed.ok || refreshed.action.kind !== 'shade') {
-          refuseAttributeMessage(message.type ?? 'applyShade', refreshed.ok ? 'The shading target changed.' : refreshed.reason);
-          return;
-        }
-        action = refreshed.action;
+        refuseAttributeMessage(
+          message.type ?? 'applyShade',
+          'Open the custom shading color picker again and choose a six-digit color.',
+        );
+        return;
       }
 
       let className = '';
@@ -1364,6 +1342,24 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
           .catch((err) => {
             console.error('dita-editor: multi-transform failed', err);
             postError('That action could not be completed. See the developer console for details.');
+          });
+        return;
+      }
+      // Explicit toolbar save. Serialized behind document edits and never hidden
+      // behind the single-element id guard.
+      if (msg && msg.type === 'saveDocument') {
+        queue = queue
+          .then(async () => {
+            const saved = await document.save();
+            if (saved) announce('Document saved.');
+            else {
+              this.host.debug.appendLine('dita-editor: VS Code refused the requested document save.');
+              announce('The document could not be saved.');
+            }
+          })
+          .catch((err) => {
+            console.error('dita-editor: document save failed', err);
+            postError('The document could not be saved. See the developer console for details.');
           });
         return;
       }

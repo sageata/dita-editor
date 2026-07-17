@@ -1,12 +1,10 @@
-// Persisted layout and navigation for the read-only Review Changes panel.
+// Review Changes layout, navigation, export, and guarded revert actions.
 //
-// The ONLY script this webview loads. Auto-refresh reassigns webview.html,
-// which reloads the page and would drop the reading position mid-review; the
-// scroll offset and selected layout are stored in webview state. Expanded
-// unchanged groups deliberately reset when content refreshes because group
-// boundaries may have changed. Both rendered columns use the document's single scrollbar;
-// this script never attempts to synchronize independent scroll containers.
-// The only host message remains openSourceDiff. Never touches document bytes.
+// Auto-refresh reassigns webview.html, which reloads the page and would drop the
+// reading position mid-review; the scroll offset, selected layout, and pending
+// post-revert focus target are stored in webview state. Expanded unchanged groups
+// deliberately reset when content refreshes because group boundaries may have
+// changed. Both rendered columns use the document's single scrollbar.
 (function () {
   const vscode = acquireVsCodeApi();
 
@@ -33,9 +31,17 @@
 
   window.addEventListener('message', function (event) {
     const message = event.data;
-    if (!message || message.type !== 'managedStyles') return;
-    // Complete marked/refused CSS is host-owned text, never HTML interpolation.
-    style.textContent = typeof message.cssText === 'string' ? message.cssText : '';
+    if (!message) return;
+    if (message.type === 'managedStyles') {
+      // Complete marked/refused CSS is host-owned text, never HTML interpolation.
+      style.textContent = typeof message.cssText === 'string' ? message.cssText : '';
+      return;
+    }
+    if (message.type === 'revertResult') {
+      const status = document.querySelector('[data-redline-status]');
+      if (status) status.textContent = typeof message.message === 'string' ? message.message : '';
+      if (!message.ok) saveState({ resumeChangeIndex: undefined });
+    }
   });
   vscode.postMessage({ type: 'redlineReady' });
 
@@ -93,10 +99,49 @@
   );
 
   let activeChange = -1;
+  function activeReviewView() {
+    return all('[data-redline-view]').find(function (view) { return !view.hidden; }) || document;
+  }
   function visibleChanges() {
-    return all('[data-redline-change]').filter(function (row) {
-      return typeof row.closest !== 'function' || row.closest('[hidden]') === null;
+    const view = activeReviewView();
+    const query = function (selector) {
+      return typeof view.querySelectorAll === 'function'
+        ? Array.from(view.querySelectorAll(selector))
+        : all(selector);
+    };
+    let changes = query('[data-redline-change]');
+    if (changes.length === 0) {
+      changes = query('.redline-block-ins,.redline-block-del,.redline-block-mod,.redline-block-fmt,.redline-block-moved');
+    }
+    return changes.filter(function (row) {
+      if (row.classList && row.classList.contains('redline-block-moved-from')) return false;
+      const visible = typeof row.closest !== 'function' || row.closest('[hidden]') === null;
+      if (visible && typeof row.setAttribute === 'function' && !row.hasAttribute('tabindex')) {
+        row.setAttribute('tabindex', '-1');
+      }
+      return visible;
     });
+  }
+
+  function updateNavigationState(changes, index) {
+    const selected = index >= 0 && index < changes.length ? index + 1 : 0;
+    all('[data-redline-position]').forEach(function (status) {
+      status.textContent = 'Change ' + selected + ' of ' + changes.length;
+    });
+    all('[data-redline-nav]').forEach(function (button) {
+      const disabled = changes.length === 0;
+      button.disabled = disabled;
+      button.setAttribute('aria-disabled', String(disabled));
+    });
+  }
+
+  function resetNavigation() {
+    activeChange = -1;
+    all('[data-redline-active]').forEach(function (row) {
+      row.removeAttribute('data-redline-active');
+      row.removeAttribute('aria-current');
+    });
+    updateNavigationState(visibleChanges(), activeChange);
   }
 
   function viewportStartIndex(changes, direction) {
@@ -122,9 +167,7 @@
       if (rowIndex === index) row.setAttribute('aria-current', 'true');
       else if (typeof row.removeAttribute === 'function') row.removeAttribute('aria-current');
     });
-    all('[data-redline-position]').forEach(function (status) {
-      status.textContent = 'Change ' + (index + 1) + ' of ' + changes.length;
-    });
+    updateNavigationState(changes, index);
   }
 
   function navigate(direction) {
@@ -143,6 +186,17 @@
     if (typeof target.focus === 'function') target.focus({ preventScroll: true });
   }
 
+  resetNavigation();
+  if (typeof state.resumeChangeIndex === 'number') {
+    const resumeIndex = state.resumeChangeIndex;
+    saveState({ resumeChangeIndex: undefined });
+    const changes = visibleChanges();
+    if (changes.length > 0) {
+      activeChange = Math.min(Math.max(resumeIndex, 0), changes.length - 1) - 1;
+      navigate('next');
+    }
+  }
+
   // Delegated controls survive every host-driven html refresh.
   document.addEventListener('click', function (ev) {
     if (!(ev.target instanceof Element)) return;
@@ -150,6 +204,7 @@
     if (mode) {
       activeChange = -1;
       applyMode(mode.getAttribute('data-redline-mode'));
+      resetNavigation();
       return;
     }
     const expand = ev.target.closest('[data-redline-expand]');
@@ -164,6 +219,18 @@
       return;
     }
     const action = ev.target.closest('[data-redline-action]');
-    if (action) vscode.postMessage({ type: action.getAttribute('data-redline-action') });
+    if (!action) return;
+    const type = action.getAttribute('data-redline-action');
+    if (type === 'revertChange') {
+      const token = action.getAttribute('data-redline-revert-token');
+      if (!token) return;
+      const row = action.closest('[data-redline-change]');
+      const changes = visibleChanges();
+      const rowIndex = row ? changes.indexOf(row) : -1;
+      saveState({ resumeChangeIndex: rowIndex >= 0 ? rowIndex : 0 });
+      vscode.postMessage({ type: type, token: token });
+      return;
+    }
+    vscode.postMessage({ type: type });
   });
 })();

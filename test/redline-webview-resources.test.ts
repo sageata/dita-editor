@@ -82,8 +82,8 @@ describe('configureRedlineWebviewResources', () => {
       'webview:/workspace/css/brand.css',
       'webview:/workspace/themes/print.css',
     ]);
-    expect(result.surfaceStyleUri).toBe('webview:/extension/media/redline.css?v=navigation-3');
-    expect(result.scriptUris).toEqual(['webview:/extension/media/redline-review.js?v=navigation-3']);
+    expect(result.surfaceStyleUri).toBe('webview:/extension/media/redline.css?v=navigation-4');
+    expect(result.scriptUris).toEqual(['webview:/extension/media/redline-review.js?v=navigation-4']);
     expect(result.baseHref).toBe('webview:/workspace/topic/');
     expect(seen).not.toContain('/extension/media/editor.css');
   });
@@ -103,7 +103,7 @@ describe('configureRedlineWebviewResources', () => {
     });
 
     expect(result.baseHref).toBe('');
-    expect(result.scriptUris).toEqual(['webview:/extension/media/redline-review.js?v=navigation-3']);
+    expect(result.scriptUris).toEqual(['webview:/extension/media/redline-review.js?v=navigation-4']);
   });
 
   test('allows every mapped topic directory needed by a multi-file review', () => {
@@ -152,8 +152,8 @@ describe('configureRedlineWebviewResources', () => {
       '/loose',
     ]);
     expect(result.contentStyleUris).toEqual(['webview:/extension/media/content-theme.css']);
-    expect(result.surfaceStyleUri).toBe('webview:/extension/media/redline.css?v=navigation-3');
-    expect(result.scriptUris).toEqual(['webview:/extension/media/redline-review.js?v=navigation-3']);
+    expect(result.surfaceStyleUri).toBe('webview:/extension/media/redline.css?v=navigation-4');
+    expect(result.scriptUris).toEqual(['webview:/extension/media/redline-review.js?v=navigation-4']);
     expect(result.baseHref).toBe('webview:/loose/');
   });
 
