@@ -1,12 +1,14 @@
 import path from 'node:path';
 import type * as vscode from 'vscode';
 
+const AUTHOR_STYLESHEET_KEY = 'ditaeditor.visual.authorStylesheet';
 const CONTENT_STYLESHEETS_KEY = 'ditaeditor.visual.contentStylesheets';
-const MANAGED_STYLESHEET_KEY = 'ditaeditor.visual.managedAuthorStylesheet';
 const TAXONOMY_FILE_KEY = 'ditaeditor.visual.taxonomyFile';
 
 export interface WorkspaceVisualSettings {
+  authorStylesheet?: string;
   contentStylesheets: string[];
+  /** Effective path retained under the old internal name during compatibility migration. */
   managedAuthorStylesheet: string;
   taxonomyFile: string;
 }
@@ -62,17 +64,31 @@ export function validateWorkspaceRelativePath(value: string): RelativePathResult
   return { ok: true, normalized };
 }
 
+function explicitStringSetting(
+  configuration: vscode.WorkspaceConfiguration,
+  key: string,
+): string | undefined {
+  if (typeof configuration.inspect !== 'function') return undefined;
+  const inspection = configuration.inspect<string>(key);
+  return inspection?.workspaceFolderValue ?? inspection?.workspaceValue ?? inspection?.globalValue;
+}
+
 export function readWorkspaceVisualSettings(
   configuration: vscode.WorkspaceConfiguration,
 ): WorkspaceVisualSettings {
+  const authorStylesheet = typeof configuration.inspect === 'function'
+    ? explicitStringSetting(configuration, 'authorStylesheet') ??
+      explicitStringSetting(configuration, 'managedAuthorStylesheet') ??
+      configuration.get<string>('authorStylesheet', 'css/ditaeditor-author-styles.css') ??
+      'css/ditaeditor-author-styles.css'
+    : configuration.get<string>('authorStylesheet') ??
+      configuration.get<string>('managedAuthorStylesheet') ??
+      'css/ditaeditor-author-styles.css';
   return {
     contentStylesheets: [
       ...(configuration.get<string[]>('contentStylesheets', []) ?? []),
     ],
-    managedAuthorStylesheet: configuration.get<string>(
-      'managedAuthorStylesheet',
-      'css/ditaeditor-author-styles.css',
-    ) ?? 'css/ditaeditor-author-styles.css',
+    managedAuthorStylesheet: authorStylesheet,
     taxonomyFile: configuration.get<string>('taxonomyFile', '') ?? '',
   };
 }
@@ -213,7 +229,7 @@ async function resolveManagedTarget(params: {
   } = params;
   const validation = validateWorkspaceRelativePath(configuredPath);
   if (!validation.ok) {
-    log(settingRefusal(MANAGED_STYLESHEET_KEY, configuredPath, validation.reason));
+    log(settingRefusal(AUTHOR_STYLESHEET_KEY, configuredPath, validation.reason));
     return null;
   }
 
@@ -236,7 +252,7 @@ async function resolveManagedTarget(params: {
     } catch (error) {
       if (errorCode(error) !== 'ENOENT') {
         log(settingRefusal(
-          MANAGED_STYLESHEET_KEY,
+          AUTHOR_STYLESHEET_KEY,
           configuredPath,
           `path component "${segments.slice(0, index + 1).join('/')}" is not accessible.`,
         ));
@@ -244,7 +260,7 @@ async function resolveManagedTarget(params: {
       }
       if (!isDestination) {
         log(settingRefusal(
-          MANAGED_STYLESHEET_KEY,
+          AUTHOR_STYLESHEET_KEY,
           configuredPath,
           `direct parent "${segments.slice(0, -1).join('/')}" does not exist.`,
         ));
@@ -257,12 +273,12 @@ async function resolveManagedTarget(params: {
       const reason = isDestination
         ? 'destination is a symbolic link or reparse point.'
         : `path component "${segments.slice(0, index + 1).join('/')}" is a symbolic link or reparse point.`;
-      log(settingRefusal(MANAGED_STYLESHEET_KEY, configuredPath, reason));
+      log(settingRefusal(AUTHOR_STYLESHEET_KEY, configuredPath, reason));
       return null;
     }
     if (!isDestination && stat.isFile()) {
       log(settingRefusal(
-        MANAGED_STYLESHEET_KEY,
+        AUTHOR_STYLESHEET_KEY,
         configuredPath,
         `path component "${segments.slice(0, index + 1).join('/')}" is not a directory.`,
       ));
@@ -270,7 +286,7 @@ async function resolveManagedTarget(params: {
     }
     if (isDestination && !stat.isFile()) {
       log(settingRefusal(
-        MANAGED_STYLESHEET_KEY,
+        AUTHOR_STYLESHEET_KEY,
         configuredPath,
         'destination is not a regular file.',
       ));
@@ -281,7 +297,7 @@ async function resolveManagedTarget(params: {
       existingCanonicalPath = await files.realpath(lexicalPath);
     } catch {
       log(settingRefusal(
-        MANAGED_STYLESHEET_KEY,
+        AUTHOR_STYLESHEET_KEY,
         configuredPath,
         'canonical identity could not be resolved.',
       ));
@@ -291,7 +307,7 @@ async function resolveManagedTarget(params: {
       ? 'canonical target escapes the workspace.'
       : 'canonical existing parent escapes the workspace.';
     if (!isCanonicalPathInside(canonicalRoot, existingCanonicalPath, platform)) {
-      log(settingRefusal(MANAGED_STYLESHEET_KEY, configuredPath, escapeReason));
+      log(settingRefusal(AUTHOR_STYLESHEET_KEY, configuredPath, escapeReason));
       return null;
     }
     existingSegments = index + 1;
@@ -304,7 +320,7 @@ async function resolveManagedTarget(params: {
     : pathApi.join(existingCanonicalPath, ...remainingSegments);
   if (!isCanonicalPathInside(canonicalRoot, canonicalPath, platform)) {
     log(settingRefusal(
-      MANAGED_STYLESHEET_KEY,
+      AUTHOR_STYLESHEET_KEY,
       configuredPath,
       'canonical destination escapes the workspace.',
     ));
@@ -388,10 +404,11 @@ export async function resolveVisualWorkspaceFiles(params: {
       log,
     });
 
+  const authorStylesheet = settings.authorStylesheet ?? settings.managedAuthorStylesheet;
   let managedAuthorStylesheet: ResolvedWorkspaceFile | null = null;
   let managedAuthorStylesheetExists = false;
   const managed = await resolveManagedTarget({
-    configuredPath: settings.managedAuthorStylesheet,
+    configuredPath: authorStylesheet,
     folder,
     canonicalRoot,
     joinPath,
@@ -402,14 +419,14 @@ export async function resolveVisualWorkspaceFiles(params: {
   if (managed) {
     if (contentIdentities.has(managed.file.identity)) {
       log(settingRefusal(
-        MANAGED_STYLESHEET_KEY,
-        settings.managedAuthorStylesheet,
+        AUTHOR_STYLESHEET_KEY,
+        authorStylesheet,
         'canonical target collides with a developer content stylesheet.',
       ));
     } else if (taxonomyFile?.identity === managed.file.identity) {
       log(settingRefusal(
-        MANAGED_STYLESHEET_KEY,
-        settings.managedAuthorStylesheet,
+        AUTHOR_STYLESHEET_KEY,
+        authorStylesheet,
         'canonical target collides with the taxonomy file.',
       ));
     } else {

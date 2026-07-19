@@ -23,32 +23,22 @@ describe('editor.css', () => {
     expect(theme).toMatch(/main \.cmd\.ditaeditor-align-left,[\s\S]*main \.cmd\.ditaeditor-align-justify\s*{\s*display: block;/);
   });
 
-  test('semantic lines blocks preserve authored breaks with paragraph typography', () => {
+  test('semantic lines blocks preserve authored breaks without imposing typography', () => {
     expect(theme).toContain('body.ditaeditor-canvas pre.lines');
     expect(theme).toContain('white-space: pre-wrap;');
-    expect(theme).toContain('font-family: inherit;');
-    expect(theme).toContain('line-height: inherit;');
-    expect(theme).toContain('background: transparent;');
-    expect(theme).not.toContain('background: transparent !important;');
+    expect(theme).toContain('overflow-wrap: break-word;');
+    expect(theme).not.toContain('font-family:');
+    expect(theme).not.toContain('line-height:');
     expect(theme).not.toContain('data-preserve-lines');
   });
 
-  test('table cell lines do not add block spacing below the cell content', () => {
-    expect(theme).toMatch(
-      /:where\(body\.ditaeditor-canvas :is\(th, td\)\.entry \.lines\)\s*{\s*margin: 0;\s*}/,
-    );
-  });
-
-  test('CALS grid and frame choices control distinct, non-conflicting border edges', () => {
-    expect(theme).toMatch(/th\.entry\),\s*:where\([^)]*td\.entry\)\s*{[^}]*border: 0;[^}]*border-right: 1px solid var\(--dc-color-border\);[^}]*border-bottom: 1px solid var\(--dc-color-border\);/s);
-    expect(theme).toContain('table.table tr > td.entry:last-child)');
-    expect(theme).toContain('table.table tbody > tr:last-child > td.entry)');
-    expect(theme).toMatch(/table\.table\.frame-all\)\s*{\s*border-width: 1px;/s);
-    expect(theme).toMatch(/table\.table\.frame-topbot\)\s*{\s*border-width: 1px 0;/s);
-    expect(theme).toMatch(/table\.table\.frame-sides\)\s*{\s*border-width: 0 1px;/s);
-    expect(theme).toMatch(/table\.table\.frame-top\)\s*{\s*border-width: 1px 0 0;/s);
-    expect(theme).toMatch(/table\.table\.frame-bottom\)\s*{\s*border-width: 0 0 1px;/s);
-    expect(theme).toMatch(/table\.table\.frame-none\)\s*{\s*border-width: 0;/s);
+  test('table geometry stays editable without shipping table presentation', () => {
+    expect(theme).toMatch(/table\.table\)\s*{[^}]*border-collapse: separate;[^}]*border-spacing: 0;/s);
+    expect(theme).toContain('table.table colgroup col:only-child');
+    expect(theme).toContain('table.table caption:empty');
+    expect(theme).toContain('display: none;');
+    expect(theme).not.toContain('--dc-color-border');
+    expect(theme).not.toMatch(/frame-(?:all|topbot|sides|top|bottom|none)/);
   });
 
   test('editable text selections keep prose background transparent', () => {
@@ -66,8 +56,9 @@ describe('editor.css', () => {
     expect(css).toContain('.dc-table-guides-debug .dc-table-col-resize-handle');
   });
 
-  test('document shadows live in the content theme while private outputclasses stay workspace-owned', () => {
-    expect(theme).toMatch(/:where\(body\.ditaeditor-canvas table\.table\)\s*{[\s\S]*?box-shadow: var\(--dc-shadow-md\);/);
+  test('author table presentation is absent from extension stylesheets', () => {
+    expect(theme).not.toContain('box-shadow:');
+    expect(theme).not.toContain('--dc-shadow-md');
     expect(css).not.toContain('body.ditaeditor-canvas table.table {');
     expect(theme).not.toMatch(/\.ey[-_][A-Za-z0-9_-]*\b/i);
     expect(css).not.toMatch(/\.ey[-_][A-Za-z0-9_-]*\b/i);

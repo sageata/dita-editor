@@ -18,7 +18,7 @@
   "pricing": "Free",
   "packageManager": "bun@1.1.42",
   "engines": {
-    "vscode": "^1.90.0"
+    "vscode": "^1.106.0"
   },
   "categories": [
     "Programming Languages",
@@ -48,7 +48,89 @@
         "priority": "default"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ditaeditor-search",
+          "title": "DITA Search",
+          "icon": "media/search-topics.svg"
+        },
+        {
+          "id": "ditaeditor-inspector",
+          "title": "DITA",
+          "icon": "media/dita-inspector.svg"
+        }
+      ]
+    },
+    "views": {
+      "ditaeditor-search": [
+        {
+          "type": "webview",
+          "id": "ditaeditor.topicSearch",
+          "name": "Search DITA Topics",
+          "contextualTitle": "DITA Search",
+          "icon": "media/search-topics.svg"
+        }
+      ],
+      "ditaeditor-inspector": [
+        {
+          "type": "webview",
+          "id": "ditaeditor.stylesView",
+          "name": "DITA Styles",
+          "contextualTitle": "DITA Styles",
+          "icon": "media/dita-inspector.svg"
+        },
+        {
+          "type": "webview",
+          "id": "ditaeditor.propertiesView",
+          "name": "DITA Properties",
+          "contextualTitle": "DITA Properties",
+          "icon": "media/dita-inspector.svg"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "ditaeditor.searchTopics",
+        "key": "ctrl+shift+alt+f",
+        "mac": "cmd+shift+alt+f"
+      },
+      {
+        "command": "ditaeditor.focusStyles",
+        "key": "ctrl+alt+s",
+        "mac": "cmd+alt+s",
+        "when": "ditaeditor.hasVisualEditor"
+      },
+      {
+        "command": "ditaeditor.focusProperties",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p",
+        "when": "ditaeditor.hasVisualEditor"
+      }
+    ],
     "commands": [
+      {
+        "command": "ditaeditor.searchTopics",
+        "title": "Search DITA Topics",
+        "category": "DITA Editor",
+        "icon": "$(search)"
+      },
+      {
+        "command": "ditaeditor.focusStyles",
+        "title": "Focus DITA Styles",
+        "category": "DITA Editor"
+      },
+      {
+        "command": "ditaeditor.focusProperties",
+        "title": "Focus DITA Properties",
+        "category": "DITA Editor"
+      },
+      {
+        "command": "ditaeditor.refreshTopicSearch",
+        "title": "Refresh DITA Topic Search",
+        "category": "DITA Editor",
+        "icon": "$(refresh)"
+      },
       {
         "command": "ditaeditor.openVisual",
         "title": "Open Visual Editor",
@@ -873,6 +955,13 @@
       }
     ],
     "menus": {
+      "view/title": [
+        {
+          "command": "ditaeditor.refreshTopicSearch",
+          "when": "view == ditaeditor.topicSearch",
+          "group": "navigation"
+        }
+      ],
       "commandPalette": [
         {
           "command": "ditaeditor.openVisual",
@@ -2319,18 +2408,26 @@
           "default": true,
           "description": "Open rendered Review Changes when selecting a changed .dita file or a DITA commit in Source Control, instead of the raw XML diff."
         },
+        "ditaeditor.visual.authorStylesheet": {
+          "type": "string",
+          "default": "css/ditaeditor-author-styles.css",
+          "scope": "resource",
+          "description": "Workspace-relative repository-owned stylesheet used by the visual editor, review surfaces, and the Styles view. The stylesheet may import project tokens and other manual CSS."
+        },
         "ditaeditor.visual.contentStylesheets": {
           "type": "array",
           "items": {
             "type": "string"
           },
           "default": [],
-          "scope": "resource"
+          "scope": "resource",
+          "deprecationMessage": "Use ditaeditor.visual.authorStylesheet and import additional project stylesheets from that file."
         },
         "ditaeditor.visual.managedAuthorStylesheet": {
           "type": "string",
           "default": "css/ditaeditor-author-styles.css",
-          "scope": "resource"
+          "scope": "resource",
+          "deprecationMessage": "Use ditaeditor.visual.authorStylesheet. This setting remains as a compatibility fallback."
         },
         "ditaeditor.visual.taxonomyFile": {
           "type": "string",
@@ -2445,6 +2542,7 @@
     "untrustedWorkspaces": {
       "supported": "limited",
       "restrictedConfigurations": [
+        "ditaeditor.visual.authorStylesheet",
         "ditaeditor.visual.contentStylesheets",
         "ditaeditor.visual.managedAuthorStylesheet",
         "ditaeditor.visual.taxonomyFile"
@@ -2472,7 +2570,7 @@
   },
   "devDependencies": {
     "@types/bun": "1.3.14",
-    "@types/vscode": "1.90.0",
+    "@types/vscode": "1.106.1",
     "@types/yauzl": "3.4.0",
     "@vscode/test-electron": "3.0.0",
     "@vscode/vsce": "3.9.2",

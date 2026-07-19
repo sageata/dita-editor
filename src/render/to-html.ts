@@ -107,7 +107,7 @@ function buildTablePresentation(
 }
 
 const TOPIC_ROOTS = new Set(['topic', 'concept', 'task', 'reference']);
-const LINE_PRESERVING_ELEMENTS = new Set(['lines', 'codeblock', 'pre', 'msgblock', 'screen']);
+export const LINE_PRESERVING_ELEMENTS = new Set(['lines', 'codeblock', 'pre', 'msgblock', 'screen']);
 const BODY_CLASS: Record<string, string> = {
   body: 'body',
   conbody: 'body conbody',

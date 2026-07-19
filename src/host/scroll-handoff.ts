@@ -2,8 +2,20 @@ import { structuralIds, tableCellIds } from '../cst/element-ids';
 import { parse } from '../cst/parse';
 import type { ElementNode } from '../cst/types';
 
+/** Optional exact-match payload riding on an anchor: the canvas re-finds the
+ *  nth occurrence of the rendered text inside the anchored element in its own
+ *  DOM (occurrence-count instead of offsets, so host/webview whitespace
+ *  normalization can never drift a position) and selects it. A miss falls back
+ *  silently to the element-level scroll. */
+export interface ScrollAnchorHighlight {
+  text: string;
+  occurrence: number;
+  matchCase: boolean;
+}
+
 export interface ScrollAnchor {
   id: string;
+  highlight?: ScrollAnchorHighlight;
 }
 
 export type ScrollAnchorResult =
@@ -65,6 +77,24 @@ export function openingTagOffsetForAnchor(source: string, id: string): ScrollOff
   return { ok: true, offset: match.element.openTagRange.start };
 }
 
+export type ScrollRangeResult =
+  | { ok: true; range: { start: number; end: number } }
+  | { ok: false; reason: string };
+
+/** Full source range of an addressable element, for occurrence counting. */
+export function elementRangeForAnchor(source: string, id: string): ScrollRangeResult {
+  const addressable = addressableElements(source);
+  if (!addressable.ok) return addressable;
+  const match = addressable.elements.find((candidate) => candidate.id === id);
+  if (!match) {
+    return {
+      ok: false,
+      reason: `scroll anchor ${id} is not present in the current DITA document`,
+    };
+  }
+  return { ok: true, range: { start: match.element.range.start, end: match.element.range.end } };
+}
+
 export function anchorAtSourceOffset(source: string, offset: number): ScrollAnchorResult {
   const addressable = addressableElements(source);
   if (!addressable.ok) return addressable;
@@ -93,6 +123,38 @@ export function anchorAtSourceOffset(source: string, offset: number): ScrollAnch
   if (previous) return { ok: true, anchor: { id: previous.id } };
 
   return { ok: false, reason: 'no visual element could be mapped from the current source position' };
+}
+
+/** The three ways a scroll anchor can reach a visual editor, decided purely so
+ *  the host wrapper stays thin. A VISIBLE panel gets a direct postMessage (its
+ *  webview is live; navready will not re-fire). A HIDDEN panel is queued then
+ *  revealed — retainContextWhenHidden is false, so revealing reloads the webview
+ *  and the navready handshake consumes the queue. With NO panel the anchor is
+ *  queued and the caller must open the editor. */
+export interface ScrollAnchorPanel {
+  visible: boolean;
+  postScrollToAnchor(anchor: ScrollAnchor): void;
+  reveal(): void;
+}
+
+export type ScrollAnchorDelivery = 'posted' | 'revealed' | 'queued';
+
+export function deliverScrollAnchor(
+  panel: ScrollAnchorPanel | null,
+  anchor: ScrollAnchor,
+  queue: (anchor: ScrollAnchor) => void,
+): ScrollAnchorDelivery {
+  if (panel && panel.visible) {
+    panel.postScrollToAnchor(anchor);
+    panel.reveal();
+    return 'posted';
+  }
+  queue(anchor);
+  if (panel) {
+    panel.reveal();
+    return 'revealed';
+  }
+  return 'queued';
 }
 
 export interface ScrollHandoffStore {

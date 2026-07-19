@@ -65,11 +65,11 @@ describe('configureVisualWebviewResources', () => {
       'webview:/workspace/css/brand.css',
       'webview:/workspace/themes/print.css',
     ]);
-    expect(result.surfaceStyleUri).toBe('webview:/extension/media/editor.css');
+    expect(result.surfaceStyleUri).toBe('webview:/extension/media/editor.css?v=inspector-views-1');
     expect(result.baseHref).toBe('webview:/workspace/topic/');
     expect(result.scriptUris).toHaveLength(CANVAS_SCRIPT_FILES.length);
-    expect(result.scriptUris[0]).toBe(`webview:/extension/media/${CANVAS_SCRIPT_FILES[0]}`);
-    expect(result.scriptUris.at(-1)).toBe(`webview:/extension/media/${CANVAS_SCRIPT_FILES.at(-1)}`);
+    expect(result.scriptUris[0]).toBe(`webview:/extension/media/${CANVAS_SCRIPT_FILES[0]}?v=inspector-views-1`);
+    expect(result.scriptUris.at(-1)).toBe(`webview:/extension/media/${CANVAS_SCRIPT_FILES.at(-1)}?v=inspector-views-1`);
     expect(seen).toContain('/extension/media/editor.css');
   });
 
@@ -94,7 +94,7 @@ describe('configureVisualWebviewResources', () => {
       'webview:/extension/media/content-theme.css',
       'webview:/workspace/css/brand.css',
     ]);
-    expect(result.surfaceStyleUri).toBe('webview:/extension/media/editor.css');
+    expect(result.surfaceStyleUri).toBe('webview:/extension/media/editor.css?v=inspector-views-1');
   });
 
   test('still loads extension CSS and scripts without a workspace folder', () => {
@@ -112,7 +112,7 @@ describe('configureVisualWebviewResources', () => {
 
     expect(webview.options).toEqual({ enableScripts: true, localResourceRoots: [extensionUri] });
     expect(result.contentStyleUris).toEqual(['webview:/extension/media/content-theme.css']);
-    expect(result.surfaceStyleUri).toBe('webview:/extension/media/editor.css');
+    expect(result.surfaceStyleUri).toBe('webview:/extension/media/editor.css?v=inspector-views-1');
     expect(result.baseHref).toBe('');
     expect(result.scriptUris).toHaveLength(CANVAS_SCRIPT_FILES.length);
   });

@@ -69,6 +69,7 @@ export class TestElement {
   id = '';
   className = '';
   title = '';
+  disabled = false;
   tabIndex = -1;
   offsetHeight = 20;
   isConnected = true;
@@ -91,6 +92,17 @@ export class TestElement {
 
   appendChild(child: TestElement): TestElement {
     this.appendNode(child);
+    return child;
+  }
+
+  insertBefore(child: TestElement, reference: TestElement): TestElement {
+    const childIndex = this.childNodes.indexOf(reference);
+    const elementIndex = this.children.indexOf(reference);
+    if (childIndex === -1 || elementIndex === -1) throw new Error('Reference node is not a child');
+    child.parentElement = this;
+    child.parentNode = this;
+    this.childNodes.splice(childIndex, 0, child);
+    this.children.splice(elementIndex, 0, child);
     return child;
   }
 

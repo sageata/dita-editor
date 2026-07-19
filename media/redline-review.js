@@ -21,6 +21,9 @@
 
   const style = document.getElementById('ditaeditor-author-styles-live');
   if (!style) throw new Error('DITA Editor managed stylesheet slot is missing');
+  let authorLink = typeof document.querySelector === 'function'
+    ? document.querySelector('link[data-ditaeditor-style-origin="author"]')
+    : null;
   const managedStyleData = document.getElementById('ditaeditor-managed-style-data');
   if (!managedStyleData) throw new Error('DITA Editor managed stylesheet data is missing');
   const embeddedManagedStyle = JSON.parse(managedStyleData.textContent || '{}');
@@ -29,12 +32,43 @@
   }
   style.textContent = embeddedManagedStyle.cssText;
 
+  function applyManagedStyles(message) {
+    const href = typeof message.stylesheetHref === 'string' ? message.stylesheetHref : '';
+    const currentHref = authorLink ? String(authorLink.getAttribute('href') || '') : '';
+    if (!href) {
+      style.textContent = '';
+      if (authorLink && authorLink.parentNode) authorLink.parentNode.removeChild(authorLink);
+      authorLink = null;
+      return;
+    }
+    if (authorLink && currentHref === href) {
+      style.textContent = '';
+      return;
+    }
+    style.textContent = typeof message.cssText === 'string' ? message.cssText : '';
+    if (!authorLink) {
+      authorLink = document.createElement('link');
+      authorLink.setAttribute('rel', 'stylesheet');
+      authorLink.setAttribute('data-ditaeditor-style-origin', 'author');
+      style.parentNode.insertBefore(authorLink, style);
+    }
+    const expectedHref = href;
+    authorLink.addEventListener('load', function () {
+      if (authorLink && authorLink.getAttribute('href') === expectedHref) style.textContent = '';
+    }, { once: true });
+    authorLink.addEventListener('error', function () {
+      if (authorLink && authorLink.getAttribute('href') === expectedHref) {
+        vscode.postMessage({ type: 'authorStylesheetLoadError' });
+      }
+    }, { once: true });
+    authorLink.setAttribute('href', href);
+  }
+
   window.addEventListener('message', function (event) {
     const message = event.data;
     if (!message) return;
     if (message.type === 'managedStyles') {
-      // Complete marked/refused CSS is host-owned text, never HTML interpolation.
-      style.textContent = typeof message.cssText === 'string' ? message.cssText : '';
+      applyManagedStyles(message);
       return;
     }
     if (message.type === 'revertResult') {

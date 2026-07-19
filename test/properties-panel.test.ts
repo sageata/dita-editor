@@ -1,33 +1,6 @@
 import { readFileSync } from 'fs';
 import { describe, expect, test } from 'bun:test';
-import { TestDocument, TestElement, type TestListener } from './canvas-test-dom';
-
-interface TestWindow {
-  innerWidth: number;
-  listeners: Map<string, TestListener[]>;
-  addEventListener(type: string, listener: TestListener): void;
-  removeEventListener(type: string, listener: TestListener): void;
-  dispatch(type: string, event: Record<string, unknown>): void;
-}
-
-function makeWindow(innerWidth = 900): TestWindow {
-  return {
-    innerWidth,
-    listeners: new Map(),
-    addEventListener(type, listener) {
-      const list = this.listeners.get(type) ?? [];
-      list.push(listener);
-      this.listeners.set(type, list);
-    },
-    removeEventListener(type, listener) {
-      const list = this.listeners.get(type) ?? [];
-      this.listeners.set(type, list.filter((item) => item !== listener));
-    },
-    dispatch(type, event) {
-      for (const listener of this.listeners.get(type) ?? []) listener(event);
-    },
-  };
-}
+import { TestDocument, TestElement } from './canvas-test-dom';
 
 type DocProps = {
   id: string;
@@ -57,38 +30,32 @@ const TEST_TAXONOMY = {
 };
 
 function loadHelper(initialDocProps: DocProps = null, taxonomy: unknown = TEST_TAXONOMY) {
-  const source = readFileSync(new URL('../media/canvas-properties.js', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../media/properties-panel.js', import.meta.url), 'utf8');
   expect(source).not.toContain('acquireVsCodeApi');
   interface PropertiesPanel {
     refresh(): void;
     setTaxonomy(next: unknown): boolean;
     panel: TestElement;
-    resizeHandle: TestElement;
-    hideButton: TestElement;
-    showButton: TestElement;
   }
   const win = {} as {
-    DitaEditorCanvasProperties: {
+    DitaEditorPropertiesPanel: {
       installPropertiesPanel(opts: Record<string, unknown>): PropertiesPanel;
     };
   };
   let docProps = initialDocProps;
   const messages: unknown[] = [];
   const doc = new TestDocument();
-  const testWindow = makeWindow();
   new Function('window', source)(win);
-  const panel = win.DitaEditorCanvasProperties.installPropertiesPanel({
+  const panel = win.DitaEditorPropertiesPanel.installPropertiesPanel({
     document: doc,
-    window: testWindow,
     vscode: { postMessage: (message: unknown) => messages.push(message) },
     fontFamily: 'sans-serif',
+    container: doc.body,
     getDocProps: () => docProps,
-    nounForKind: (kind: string) => kind || 'topic',
     taxonomy,
   });
   return {
     doc,
-    testWindow,
     panel,
     messages,
     setDocProps(next: DocProps) {
@@ -97,103 +64,14 @@ function loadHelper(initialDocProps: DocProps = null, taxonomy: unknown = TEST_T
   };
 }
 
-describe('canvas-properties', () => {
-  test('starts hidden by default, collapsed into the reveal rail', () => {
-    const { doc, panel } = loadHelper();
-
-    expect(panel.panel.style.display).toBe('none');
-    expect(panel.resizeHandle.style.display).toBe('none');
-    expect(panel.showButton.style.display).toBe('inline-flex');
-    expect(doc.main.style.paddingLeft).toBe('36px');
-    expect(panel.showButton.getAttribute('aria-expanded')).toBe('false');
-  });
-
-  test('showing the sidebar mounts it flush with the top chrome and offsets the editor by its width', () => {
-    const { doc, panel } = loadHelper();
-
-    panel.showButton.click();
-
-    expect(panel.panel.style.display).toBe('flex');
-    expect(panel.panel.style.top).toBe('0px');
-    expect(panel.panel.style.width).toBe('308px');
-    expect(panel.panel.style.paddingTop).toBe('90px');
-    expect(doc.main.style.paddingLeft).toBe('308px');
-    expect(doc.main.style.minWidth).toBe('1348px');
-    expect(doc.main.style.maxWidth).toBe('1348px');
-    expect(panel.resizeHandle.getAttribute('role')).toBe('separator');
-    expect(panel.resizeHandle.getAttribute('aria-orientation')).toBe('vertical');
-    expect(panel.resizeHandle.getAttribute('aria-valuenow')).toBe('308');
-  });
-
-  test('resizes the sidebar from the right edge and clamps the editor offset', () => {
-    const { doc, testWindow, panel } = loadHelper();
-
-    panel.showButton.click();
-    panel.resizeHandle.dispatch('pointerdown', {
-      button: 0,
-      clientX: 308,
-      preventDefault: () => undefined,
-      stopPropagation: () => undefined,
-    });
-    testWindow.dispatch('pointermove', {
-      clientX: 408,
-      preventDefault: () => undefined,
-    });
-
-    expect(panel.panel.style.width).toBe('408px');
-    expect(doc.main.style.paddingLeft).toBe('408px');
-    expect(doc.main.style.minWidth).toBe('1448px');
-    expect(doc.main.style.maxWidth).toBe('1448px');
-    expect(panel.resizeHandle.getAttribute('aria-valuenow')).toBe('408');
-
-    testWindow.dispatch('pointermove', {
-      clientX: 40,
-      preventDefault: () => undefined,
-    });
-
-    expect(panel.panel.style.width).toBe('240px');
-    expect(doc.main.style.paddingLeft).toBe('240px');
-    expect(doc.main.style.minWidth).toBe('1280px');
-    expect(doc.main.style.maxWidth).toBe('1280px');
-    expect(panel.resizeHandle.getAttribute('aria-valuenow')).toBe('240');
-  });
-
-  test('hides the sidebar into a reveal rail and restores the previous width', () => {
-    const { doc, testWindow, panel } = loadHelper();
-
-    panel.showButton.click();
-    panel.resizeHandle.dispatch('pointerdown', {
-      button: 0,
-      clientX: 308,
-      preventDefault: () => undefined,
-      stopPropagation: () => undefined,
-    });
-    testWindow.dispatch('pointermove', {
-      clientX: 408,
-      preventDefault: () => undefined,
-    });
-    testWindow.dispatch('pointerup', {});
-
-    panel.hideButton.click();
-
-    expect(panel.panel.style.display).toBe('none');
-    expect(panel.resizeHandle.style.display).toBe('none');
-    expect(panel.showButton.style.display).toBe('inline-flex');
-    expect(doc.main.style.paddingLeft).toBe('36px');
-    expect(doc.main.style.minWidth).toBe('1076px');
-    expect(doc.main.style.maxWidth).toBe('1076px');
-    expect(panel.showButton.getAttribute('aria-expanded')).toBe('false');
-
-    panel.showButton.click();
-
-    expect(panel.panel.style.display).toBe('flex');
-    expect(panel.resizeHandle.style.display).toBe('block');
-    expect(panel.showButton.style.display).toBe('none');
-    expect(doc.main.style.paddingLeft).toBe('408px');
-    expect(doc.main.style.minWidth).toBe('1448px');
-    expect(doc.main.style.maxWidth).toBe('1448px');
-    expect(panel.panel.style.width).toBe('408px');
-    expect(panel.hideButton.getAttribute('aria-expanded')).toBe('true');
+describe('properties-panel', () => {
+  test('mounts into the view container as a flow panel with no overlay chrome', () => {
+    const { doc, panel } = loadHelper({ id: 'topic1', kind: 'topic', attrs: [{ name: 'id', value: 'topic1' }] });
+    expect(panel.panel.parentElement).toBe(doc.body);
+    expect(panel.panel.getAttribute('aria-label')).toBe('Properties');
+    // No fixed-overlay chrome survives the port: the view is the container.
+    expect(panel.panel.style.cssText).not.toContain('position:fixed');
+    expect(doc.main.style.paddingLeft ?? '').toBe('');
   });
 
   test('renders manual-topic taxonomy chips from whitespace token attributes', () => {

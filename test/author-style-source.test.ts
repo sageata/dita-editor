@@ -9,7 +9,7 @@ import {
   inspectManagedAuthorStylesheet,
   planManagedAuthorStylesheetWrite,
 } from '../src/host/managed-author-stylesheet';
-import { DEFAULT_AUTHOR_STYLES, type AuthorStyleDefinition } from '../src/styles/author-styles';
+import type { AuthorStyleDefinition } from '../src/styles/author-styles';
 
 const TARGET: ManagedStyleTarget = {
   configuredPath: 'styles/managed.css',
@@ -50,11 +50,11 @@ function sourceDependencies(options: {
 }
 
 describe('inspectAuthorStyleSource', () => {
-  test('a missing resolved destination uses the writable built-in neutral inspection', async () => {
+  test('a missing resolved destination is writable and has no author styles', async () => {
     const inspection = await inspectAuthorStyleSource(TARGET, sourceDependencies());
 
     expect(inspection.kind).toBe('missing');
-    expect(inspection.styles).toEqual(DEFAULT_AUTHOR_STYLES);
+    expect(inspection.styles).toEqual([]);
     expect(inspection.writable).toBe(true);
     expect(inspection.error).toBeUndefined();
   });

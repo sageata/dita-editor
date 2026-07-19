@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { describe, expect, test } from 'bun:test';
-import { DEFAULT_AUTHOR_STYLES, parseAuthorStyles, serializeAuthorStyles } from '../src/styles/author-styles';
+import { parseAuthorStyles, serializeAuthorStyles } from '../src/styles/author-styles';
+import { DEFAULT_AUTHOR_STYLES } from './fixtures/default-author-styles';
 import { TestDocument, TestElement, type TestListener } from './canvas-test-dom';
 
 interface TestWindow {
@@ -30,17 +31,70 @@ function makeWindow(innerWidth = 1000): TestWindow {
   };
 }
 
+interface InspectorComputedEntry {
+  key: string;
+  cssProp: string;
+  label: string;
+  value: string;
+}
+
+// The bridge snapshot the view receives via styleTargetState relays.
+interface InspectorState {
+  structVersion: number;
+  target: unknown;
+  computed: InspectorComputedEntry[] | null;
+  inherited: Record<string, Record<string, string>>;
+  hasConfiguredStylesheet: boolean;
+}
+
+// Mirrors the bridge's INSPECT_FIELDS table so tests can build computed
+// snapshots by CSS property, the way the old getComputedStyle fakes did.
+const INSPECT_FIELD_DEFS: Array<[key: string, cssProp: string, label: string]> = [
+  ['fontSize', 'font-size', 'Size'],
+  ['fontWeight', 'font-weight', 'Weight'],
+  ['color', 'color', 'Text'],
+  ['backgroundColor', 'background-color', 'Fill'],
+  ['borderColor', 'border-left-color', 'Accent'],
+  ['borderWidth', 'border-left-width', 'Accent width'],
+  ['textTransform', 'text-transform', 'Case'],
+  ['letterSpacing', 'letter-spacing', 'Tracking'],
+  ['lineHeight', 'line-height', 'Line'],
+  ['spacingBefore', 'margin-top', 'Before'],
+  ['spacingAfter', 'margin-bottom', 'After'],
+];
+
+function computedFromCss(values: Record<string, string>): InspectorComputedEntry[] {
+  return INSPECT_FIELD_DEFS.map(([key, cssProp, label]) => ({
+    key,
+    cssProp,
+    label,
+    value: values[cssProp] ?? '',
+  }));
+}
+
+function inspectorState(overrides: Partial<InspectorState> = {}): InspectorState {
+  return {
+    structVersion: 0,
+    target: null,
+    computed: null,
+    inherited: {},
+    hasConfiguredStylesheet: false,
+    ...overrides,
+  };
+}
+
 interface HelperOverrides {
   styles?: unknown[];
-  currentTarget?: { ids: string[]; kind: string; label: string; outputclass: string } | null;
+  currentTarget?: { ids: string[]; kind: string; label: string; outputclass: string; ancestorClasses?: string[] } | null;
   saveRequestSessionId?: string;
   vscodeState?: { value: Record<string, unknown> | undefined };
   windowExtras?: Record<string, unknown>;
-  installExtras?: Record<string, unknown>;
+  inspectorState?: InspectorState | null;
+  previewPopup?: Record<string, unknown>;
 }
 
 function loadHelper(overrides: HelperOverrides = {}) {
-  const source = readFileSync(new URL('../media/canvas-styles.js', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../media/styles-panel.js', import.meta.url), 'utf8');
   expect(source).not.toContain('acquireVsCodeApi');
   interface StylesPanel {
     refresh(force?: boolean): void;
@@ -53,26 +107,16 @@ function loadHelper(overrides: HelperOverrides = {}) {
       error?: string;
     }): boolean;
     panel: TestElement;
-    resizeHandle: TestElement;
-    hideButton: TestElement;
-    showButton: TestElement;
   }
   const win = {} as {
-    DitaEditorCanvasStyles: {
+    DitaEditorStylesPanel: {
       installStylesPanel(opts: Record<string, unknown>): StylesPanel;
     };
   };
+  // No live-CSS or managed-style-data slots: those DOM ids belong to the
+  // canvas (media/canvas-style-bridge.js), and the view engine must not
+  // reference them at all.
   const doc = new TestDocument();
-  const liveStyle = doc.createElement('style');
-  liveStyle.id = 'ditaeditor-author-styles-live';
-  doc.body.appendChild(liveStyle);
-  const managedStyleData = doc.createElement('script');
-  managedStyleData.id = 'ditaeditor-managed-style-data';
-  managedStyleData.textContent = JSON.stringify({
-    consumer: 'canvas',
-    cssText: '.dc-embedded-first-paint { color: #123456; }',
-  });
-  doc.body.appendChild(managedStyleData);
   const testWindow = Object.assign(makeWindow(), overrides.windowExtras || {});
   const messages: unknown[] = [];
   const vscodeState = overrides.vscodeState ?? { value: undefined };
@@ -81,6 +125,7 @@ function loadHelper(overrides: HelperOverrides = {}) {
     styles: typeof DEFAULT_AUTHOR_STYLES;
     cssText: string;
     writable: boolean;
+    status?: 'missing' | 'ready' | 'migration-required' | 'refused';
     sourceHash: string;
     cssPath: string;
     targetToken: string;
@@ -89,8 +134,9 @@ function loadHelper(overrides: HelperOverrides = {}) {
     styles: initialStyles,
     cssText: serializeAuthorStyles(initialStyles),
     writable: true,
+    status: 'ready',
     sourceHash: 'displayed-source-hash',
-    cssPath: '/workspace/css/ditaeditor-author-styles.css',
+    cssPath: 'css/ditaeditor-author-styles.css',
     targetToken: 'target-token-a',
   };
   let currentTarget: {
@@ -98,6 +144,7 @@ function loadHelper(overrides: HelperOverrides = {}) {
     kind: string;
     label: string;
     outputclass: string;
+    ancestorClasses?: string[];
   } | null = 'currentTarget' in overrides
     ? overrides.currentTarget ?? null
     : {
@@ -106,8 +153,9 @@ function loadHelper(overrides: HelperOverrides = {}) {
       label: 'title',
       outputclass: 'dc-title-display',
     };
+  let inspector: InspectorState | null = overrides.inspectorState ?? null;
   new Function('window', source)(win);
-  const panel = win.DitaEditorCanvasStyles.installStylesPanel({
+  const panel = win.DitaEditorStylesPanel.installStylesPanel({
     document: doc,
     window: testWindow,
     vscode: {
@@ -115,16 +163,17 @@ function loadHelper(overrides: HelperOverrides = {}) {
       getState: () => vscodeState.value,
       setState: (next: Record<string, unknown>) => { vscodeState.value = next; },
     },
+    container: doc.body,
     fontFamily: 'sans-serif',
     saveRequestSessionId: overrides.saveRequestSessionId ?? 'test-style-session',
     getStyleState: () => styleState,
     getCurrentTarget: () => currentTarget,
+    getInspectorState: () => inspector,
     announceNav: () => undefined,
-    ...(overrides.installExtras || {}),
+    ...(overrides.previewPopup ? { previewPopup: overrides.previewPopup } : {}),
   });
   return {
     doc,
-    liveStyle,
     panel,
     messages,
     vscodeState,
@@ -133,6 +182,9 @@ function loadHelper(overrides: HelperOverrides = {}) {
     },
     setCurrentTarget: (next: typeof currentTarget) => {
       currentTarget = next;
+    },
+    setInspectorState: (next: InspectorState | null) => {
+      inspector = next;
     },
   };
 }
@@ -197,57 +249,18 @@ function makeDeferredTimers() {
   };
 }
 
-function loadSaveRequestSessionIdFactory(crypto: unknown): () => string {
-  const source = readFileSync(new URL('../media/canvas.js', import.meta.url), 'utf8');
-  const start = source.indexOf('function createSaveRequestSessionId()');
-  const end = source.indexOf('\n  const saveRequestSessionId = createSaveRequestSessionId();', start);
-  expect(start).toBeGreaterThanOrEqual(0);
-  expect(end).toBeGreaterThan(start);
-  return new Function(
-    'window',
-    source.slice(start, end) + '\nreturn createSaveRequestSessionId;',
-  )({ crypto }) as () => string;
-}
-
-describe('canvas-styles', () => {
-  test('canvas routes explicit save results to the styles panel before generic style-state refreshes', () => {
-    const source = readFileSync(new URL('../media/canvas.js', import.meta.url), 'utf8');
-    const saveResultBranch = "if (msg.type === 'styleSaveResult') {\n      stylesPanel.acceptSaveResult(msg);\n      return;\n    }";
-
-    expect(source).toContain(saveResultBranch);
-    expect(source.indexOf(saveResultBranch)).toBeLessThan(source.indexOf("if (msg.type === 'styleState')"));
-    expect(source).toContain('crypto.randomUUID');
-    expect(source).toContain('crypto.getRandomValues');
-    expect(source).toContain('saveRequestSessionId: saveRequestSessionId');
-  });
-
-  test('creates a secure per-frame session ID with randomUUID and getRandomValues fallback', () => {
-    const direct = loadSaveRequestSessionIdFactory({ randomUUID: () => 'direct-session-uuid' });
-    expect(direct()).toBe('direct-session-uuid');
-
-    const fallback = loadSaveRequestSessionIdFactory({
-      getRandomValues(bytes: Uint8Array) {
-        for (let index = 0; index < bytes.length; index += 1) bytes[index] = index;
-        return bytes;
-      },
-    });
-    expect(fallback()).toBe('00010203-0405-4607-8809-0a0b0c0d0e0f');
-    expect(() => loadSaveRequestSessionIdFactory({})()).toThrow('Secure randomness is unavailable');
-  });
-
-  test('starts hidden by default; showing it mounts a right sidebar and applies a CSS-backed style when pressing a style row', () => {
+describe('styles-panel', () => {
+  test('mounts into the container as a flow column and applies a CSS-backed style when pressing a style row', () => {
     const { doc, panel, messages } = loadHelper();
 
-    expect(panel.panel.style.display).toBe('none');
-    expect(doc.main.style.paddingRight).toBe('36px');
-
-    panel.showButton.click();
-
-    expect(panel.panel.style.width).toBe('324px');
-    expect(doc.main.style.paddingRight).toBe('308px');
-    expect(doc.main.style.minWidth).toBe('1348px');
-    expect(doc.main.style.maxWidth).toBe('1348px');
-    expect(panel.resizeHandle.getAttribute('role')).toBe('separator');
+    expect(doc.body.children).toContain(panel.panel);
+    expect(panel.panel.getAttribute('aria-label')).toBe('Styles');
+    expect(panel.panel.style.cssText).toContain('flex-direction:column');
+    expect(panel.panel.style.cssText).not.toContain('position:fixed');
+    // The panel is the scroll container: growing content (expanded editors)
+    // must extend the scroll range, never clip at the viewport edge.
+    expect(panel.panel.style.cssText).toContain('overflow-y:auto');
+    expect(panel.panel.style.cssText).not.toContain('overflow:hidden');
 
     expandGroup(panel.panel, 'Topic title');
     expect(panel.panel.textContent).toContain('Display title');
@@ -263,6 +276,72 @@ describe('canvas-styles', () => {
     });
   });
 
+  test('a missing stylesheet shows only the explicit repository-owned initialization action', () => {
+    const helper = loadHelper({ styles: [] });
+    helper.setStyleState({
+      styles: [],
+      cssText: '',
+      status: 'missing',
+      writable: true,
+      sourceHash: 'missing-source-hash',
+      cssPath: 'styles/manual-author.css',
+      targetToken: 'missing-target-token',
+    });
+    helper.panel.refresh(true);
+
+    expect(helper.panel.panel.textContent).toContain('Initialize author stylesheet');
+    expect(helper.panel.panel.textContent).toContain('This repository owns its typography');
+    expect(helper.panel.panel.textContent).toContain('styles/manual-author.css');
+    expect(helper.panel.panel.querySelectorAll('section').filter((section) => section.className === 'style-setup-card')).toHaveLength(1);
+    expect(helper.panel.panel.querySelectorAll('button').some((button) => button.textContent === 'New')).toBe(false);
+
+    const initialize = buttonByText(helper.panel.panel, 'Initialize author stylesheet');
+    expect(initialize.disabled).toBe(false);
+    initialize.click();
+    expect(helper.messages).toEqual([{
+      type: 'initializeAuthorStylesheet',
+      targetToken: 'missing-target-token',
+    }]);
+  });
+
+  test('a missing stylesheet without a writable workspace destination explains and blocks initialization', () => {
+    const helper = loadHelper({ styles: [] });
+    helper.setStyleState({
+      styles: [],
+      cssText: '',
+      status: 'missing',
+      writable: false,
+      sourceHash: 'missing-source-hash',
+      cssPath: 'css/ditaeditor-author-styles.css',
+      targetToken: 'unwritable-target-token',
+      error: 'Open a trusted local workspace to initialize this stylesheet.',
+    });
+    helper.panel.refresh(true);
+
+    const initialize = buttonByText(helper.panel.panel, 'Initialize author stylesheet');
+    expect(initialize.disabled).toBe(true);
+    expect(initialize.title).toBe('Open a trusted local workspace to initialize this stylesheet.');
+    initialize.click();
+    expect(helper.messages).toEqual([]);
+  });
+
+  test('a legacy managed region announces its next explicit migration', () => {
+    const helper = loadHelper();
+    helper.setStyleState({
+      styles: DEFAULT_AUTHOR_STYLES,
+      cssText: serializeAuthorStyles(DEFAULT_AUTHOR_STYLES),
+      status: 'migration-required',
+      writable: true,
+      sourceHash: 'legacy-source-hash',
+      cssPath: 'css/ditaeditor-author-styles.css',
+      targetToken: 'legacy-target-token',
+    });
+    helper.panel.refresh(true);
+
+    expect(helper.panel.panel.textContent).toContain('older managed format');
+    expect(helper.panel.panel.textContent).toContain('project CSS outside it will remain unchanged');
+  });
+
   test('groups available styles by target', () => {
     const { panel } = loadHelper();
 
@@ -273,11 +352,14 @@ describe('canvas-styles', () => {
     const groups = panel.panel.querySelectorAll('.style-target-group');
     expect(groups.length).toBeGreaterThan(5);
     expect(groups[0].textContent).toContain('Page');
-    expect(groups[1].textContent).toContain('All elements (1)');
+    expect(groups[1].textContent).toContain('All elements');
+    expect(groups[1].querySelector('.style-group-count')?.textContent).toBe('1');
     expect(groups[1].textContent).toContain('Muted element');
-    expect(groups[2].textContent).toContain('Topic title (1)');
+    expect(groups[2].textContent).toContain('Topic title');
+    expect(groups[2].querySelector('.style-group-count')?.textContent).toBe('1');
     expect(groups[2].textContent).toContain('Display title');
-    expect(groups[3].textContent).toContain('Section heading (2)');
+    expect(groups[3].textContent).toContain('Section heading');
+    expect(groups[3].querySelector('.style-group-count')?.textContent).toBe('2');
     expect(groups[3].textContent).toContain('Accent heading');
     expect(groups[3].textContent).toContain('Compact heading');
   });
@@ -286,17 +368,139 @@ describe('canvas-styles', () => {
     const { panel } = loadHelper();
 
     expandAllGroups(panel.panel);
-    const expectedAccentCount = DEFAULT_AUTHOR_STYLES.filter((style) => !!style.borderColor).length;
+    // Table presets are excluded: their accent is horizontal (border-top/
+    // bottom), so the vertical rail cue would misadvertise a side line.
+    const expectedAccentCount = DEFAULT_AUTHOR_STYLES
+      .filter((style) => !!style.borderColor && !(style.target === 'table' && !style.isDefault))
+      .length;
     expect(panel.panel.querySelectorAll('.style-accent-rail')).toHaveLength(expectedAccentCount);
     expect(buttonByLabel(panel.panel, 'Apply Shaded table cell').querySelectorAll('.style-accent-rail')).toHaveLength(0);
+    expect(buttonByLabel(panel.panel, 'Apply Ruled table').querySelectorAll('.style-accent-rail')).toHaveLength(0);
     expect(buttonByLabel(panel.panel, 'Apply Accent heading').querySelectorAll('.style-accent-rail')).toHaveLength(1);
+  });
+
+  test('style row names always render plain; the eye click is inert', () => {
+    const { panel, messages } = loadHelper();
+
+    expandGroup(panel.panel, 'All elements');
+    const nameOf = () => {
+      const spans = buttonByLabel(panel.panel, 'Apply Muted element').querySelectorAll('span');
+      const name = spans.find((span) => span.children.length === 0 && span.textContent === 'Muted element');
+      expect(name).toBeInstanceOf(TestElement);
+      return name!;
+    };
+
+    // Plain always: 13px / 400 / theme foreground, no authored color inline.
+    expect(nameOf().style.cssText).toContain('font-size:13px');
+    expect(nameOf().style.cssText).toContain('font-weight:400');
+    expect(nameOf().style.cssText).toContain('var(--vscode-foreground)');
+    expect(nameOf().style.cssText).toContain('text-overflow:ellipsis');
+    expect(nameOf().style.cssText).not.toContain('var(--dc-color-text-muted, #4b5563)');
+
+    const eye = buttonByLabel(panel.panel, 'Preview Muted element');
+    expect(eye.getAttribute('aria-pressed')).toBeNull();
+    expect(eye.classList.contains('style-preview-toggle')).toBe(true);
+    expect(eye.classList.contains('style-icon-btn')).toBe(true);
+    // The eye is a sibling cell, never nested inside the apply button.
+    expect(buttonByLabel(panel.panel, 'Apply Muted element').querySelectorAll('.style-preview-toggle')).toHaveLength(0);
+
+    eye.click();
+
+    // The eye is a preview anchor only — clicking posts nothing and changes nothing.
+    expect(messagesOfType(messages, 'applyStyle')).toHaveLength(0);
+    expect(messagesOfType(messages, 'clearStyle')).toHaveLength(0);
+    expect(messagesOfType(messages, 'saveStyles')).toHaveLength(0);
+    expect(nameOf().style.cssText).toContain('font-weight:400');
+    expect(nameOf().style.cssText).not.toContain('var(--dc-color-text-muted, #4b5563)');
+  });
+
+  test('the eye reports hover and focus to the preview popup; rebuilds force-close it', () => {
+    const calls: unknown[][] = [];
+    const previewPopup = {
+      scheduleOpen: (_anchor: unknown, kind: string, presetClassName: string | null, styleName: string) => {
+        calls.push(['open', kind, presetClassName, styleName]);
+      },
+      scheduleClose: () => calls.push(['close']),
+      closeNow: () => calls.push(['closeNow']),
+      isOpen: () => false,
+    };
+    const { panel } = loadHelper({ previewPopup });
+
+    expandGroup(panel.panel, 'All elements');
+    expandGroup(panel.panel, 'Paragraph');
+    calls.length = 0;
+
+    const eye = buttonByLabel(panel.panel, 'Preview Muted element');
+    eye.dispatch('mouseenter', {});
+    expect(calls.at(-1)).toEqual(['open', 'all', 'dc-all-muted', 'Muted element']);
+    eye.dispatch('mouseleave', {});
+    expect(calls.at(-1)).toEqual(['close']);
+    eye.dispatch('focus', {});
+    expect(calls.at(-1)).toEqual(['open', 'all', 'dc-all-muted', 'Muted element']);
+    eye.dispatch('blur', {});
+    expect(calls.at(-1)).toEqual(['close']);
+
+    // Base rows anchor with their kind and no preset class.
+    const baseEye = buttonByLabel(panel.panel, 'Preview Default');
+    baseEye.dispatch('mouseenter', {});
+    expect(calls.at(-1)).toEqual(['open', 'body', null, 'Default']);
+
+    // A rebuild destroys every anchor, so the popup is force-closed first.
+    calls.length = 0;
+    panel.refresh(true);
+    expect(calls).toContainEqual(['closeNow']);
+  });
+
+  test('base row summaries render plain with an eye; rows without a base style get none', () => {
+    const baseStyle = {
+      className: 'dc-default-body',
+      name: 'Base paragraph',
+      target: 'body',
+      isDefault: true,
+      fontWeight: '600',
+      color: '#123456',
+    };
+    const { panel, messages } = loadHelper({ styles: [baseStyle] });
+
+    expandGroup(panel.panel, 'Paragraph');
+    const summaryOf = () => {
+      const spans = buttonByLabel(panel.panel, 'Apply default style for Paragraph').querySelectorAll('span');
+      // The row shows the ROLE — 'Default' — even though the stored (legacy)
+      // definition name is 'Base paragraph'; the name stays form-editable.
+      const summary = spans.find((span) => span.textContent === 'Default');
+      expect(summary).toBeInstanceOf(TestElement);
+      return summary!;
+    };
+
+    expect(panel.panel.textContent).not.toContain('Base paragraph');
+
+    // The summary always renders plain; authored colors live only in the popup.
+    expect(summaryOf().style.cssText).toContain('font-size:13px');
+    expect(summaryOf().style.cssText).not.toContain('#123456');
+
+    const eye = buttonByLabel(panel.panel, 'Preview Default');
+    expect(eye.getAttribute('aria-pressed')).toBeNull();
+    eye.click();
+
+    expect(messagesOfType(messages, 'applyStyle')).toHaveLength(0);
+    expect(messagesOfType(messages, 'clearStyle')).toHaveLength(0);
+    expect(summaryOf().style.cssText).not.toContain('#123456');
+
+    // A base row without an authored default still gets the eye: the preview
+    // shows how that kind currently looks amid the document's other styles.
+    expandGroup(panel.panel, 'Note');
+    const previews = panel.panel
+      .querySelectorAll('button')
+      .filter((btn) => (btn.getAttribute('aria-label') || '').startsWith('Preview '));
+    expect(previews).toHaveLength(2);
+    expect(previews.every((btn) => btn.getAttribute('aria-label') === 'Preview Default')).toBe(true);
   });
 
   test('selected element summary only shows a leading rail for accented styles', () => {
     const { panel, setCurrentTarget } = loadHelper();
 
     let current = panel.panel.querySelector('.style-current');
-    expect(current?.style.cssText || '').not.toContain('border-left:2px solid');
+    expect(current?.style.cssText || '').not.toContain('border-left:3px solid');
 
     setCurrentTarget({
       ids: ['heading-1'],
@@ -307,7 +511,7 @@ describe('canvas-styles', () => {
     panel.refresh(true);
 
     current = panel.panel.querySelector('.style-current');
-    expect(current?.style.cssText || '').toContain('border-left:2px solid var(--dc-color-accent, #2563eb)');
+    expect(current?.style.cssText || '').toContain('border-left:3px solid var(--dc-color-accent, #2563eb)');
   });
 
   test('resolves the live title target when a stale style row is clicked', () => {
@@ -332,28 +536,6 @@ describe('canvas-styles', () => {
       className: 'dc-title-display',
       baseStructVersion: 0,
     });
-  });
-
-  test('hides and restores the right sidebar without losing its width', () => {
-    const { doc, panel } = loadHelper();
-
-    panel.hideButton.click();
-
-    expect(panel.panel.style.display).toBe('none');
-    expect(panel.resizeHandle.style.display).toBe('none');
-    expect(panel.showButton.style.display).toBe('inline-flex');
-    expect(doc.main.style.paddingRight).toBe('36px');
-    expect(doc.main.style.minWidth).toBe('1076px');
-    expect(doc.main.style.maxWidth).toBe('1076px');
-
-    panel.showButton.click();
-
-    expect(panel.panel.style.display).toBe('');
-    expect(panel.resizeHandle.style.display).toBe('block');
-    expect(panel.showButton.style.display).toBe('none');
-    expect(doc.main.style.paddingRight).toBe('308px');
-    expect(doc.main.style.minWidth).toBe('1348px');
-    expect(doc.main.style.maxWidth).toBe('1348px');
   });
 
   test('expands and collapses an inline editor below a style without applying it', () => {
@@ -1785,8 +1967,8 @@ describe('canvas-styles', () => {
     const groups = panel.panel.querySelectorAll('.style-target-group');
     expect(groups).toHaveLength(19); // 18 element kinds + the Page group
     expect(panel.panel.querySelectorAll('.style-page-group')).toHaveLength(1);
-    expect(panel.panel.textContent).toContain('Paragraph (0)');
-    expect(panel.panel.textContent).toContain('List item (0)');
+    expect(buttonByLabel(panel.panel, 'Expand Paragraph styles').querySelector('.style-group-count')?.textContent).toBe('0');
+    expect(buttonByLabel(panel.panel, 'Expand List item styles').querySelector('.style-group-count')?.textContent).toBe('0');
     expandGroup(panel.panel, 'Note'); // groups render collapsed; the empty note lives in the body
     expect(panel.panel.textContent).toContain('No styles yet.');
   });
@@ -1808,12 +1990,18 @@ describe('canvas-styles', () => {
 
     expandAllGroups(panel.panel);
     const baseRows = panel.panel.querySelectorAll('.style-base-wrap');
-    // page + 17 kinds (all 18 except the 'all' pseudo-kind) + 2 structural variant rows
-    // (table: single column, empty caption). Zebra is now an applied preset, not a base row.
-    expect(baseRows).toHaveLength(20);
-    expect(panel.panel.textContent).toContain('DITA Editor surface stylesheet');
+    // page + 17 element kinds (all 18 groups except the 'all' pseudo-kind).
+    expect(baseRows).toHaveLength(18);
+    // Kinds without an authored default show the same 'Default' label (muted,
+    // with a not-customized tooltip) — no separate fallback wording.
+    expect(panel.panel.textContent).not.toContain('Built-in appearance');
+    expect(panel.panel.textContent).not.toContain('DITA Editor surface stylesheet');
+    expect(panel.panel.querySelectorAll('span')
+      .some((s) => s.title === 'Not customized yet — expand the editor to author this default.')).toBe(true);
+    // The redundant 'Base' chip is gone from every base row.
+    expect(panel.panel.querySelectorAll('span').some((s) => s.textContent === 'Base')).toBe(false);
 
-    buttonByLabel(panel.panel, 'Expand base style editor for Paragraph').click();
+    buttonByLabel(panel.panel, 'Expand default style editor for Paragraph').click();
 
     const form = panel.panel.querySelector('form');
     expect(form).toBeInstanceOf(TestElement);
@@ -1842,14 +2030,15 @@ describe('canvas-styles', () => {
     const { panel, messages } = loadHelper({ styles: [...DEFAULT_AUTHOR_STYLES, baseStyle] });
 
     expandGroup(panel.panel, 'Paragraph');
-    expect(panel.panel.textContent).toContain('Base paragraph');
+    expect(panel.panel.textContent).toContain('Default');
     // The default must not render as an applyable preset row.
-    expect(panel.panel.querySelectorAll('button').some((b) => b.getAttribute('aria-label') === 'Apply Base paragraph')).toBe(false);
-    expect(panel.panel.textContent).toContain('Paragraph (1)'); // count excludes the base style
+    expect(panel.panel.querySelectorAll('button').some((b) => b.getAttribute('aria-label') === 'Apply Default')).toBe(false);
+    // count excludes the base style
+    expect(buttonByLabel(panel.panel, 'Collapse Paragraph styles').querySelector('.style-group-count')?.textContent).toBe('1');
 
     // Clicking the base row's meta posts a CLEAR (className '') to the selection —
     // reverting it to the always-on base look — and does NOT open the editor form.
-    buttonByLabel(panel.panel, 'Apply base style for Paragraph').click();
+    buttonByLabel(panel.panel, 'Apply default style for Paragraph').click();
 
     const clearMessages = messages.filter((m) => (m as { type: string }).type === 'clearStyle');
     expect(clearMessages).toHaveLength(1);
@@ -1859,10 +2048,202 @@ describe('canvas-styles', () => {
     expect(panel.panel.querySelector('form')).toBeNull();
 
     // The caret is the only thing that expands the base editor, and it applies nothing.
-    buttonByLabel(panel.panel, 'Expand base style editor for Paragraph').click();
+    buttonByLabel(panel.panel, 'Expand default style editor for Paragraph').click();
 
     expect(messages.filter((m) => (m as { type: string }).type === 'clearStyle')).toHaveLength(1); // unchanged by the caret
     expect(panel.panel.querySelector('form')).toBeInstanceOf(TestElement);
+  });
+
+  test('the Default row is radio-active for the selected kind when no preset is applied', () => {
+    const { panel, setCurrentTarget } = loadHelper({
+      currentTarget: { ids: ['e1'], kind: 'p', label: 'paragraph', outputclass: '' },
+    });
+    expandAllGroups(panel.panel);
+    const baseWrapsOf = (label: string) => {
+      const section = panel.panel.querySelectorAll('section')
+        .find((s) => s.getAttribute('aria-label') === label + ' styles');
+      expect(section).toBeInstanceOf(TestElement);
+      return section!.querySelectorAll('.style-base-wrap');
+    };
+
+    // The selection's own kind shows its Default row as the current look…
+    expect(baseWrapsOf('Paragraph')[0].classList.contains('style-row-applied')).toBe(true);
+    // …other kinds and the page-only row do not.
+    expect(baseWrapsOf('Note')[0].classList.contains('style-row-applied')).toBe(false);
+    expect(baseWrapsOf('Page')[0].classList.contains('style-row-applied')).toBe(false);
+    expect(baseWrapsOf('Table')).toHaveLength(1);
+
+    // An applied preset takes the active state over the Default row.
+    setCurrentTarget({ ids: ['e1'], kind: 'title', label: 'title', outputclass: 'dc-title-display' });
+    panel.refresh(true);
+    expect(baseWrapsOf('Topic title')[0].classList.contains('style-row-applied')).toBe(false);
+    const titleSection = panel.panel.querySelectorAll('section')
+      .find((s) => s.getAttribute('aria-label') === 'Topic title styles');
+    expect(titleSection!.querySelectorAll('.style-row-wrap')
+      .some((wrap) => wrap.classList.contains('style-row-applied'))).toBe(true);
+
+    // An applied all-target preset highlights in All elements, not as the kind's Default.
+    setCurrentTarget({ ids: ['e1'], kind: 'p', label: 'paragraph', outputclass: 'dc-all-muted' });
+    panel.refresh(true);
+    expect(baseWrapsOf('Paragraph')[0].classList.contains('style-row-applied')).toBe(false);
+
+    // No selection: nothing is active anywhere.
+    setCurrentTarget(null);
+    panel.refresh(true);
+    expect(panel.panel.querySelectorAll('.style-row-applied')).toHaveLength(0);
+  });
+
+  test('a cell in a styled table shows its own Default active alongside the ancestor preset', () => {
+    const { panel } = loadHelper({
+      currentTarget: {
+        ids: ['e1'], kind: 'entry', label: 'entry', outputclass: '',
+        ancestorClasses: ['dc-table-striped'],
+      },
+    });
+    expandGroup(panel.panel, 'Table cell');
+    expandGroup(panel.panel, 'Table');
+
+    const sectionOf = (label: string) => panel.panel.querySelectorAll('section')
+      .find((s) => s.getAttribute('aria-label') === label + ' styles')!;
+    // The cell itself carries no preset, so its Default row is the current look…
+    expect(sectionOf('Table cell').querySelectorAll('.style-base-wrap')[0]
+      .classList.contains('style-row-applied')).toBe(true);
+    // …while the ancestor table's preset stays highlighted in its own section.
+    expect(sectionOf('Table').querySelectorAll('.style-row-wrap')
+      .some((wrap) => wrap.classList.contains('style-row-applied'))).toBe(true);
+    // The table's Default row is not active: the selection is not a table.
+    expect(sectionOf('Table').querySelectorAll('.style-base-wrap')[0]
+      .classList.contains('style-row-applied')).toBe(false);
+  });
+
+  test('table editors expose accent edge/width and hide the V-align no-op', () => {
+    const { panel, messages } = loadHelper();
+
+    expandGroup(panel.panel, 'Table');
+    buttonByLabel(panel.panel, 'Expand editor for Ruled table').click();
+    const labelsOf = () => panel.panel.querySelector('form')!
+      .querySelectorAll('select')
+      .map((s) => s.getAttribute('aria-label'));
+    expect(labelsOf()).toContain('Accent edge');
+    expect(labelsOf()).toContain('Accent width');
+    expect(labelsOf()).toContain('Corner radius');
+    expect(labelsOf()).toContain('Width');
+    expect(labelsOf()).toContain('Horizontal overflow');
+    // Padding works for tables (separate border model insets the cells);
+    // V-align has no effect on a table box and stays hidden.
+    expect(labelsOf()).toContain('Padding');
+    expect(labelsOf()).not.toContain('V-align');
+
+    const edge = panel.panel.querySelector('form')!
+      .querySelectorAll('select')
+      .find((s) => s.getAttribute('aria-label') === 'Accent edge') as TestElement & { value: string };
+    changeControlValue(edge, 'left');
+
+    const last = messages.at(-1) as { type: string; styles: Array<Record<string, unknown>> };
+    expect(last.type).toBe('saveStyles');
+    expect(last.styles.find((s) => s.className === 'dc-table-ruled')).toMatchObject({ borderEdge: 'left' });
+
+    // The base table row offers only the width knob: its edge is always the
+    // full card border.
+    buttonByLabel(panel.panel, 'Expand default style editor for Table').click();
+    expect(labelsOf()).toContain('Accent width');
+    expect(labelsOf()).not.toContain('Accent edge');
+  });
+
+  test('editing a visible variant field preserves hidden legacy metadata losslessly', () => {
+    const legacyVariant = {
+      className: 'dc-legacy-zebra',
+      name: 'Legacy zebra',
+      target: 'table',
+      structuralVariant: 'zebraEven',
+      backgroundColor: '#eeeeee',
+      borderRadius: '8px',
+      width: '100%',
+      overflowX: 'auto',
+      markerColor: '#123456',
+    };
+    const { panel, messages } = loadHelper({ styles: [legacyVariant] });
+
+    expandGroup(panel.panel, 'Table');
+    buttonByLabel(panel.panel, 'Expand editor for Legacy zebra').click();
+    const name = panel.panel.querySelector('form')!.querySelectorAll('input')[0] as TestElement & { value: string };
+    changeControlValue(name, 'Updated zebra', 'input');
+
+    const last = messages.at(-1) as { styles: Array<Record<string, unknown>> };
+    expect(last.styles[0]).toEqual({ ...legacyVariant, name: 'Updated zebra' });
+  });
+
+  test('variant and target capability rows expose only fields their emitters consume', () => {
+    const { panel } = loadHelper();
+
+    expandGroup(panel.panel, 'Table');
+    buttonByLabel(panel.panel, 'Expand editor for Striped rows').click();
+    let labels = panel.panel.querySelector('form')!
+      .querySelectorAll('select')
+      .map((select) => select.getAttribute('aria-label'));
+    expect(labels).toEqual(['Target', 'Fill color preset']);
+
+    expandGroup(panel.panel, 'List item');
+    buttonByLabel(panel.panel, 'Expand default style editor for List item').click();
+    labels = panel.panel.querySelector('form')!
+      .querySelectorAll('select')
+      .map((select) => select.getAttribute('aria-label'));
+    expect(labels).toContain('Marker color preset');
+    expect(labels).not.toContain('V-align');
+
+    expandGroup(panel.panel, 'Table cell');
+    buttonByLabel(panel.panel, 'Expand default style editor for Table cell').click();
+    labels = panel.panel.querySelector('form')!
+      .querySelectorAll('select')
+      .map((select) => select.getAttribute('aria-label'));
+    expect(labels).toContain('V-align');
+    expect(labels).not.toContain('Marker preset');
+  });
+
+  test('changing a style target rebuilds capabilities before saving and drops incompatible fields', () => {
+    const listStyle = {
+      className: 'dc-list-marker',
+      name: 'List marker',
+      target: 'listItem',
+      color: '#111827',
+      markerColor: '#123456',
+    };
+    const { panel, messages } = loadHelper({ styles: [listStyle] });
+
+    expandGroup(panel.panel, 'List item');
+    buttonByLabel(panel.panel, 'Expand editor for List marker').click();
+    const target = panel.panel.querySelector('form')!.querySelectorAll('select')
+      .find((select) => select.getAttribute('aria-label') === 'Target') as TestElement & { value: string };
+    changeControlValue(target, 'table');
+
+    const labels = panel.panel.querySelector('form')!.querySelectorAll('select')
+      .map((select) => select.getAttribute('aria-label'));
+    expect(labels).toContain('Accent edge');
+    expect(labels).toContain('Width');
+    expect(labels).not.toContain('Marker preset');
+    expect(labels).not.toContain('V-align');
+
+    const last = messages.at(-1) as { styles: Array<Record<string, unknown>> };
+    expect(last.styles[0]).toMatchObject({
+      className: 'dc-list-marker',
+      target: 'table',
+      color: '#111827',
+    });
+    expect(last.styles[0]).not.toHaveProperty('markerColor');
+  });
+
+  test('non-table-box editors keep padding but hide table-only controls', () => {
+    const { panel } = loadHelper();
+
+    expandGroup(panel.panel, 'Paragraph');
+    buttonByLabel(panel.panel, 'Expand default style editor for Paragraph').click();
+    const labels = panel.panel.querySelector('form')!
+      .querySelectorAll('select')
+      .map((s) => s.getAttribute('aria-label'));
+    expect(labels).toContain('Padding');
+    expect(labels).not.toContain('V-align');
+    expect(labels).not.toContain('Accent edge');
+    expect(labels).not.toContain('Accent width');
   });
 
   test('preset class names may not squat the reserved dc-default- namespace', () => {
@@ -1876,7 +2257,7 @@ describe('canvas-styles', () => {
 
     expect(messages.filter((m) => (m as { type: string }).type === 'saveStyles')).toHaveLength(0);
     const form = panel.panel.querySelector('form');
-    expect(form!.textContent).toContain('reserved for base styles');
+    expect(form!.textContent).toContain('reserved for default styles');
   });
 
   test('single selection shows an effective-styles inspector with model-based provenance', () => {
@@ -1892,21 +2273,14 @@ describe('canvas-styles', () => {
       'margin-top': '0px',
       'margin-bottom': '18px',
     };
-    const fakeElement = { id: 'e1' };
     const { panel } = loadHelper({
       // This fixture exercises the provenance mechanism with a title base that defines
       // letterSpacing; replace the real dc-default-title (which has no letterSpacing) so the
       // fixture is the effective base rather than being dropped as a duplicate class.
       styles: [...DEFAULT_AUTHOR_STYLES.filter((s) => s.className !== baseStyle.className), baseStyle],
-      windowExtras: {
-        getComputedStyle: (el: unknown) => {
-          expect(el).toBe(fakeElement);
-          return { getPropertyValue: (prop: string) => computedValues[prop] ?? '' };
-        },
-      },
-      installExtras: {
-        resolveElement: (id: string) => (id === 'e1' ? fakeElement : null),
-      },
+      // The bridge resolves the element and reads computed styles canvas-side;
+      // the view renders from its snapshot (line-height is absent -> 9 rows).
+      inspectorState: inspectorState({ computed: computedFromCss(computedValues) }),
     });
 
     const inspector = panel.panel.querySelector('.style-inspector');
@@ -1930,28 +2304,28 @@ describe('canvas-styles', () => {
   });
 
   test('style editor empty choices show the actual inherited value instead of a bare "Default"', () => {
-    const sampleParagraph = { tag: 'p' };
-    const computedValues: Record<string, string> = {
-      'font-size': '16px',
-      'font-weight': '400',
-      'color': 'rgb(37, 50, 58)',
-      'background-color': 'rgba(0, 0, 0, 0)',
-      'border-left-color': 'rgb(37, 50, 58)',
-      'text-transform': 'none',
-      'letter-spacing': 'normal',
-      'margin-top': '0px',
-      'margin-bottom': '12px',
-    };
+    // The bridge samples a paragraph canvas-side and pre-formats computed
+    // colors (rgb -> hex, transparent); the view reads the finished map.
     const { panel } = loadHelper({
       styles: [],
-      windowExtras: {
-        getComputedStyle: () => ({ getPropertyValue: (prop: string) => computedValues[prop] ?? '' }),
-      },
-      installExtras: { sampleElement: () => sampleParagraph },
+      inspectorState: inspectorState({
+        inherited: {
+          body: {
+            fontSize: '16px',
+            fontWeight: '400',
+            color: '#25323a',
+            backgroundColor: 'transparent',
+            borderColor: '#25323a',
+            textTransform: 'none',
+            spacingBefore: '0px',
+            spacingAfter: '12px',
+          },
+        },
+      }),
     });
 
     expandGroup(panel.panel, 'Paragraph');
-    buttonByLabel(panel.panel, 'Expand base style editor for Paragraph').click();
+    buttonByLabel(panel.panel, 'Expand default style editor for Paragraph').click();
 
     const form = panel.panel.querySelector('form');
     expect(form).toBeInstanceOf(TestElement);
@@ -1969,29 +2343,26 @@ describe('canvas-styles', () => {
   });
 
   test('empty choices fall back to "Default" when no value can be computed', () => {
-    const { panel } = loadHelper({ styles: [] }); // window has no getComputedStyle
+    const { panel } = loadHelper({ styles: [] }); // no bridge snapshot yet (getInspectorState -> null)
 
     expandGroup(panel.panel, 'Paragraph');
-    buttonByLabel(panel.panel, 'Expand base style editor for Paragraph').click();
+    buttonByLabel(panel.panel, 'Expand default style editor for Paragraph').click();
 
     const form = panel.panel.querySelector('form');
     const size = form!.querySelectorAll('select').find((s) => s.getAttribute('aria-label') === 'Size');
     expect(size!.querySelectorAll('option')[0].textContent).toBe('Default');
   });
 
-  test('a missing sample element degrades through the probe path without crashing', () => {
-    // The fake DOM cannot parse the probe markup (innerHTML is not a parser here),
-    // so mountProbe must bail out cleanly and the labels fall back to "Default".
+  test('a kind missing from the inherited snapshot degrades to plain "Default" labels', () => {
+    // The bridge could not compute anything for this kind (e.g. its probe
+    // failed); the map entry is absent and the labels fall back to "Default".
     const { panel } = loadHelper({
       styles: [],
-      windowExtras: {
-        getComputedStyle: () => ({ getPropertyValue: () => '99px' }),
-      },
-      installExtras: { sampleElement: () => null },
+      inspectorState: inspectorState({ inherited: { body: { fontSize: '16px' } } }),
     });
 
     expandGroup(panel.panel, 'Section heading');
-    buttonByLabel(panel.panel, 'Expand base style editor for Section heading').click();
+    buttonByLabel(panel.panel, 'Expand default style editor for Section heading').click();
 
     const form = panel.panel.querySelector('form');
     expect(form).toBeInstanceOf(TestElement);
@@ -1999,17 +2370,14 @@ describe('canvas-styles', () => {
     expect(size!.querySelectorAll('option')[0].textContent).toBe('Default');
   });
 
-  test('multi-selection and missing getComputedStyle render no inspector', () => {
+  test('multi-selection and a missing computed snapshot render no inspector', () => {
     const multi = loadHelper({
       currentTarget: { ids: ['e1', 'e2'], kind: 'selection', label: '2 elements', outputclass: '' },
-      windowExtras: {
-        getComputedStyle: () => ({ getPropertyValue: () => '12px' }),
-      },
-      installExtras: { resolveElement: () => ({}) },
+      inspectorState: inspectorState({ computed: computedFromCss({ 'font-size': '12px' }) }),
     });
     expect(multi.panel.panel.querySelector('.style-inspector')).toBeNull();
 
-    const noCompute = loadHelper();
+    const noCompute = loadHelper(); // getInspectorState -> null: computed is unavailable
     expect(noCompute.panel.panel.querySelector('.style-inspector')).toBeNull();
   });
 
@@ -2030,11 +2398,11 @@ describe('canvas-styles', () => {
     expect(target!.querySelectorAll('option').some((o) => (o as TestElement & { value: string }).value === 'page')).toBe(false);
   });
 
-  test('editing the Page base style shows exactly the 3 page fields and autosaves dc-default-page', () => {
+  test('editing the Page base style shows only generic page fields and autosaves dc-default-page', () => {
     const { panel, messages } = loadHelper({ styles: [] });
 
     expandGroup(panel.panel, 'Page');
-    buttonByLabel(panel.panel, 'Expand base style editor for Page').click();
+    buttonByLabel(panel.panel, 'Expand default style editor for Page').click();
 
     const form = panel.panel.querySelector('form');
     expect(form).toBeInstanceOf(TestElement);
@@ -2044,15 +2412,10 @@ describe('canvas-styles', () => {
       ...form!.querySelectorAll('input'),
     ].filter((control) => control.getAttribute('data-style-field'));
     const controlLabels = valueControls.map((control) => control.getAttribute('aria-label'));
-    // The Page group now also exposes the app-shell "site chrome" controls.
+    expect(controlLabels).toHaveLength(3);
     expect(controlLabels).toContain('Page fill CSS color value');
     expect(controlLabels).toContain('Content width');
     expect(controlLabels).toContain('Table shadow');
-    expect(controlLabels).toContain('Sidebar fill CSS color value');
-    expect(controlLabels).toContain('Link hover CSS color value');
-    // The masthead title is a free-text field, not a select.
-    const titleInput = form!.querySelectorAll('input').find((i) => i.getAttribute('data-style-field') === 'mastheadTitle');
-    expect(titleInput).toBeInstanceOf(TestElement);
 
     const width = form!.querySelectorAll('select').find((s) => s.getAttribute('aria-label') === 'Content width') as TestElement & { value: string };
     changeControlValue(width, '840px');
@@ -2072,7 +2435,7 @@ describe('canvas-styles', () => {
     const { panel, messages } = loadHelper({ styles: [] });
 
     expandGroup(panel.panel, 'Page');
-    buttonByLabel(panel.panel, 'Expand base style editor for Page').click();
+    buttonByLabel(panel.panel, 'Expand default style editor for Page').click();
     const form = panel.panel.querySelector('form');
     const shadow = form!.querySelectorAll('select')
       .find((s) => s.getAttribute('aria-label') === 'Table shadow') as TestElement & { value: string };
@@ -2085,33 +2448,15 @@ describe('canvas-styles', () => {
     });
   });
 
-  test('the inline width math honors --dc-page-content-width from the page style', () => {
-    const { doc, panel } = loadHelper({
-      windowExtras: {
-        getComputedStyle: () => ({
-          getPropertyValue: (prop: string) => (prop === '--dc-page-content-width' ? '840px' : ''),
-        }),
-      },
-    });
-
-    panel.showButton.click();
-
-    expect(doc.main.style.paddingRight).toBe('308px');
-    expect(doc.main.style.minWidth).toBe('1148px'); // 840px page width + 308px panel inset
-    expect(doc.main.style.maxWidth).toBe('1148px');
-  });
-
   test('managed provenance badges and the general source summary use neutral tooltips', () => {
     const baseStyle = { className: 'dc-default-title', name: 'Base topic title', target: 'title', isDefault: true, letterSpacing: '.02em' };
-    const fakeElement = { id: 'e1' };
+    const allTwelve = INSPECT_FIELD_DEFS.reduce<Record<string, string>>((acc, [, cssProp]) => {
+      acc[cssProp] = '12px';
+      return acc;
+    }, {});
     const { panel } = loadHelper({
       styles: [...DEFAULT_AUTHOR_STYLES, baseStyle],
-      windowExtras: {
-        getComputedStyle: () => ({ getPropertyValue: (prop: string) => (prop.startsWith('--') ? '' : '12px') }),
-      },
-      installExtras: {
-        resolveElement: (id: string) => (id === 'e1' ? fakeElement : null),
-      },
+      inspectorState: inspectorState({ computed: computedFromCss(allTwelve) }),
     });
 
     const summary = panel.panel.querySelector('.style-source-summary') as TestElement & { title?: string };
@@ -2123,25 +2468,20 @@ describe('canvas-styles', () => {
     expect(provs.every((el) => el.title === 'managed author stylesheet')).toBe(true);
   });
 
-  test('a configured stylesheet link never claims unrelated field-level provenance', () => {
-    const fakeElement = { id: 'e1' };
-    const computedValues: Record<string, string> = {
+  test('the configured-stylesheet flag flips the source summary without claiming field-level provenance', () => {
+    const computed = computedFromCss({
       'font-size': '34px',
       'text-transform': 'uppercase',
-    };
-    const { doc, panel } = loadHelper({
-      windowExtras: {
-        getComputedStyle: () => ({ getPropertyValue: (prop: string) => computedValues[prop] ?? '' }),
-      },
-      installExtras: {
-        resolveElement: (id: string) => (id === 'e1' ? fakeElement : null),
-      },
     });
-    const configured = doc.createElement('link');
-    configured.setAttribute('rel', 'stylesheet');
-    configured.setAttribute('href', 'configured-workspace.css');
-    configured.setAttribute('data-ditaeditor-style-origin', 'configured');
-    doc.body.appendChild(configured);
+    const { panel, setInspectorState } = loadHelper({
+      inspectorState: inspectorState({ computed, hasConfiguredStylesheet: false }),
+    });
+    expect(panel.panel.querySelector('.style-source-summary')?.textContent)
+      .toBe('DITA Editor surface stylesheet');
+
+    // The bridge detects the explicit link marker canvas-side and publishes the
+    // boolean; the view re-renders from the fresh snapshot.
+    setInspectorState(inspectorState({ computed, hasConfiguredStylesheet: true }));
     panel.refresh(true);
 
     expect(panel.panel.querySelector('.style-source-summary')?.textContent)
@@ -2156,67 +2496,5 @@ describe('canvas-styles', () => {
       .not.toContain('configured workspace stylesheet');
     expect(panel.panel.querySelectorAll('.style-inspect-prov').map((el) => el.textContent))
       .not.toContain('DITA Editor surface stylesheet');
-  });
-
-  test('configured source detection uses an explicit marker even when basenames collide', () => {
-    const fakeElement = { id: 'e1' };
-    const { doc, panel } = loadHelper({
-      windowExtras: {
-        getComputedStyle: () => ({ getPropertyValue: (prop: string) => (prop === 'font-size' ? '34px' : '') }),
-      },
-      installExtras: {
-        resolveElement: (id: string) => (id === 'e1' ? fakeElement : null),
-      },
-    });
-    const builtIn = doc.createElement('link');
-    builtIn.setAttribute('rel', 'stylesheet');
-    builtIn.setAttribute('href', 'content-theme.css');
-    doc.body.appendChild(builtIn);
-    panel.refresh(true);
-    expect(panel.panel.querySelector('.style-source-summary')?.textContent)
-      .toBe('DITA Editor surface stylesheet');
-
-    const configured = doc.createElement('link');
-    configured.setAttribute('rel', 'stylesheet');
-    configured.setAttribute('href', 'content-theme.css');
-    configured.setAttribute('data-ditaeditor-style-origin', 'configured');
-    doc.body.appendChild(configured);
-    panel.refresh(true);
-    expect(panel.panel.querySelector('.style-source-summary')?.textContent)
-      .toBe('configured workspace stylesheet');
-  });
-
-  test('updates live CSS even while focus stays inside the panel', () => {
-    const { doc, panel, setStyleState } = loadHelper();
-    const input = panel.panel.querySelector('input') ?? panel.panel.querySelector('button');
-    expect(input).toBeInstanceOf(TestElement);
-    input!.focus();
-
-    setStyleState({
-      styles: DEFAULT_AUTHOR_STYLES,
-      cssText: '.dc-live-refresh { color: red; }',
-      writable: true,
-      sourceHash: 'live-source-hash',
-      cssPath: '/workspace/css/ditaeditor-author-styles.css',
-    });
-    panel.refresh(false);
-
-    expect(doc.getElementById('ditaeditor-author-styles-live')?.textContent).toContain('.dc-live-refresh');
-  });
-
-  test('uses the pre-existing live slot and applies the embedded first paint without appending a style', () => {
-    const { doc, liveStyle, panel, setStyleState } = loadHelper();
-    expect(doc.body.querySelectorAll('style')).toEqual([liveStyle]);
-    expect(liveStyle.textContent).toContain('.dc-embedded-first-paint');
-
-    setStyleState({
-      styles: [],
-      cssText: '',
-      writable: false,
-      sourceHash: 'empty-source',
-      cssPath: '/workspace/css/ditaeditor-author-styles.css',
-    });
-    panel.refresh(false);
-    expect(liveStyle.textContent).toBe('');
   });
 });

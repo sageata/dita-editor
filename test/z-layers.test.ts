@@ -26,21 +26,28 @@ const ROOT = path.resolve(import.meta.dir, '..');
 // file (relative to repo root) -> every z-index value it declares, sorted
 const REGISTRY: Record<string, number[]> = {
   'media/canvas-chrome.js': [60, 61, 65, 100],
-  'media/canvas-command-bar-ui.js': [75],
+  // 75 = the bar itself; 80 = its overflow popover (dropdowns-inside-panels
+  // band, so it paints above the side panels at 74/76).
+  'media/canvas-command-bar-ui.js': [75, 80],
   'media/canvas-context-toolbar.js': [50],
   'media/canvas-find-replace.js': [105],
   'media/canvas-image-bar.js': [48, 50],
   'media/canvas-insert-menu.js': [55],
   'media/canvas-menu.js': [55, 56],
   'media/canvas-move-block.js': [46, 47],
-  'media/canvas-properties.js': [74, 74, 76],
   'media/canvas-selection-controller.js': [70],
   'media/canvas-shortcut-help.js': [110, 111],
   'media/canvas-slash-menu.js': [120],
-  'media/canvas-styles.js': [74, 74, 76],
   'media/canvas-table-insert-plus.js': [49],
   'media/canvas-table-resize.js': [48],
-  'media/editor.css': [80],
+  // Command-bar tooltip: above the bar (75) and its popover (80), below find/replace.
+  'media/canvas-tooltips.js': [85],
+  // Separate Properties view webview: the taxonomy combo dropdown over its rows.
+  'media/properties-view.css': [80],
+  // Separate Styles view webview: the hover preview popup over its rows.
+  'media/styles-view.css': [80],
+  // Separate Topic Search webview view: sticky search header above list rows.
+  'media/topic-search.css': [2],
   // Separate Review Changes webview: row-local actions (2) remain below sticky
   // per-file headers (8) and the commit/mode banner (10).
   'media/redline.css': [2, 8, 10],

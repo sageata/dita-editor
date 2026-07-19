@@ -1,0 +1,104 @@
+/* Native Styles view (Secondary Side Bar). Theming follows the workbench via
+ * --vscode-* variables only — no hardcoded palette (topic-search.css
+ * discipline). Engine-specific hover/focus rules migrate here from editor.css
+ * as the panel engine is ported. */
+
+body.ditaeditor-styles-view {
+  margin: 0;
+  padding: 0;
+  color: var(--vscode-foreground);
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size, 13px);
+}
+
+body.ditaeditor-styles-view .inspector-empty {
+  padding: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+body.ditaeditor-styles-view .inspector-status {
+  padding: 0 12px 8px;
+  color: var(--vscode-errorForeground);
+  font-size: 11px;
+}
+
+body.ditaeditor-styles-view #inspector-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 0;
+}
+
+/* Engine chrome migrated from editor.css when the panel left the canvas. */
+body.ditaeditor-styles-view .style-panel {
+  scrollbar-width: thin;
+}
+body.ditaeditor-styles-view .style-panel .style-field {
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+body.ditaeditor-styles-view .style-panel .style-field:hover {
+  border-color: var(--vscode-input-border, rgba(128, 128, 128, 0.4));
+}
+body.ditaeditor-styles-view .style-panel .style-field:focus,
+body.ditaeditor-styles-view .style-panel .style-field:focus-visible {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+}
+body.ditaeditor-styles-view .style-panel button {
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+/* Whole-row hover, matching the workbench list rows. */
+body.ditaeditor-styles-view .style-panel .style-row:hover,
+body.ditaeditor-styles-view .style-panel .style-base-row:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+/* Button hovers follow VS Code's button and toolbar tokens per kind. */
+body.ditaeditor-styles-view .style-panel .style-icon-btn:hover:not(:disabled) {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+body.ditaeditor-styles-view .style-panel .style-btn-primary:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground);
+}
+body.ditaeditor-styles-view .style-panel .style-btn-secondary:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+body.ditaeditor-styles-view .style-panel button:disabled:not(.style-apply),
+body.ditaeditor-styles-view .style-panel button[aria-disabled="true"]:not(.style-apply) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Native focus treatment: a 1px inset focus border, no fills or shadows. */
+body.ditaeditor-styles-view .style-panel button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+body.ditaeditor-styles-view .style-color-control input:focus-visible,
+body.ditaeditor-styles-view .style-color-control select:focus-visible,
+body.ditaeditor-styles-view .style-color-control button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+/* Hover preview popup: a floating editor-widget window (body-mounted, outside
+ * the rebuilt panel) whose inner sample document renders in a Shadow DOM on a
+ * fixed light paper backdrop. The right inset leaves the rows' eye/caret
+ * column uncovered so the pointer can travel down the eyes while previews
+ * retarget; vertical placement is set inline by styles-preview-popup.js. */
+body.ditaeditor-styles-view .style-preview-popup {
+  position: fixed;
+  left: 8px;
+  right: 56px;
+  z-index: 80;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+  border-radius: 3px;
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.16));
+  box-sizing: border-box;
+  padding: 6px;
+  overflow: hidden;
+}

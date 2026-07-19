@@ -60,11 +60,13 @@
       scheduleReport();
     }
 
-    function restore(id) {
+    function restore(id, block) {
       const candidates = elements();
       for (let index = 0; index < candidates.length; index++) {
         if (elementId(candidates[index]) !== id) continue;
-        candidates[index].scrollIntoView({ block: 'start' });
+        // 'start' preserves viewport-top semantics for the editor toggle;
+        // 'center' keeps search landings clear of the fixed command bar.
+        candidates[index].scrollIntoView({ block: block === 'center' ? 'center' : 'start' });
         return true;
       }
       return false;

@@ -26,23 +26,16 @@ export type AuthorStyleTarget =
  * is emitted inside :where() so it adds no specificity (a user preset on the
  * same element always wins by source order).
  */
-export type AuthorStyleVariant =
-  | 'zebraEven'
-  | 'singleCol'
-  | 'emptyCaption';
+export type AuthorStyleVariant = 'zebraEven';
 
 /**
- * Which (target, variant) pairs are legal. Deliberately NARROW: NOTHING colours a
- * cell by span or row position automatically. singleCol/emptyCaption are functional
- * always-on layout (base). zebraEven is an OPT-IN table stripe the user APPLIES to a
- * whole table (a preset), never an automatic per-row default.
+ * Which (target, variant) pairs are legal. Zebra striping is an opt-in table
+ * preset; editor-only table geometry is maintained in content-theme.css.
  */
 const STRUCTURAL_VARIANTS: Partial<Record<AuthorStyleTarget, AuthorStyleVariant[]>> = {
-  table: ['singleCol', 'emptyCaption', 'zebraEven'],
+  table: ['zebraEven'],
 };
 
-// zebraEven rides an APPLIED preset (user opts a table in); singleCol/emptyCaption
-// are always-on base defaults. This split decides the isDefault gate in normalize.
 const PRESET_VARIANTS = new Set<AuthorStyleVariant>(['zebraEven']);
 
 const VARIANT_SET = new Set<AuthorStyleVariant>(
@@ -66,21 +59,6 @@ export interface AuthorStyleDefinition {
   contentWidth?: string;
   /** Page-only: box-shadow under document tables ('none' or a shadow value). */
   tableShadow?: string;
-  /** Page-only app-shell "site chrome" — emitted as :root --dc-chrome-* custom properties a
-   *  configured workspace stylesheet may read. Unset values leave that stylesheet untouched. */
-  mastheadTitle?: string;
-  mastheadBg?: string;
-  mastheadText?: string;
-  mastheadAccent?: string;
-  sidebarWidth?: string;
-  sidebarBg?: string;
-  sidebarLink?: string;
-  sidebarHover?: string;
-  sidebarActive?: string;
-  sidebarAccent?: string;
-  sidebarCaption?: string;
-  linkColor?: string;
-  linkHover?: string;
   fontWeight?: string;
   color?: string;
   backgroundColor?: string;
@@ -91,7 +69,11 @@ export interface AuthorStyleDefinition {
   lineHeight?: string;
   /** Corner radius (e.g. '4px'); when set on a background style it overrides the default 4px. */
   borderRadius?: string;
-  /** Table/singleCol width (e.g. '100%'). */
+  /** Table-only: which edge the accent (borderColor) draws on — 'top' | 'bottom' | 'left' | 'right' | 'full'. Unset keeps the classic top 3px / bottom 1px rule pair. */
+  borderEdge?: string;
+  /** Table-only: accent border thickness (e.g. '4px'). */
+  borderWidth?: string;
+  /** Table width (e.g. '100%'). */
   width?: string;
   /** Horizontal overflow (e.g. 'auto'). */
   overflowX?: string;
@@ -109,11 +91,16 @@ export interface AuthorStyleDefinition {
 
 export interface AuthorStyleState {
   styles: AuthorStyleDefinition[];
+  /** Canonical generated declarations for previews and the temporary live layer. */
   cssText: string;
+  status: 'missing' | 'ready' | 'migration-required' | 'refused';
   writable: boolean;
   sourceHash: string;
   targetToken: string;
+  /** Workspace-relative repository path shown in the Styles view. */
   cssPath?: string;
+  /** Cache-busted webview URI for the complete repository-owned stylesheet. */
+  stylesheetHref?: string;
   error?: string;
 }
 
@@ -140,299 +127,6 @@ export const AUTHOR_STYLE_TARGET_LABELS: Record<AuthorStyleTarget, string> = {
   code: 'Code',
   lines: 'Lines',
 };
-
-export const DEFAULT_AUTHOR_STYLES: AuthorStyleDefinition[] = [
-  // Base (isDefault) styles serialize first. These are the UNIFORM, non-surprising
-  // defaults: every header cell uses the strong accent, every body cell has the same border/line-height.
-  // Header/body COLOUR is never keyed off span or row position — a user applies the
-  // Accent-header / Row-group presets (below) to specific cells instead. Cell padding /
-  // text-align / vertical-align mirror the neutral theme's cell rules.
-  {
-    className: 'dc-default-tableHeadCell',
-    name: 'Header cell',
-    target: 'tableHeadCell',
-    isDefault: true,
-    backgroundColor: 'var(--dc-color-accent-strong, #1d4ed8)',
-    color: 'var(--dc-color-surface, #ffffff)',
-    fontWeight: '500',
-    letterSpacing: '0.02em',
-    padding: '12px 14px',
-    textAlign: 'left',
-    verticalAlign: 'middle',
-    borderColor: 'var(--dc-color-accent-strong, #1d4ed8)',
-  },
-  {
-    className: 'dc-default-tableBodyCell',
-    name: 'Body cell',
-    target: 'tableBodyCell',
-    isDefault: true,
-    color: 'var(--dc-color-text, #1f2937)',
-    lineHeight: '1.45',
-    padding: '10px 14px',
-    verticalAlign: 'top',
-    borderColor: 'var(--dc-color-border, #d1d5db)',
-  },
-  {
-    // The table "card": full 1px border, rounded + clipped corners, white fill, smaller
-    // body font, bottom spacing. Reproduces the theme's `table.table` rule so it lives in
-    // the panel. Box-shadow is intentionally not set here; the page style may override it.
-    className: 'dc-default-table',
-    name: 'Table',
-    target: 'table',
-    isDefault: true,
-    backgroundColor: 'var(--dc-color-surface, #ffffff)',
-    borderColor: 'var(--dc-color-border, #d1d5db)',
-    borderRadius: 'var(--dc-radius-md, 8px)',
-    width: '100%',
-    fontSize: '14px',
-    spacingAfter: '32px',
-  },
-  {
-    className: 'dc-default-table-singleCol',
-    name: 'Single-column table',
-    target: 'table',
-    isDefault: true,
-    structuralVariant: 'singleCol',
-    width: '100%',
-  },
-  {
-    className: 'dc-default-table-emptyCaption',
-    name: 'Empty caption',
-    target: 'table',
-    isDefault: true,
-    structuralVariant: 'emptyCaption',
-  },
-  {
-    // Topic title (h1). The accent bar + left padding come from the existing title
-    // chrome emission; this base adds the colour/weight/line-height/margins the theme's
-    // h1 rule used to supply, so deleting the theme is lossless.
-    className: 'dc-default-title',
-    name: 'Base topic title',
-    target: 'title',
-    isDefault: true,
-    fontSize: '32px',
-    fontWeight: '700',
-    color: 'var(--dc-color-text, #1f2937)',
-    lineHeight: '1.15',
-    spacingBefore: '0',
-    spacingAfter: '28px',
-    borderColor: 'var(--dc-color-accent, #2563eb)',
-  },
-  {
-    // Section heading (h2/h3). The editor renders every title as h1 and the corpus has no
-    // populated sections, so this never renders today — it's a forward default mirroring the
-    // theme's h2 rule.
-    className: 'dc-default-heading',
-    name: 'Base section heading',
-    target: 'heading',
-    isDefault: true,
-    fontSize: '24px',
-    fontWeight: '600',
-    color: 'var(--dc-color-text, #1f2937)',
-    lineHeight: '1.25',
-    spacingBefore: '32px',
-    spacingAfter: '12px',
-    borderColor: 'var(--dc-color-accent, #2563eb)',
-  },
-  {
-    // Paragraph spacing. Text colour + size come from the document body rule (app-shell),
-    // so this base owns only the paragraph margins (top 0, bottom 16px).
-    className: 'dc-default-body',
-    name: 'Base paragraph',
-    target: 'body',
-    isDefault: true,
-    fontSize: '16px',
-    spacingBefore: '0',
-    spacingAfter: '16px',
-  },
-  {
-    // List container: theme indent (26px) + bottom spacing (18px).
-    className: 'dc-default-list',
-    name: 'Base list',
-    target: 'list',
-    isDefault: true,
-    spacingBefore: '0',
-    spacingAfter: '18px',
-    padding: '0 0 0 26px',
-  },
-  {
-    // List item: theme top spacing between items. Marker colour stays a theme rule
-    // so ordered-list numbers are left unaffected (same result).
-    className: 'dc-default-listItem',
-    name: 'Base list item',
-    target: 'listItem',
-    isDefault: true,
-    letterSpacing: '0',
-    spacingBefore: '6px',
-    spacingAfter: '0',
-  },
-  // Applyable presets (isDefault:false): the user selects a cell/table and applies
-  // these, replacing the old span/position-driven auto rules. Striped rows is a
-  // TABLE-level opt-in — applied to a whole table, it stripes its even body rows.
-  {
-    className: 'dc-table-striped',
-    name: 'Striped rows',
-    target: 'table',
-    structuralVariant: 'zebraEven',
-    backgroundColor: 'var(--dc-color-surface-muted, #f3f4f6)',
-  },
-  {
-    className: 'dc-header-gold',
-    name: 'Accent header',
-    target: 'tableHeadCell',
-    backgroundColor: 'var(--dc-color-accent, #2563eb)',
-    borderColor: 'var(--dc-color-accent-strong, #1d4ed8)',
-  },
-  {
-    className: 'dc-row-group',
-    name: 'Row-group cell',
-    target: 'tableBodyCell',
-    backgroundColor: 'var(--dc-color-surface-muted, #f3f4f6)',
-    fontWeight: '500',
-    color: 'var(--dc-color-text, #1f2937)',
-    borderColor: 'var(--dc-color-accent, #2563eb)',
-  },
-  {
-    className: 'dc-all-muted',
-    name: 'Muted element',
-    target: 'all',
-    fontWeight: '500',
-    color: 'var(--dc-color-text-muted, #4b5563)',
-  },
-  {
-    className: 'dc-title-display',
-    name: 'Display title',
-    target: 'title',
-    fontSize: '34px',
-    fontWeight: '700',
-    color: 'var(--dc-color-text, #1f2937)',
-    spacingBefore: '0',
-    spacingAfter: '18px',
-  },
-  {
-    className: 'dc-heading-gold',
-    name: 'Accent heading',
-    target: 'heading',
-    fontSize: '24px',
-    fontWeight: '700',
-    color: 'var(--dc-color-text, #1f2937)',
-    borderColor: 'var(--dc-color-accent, #2563eb)',
-    spacingBefore: '28px',
-    spacingAfter: '12px',
-  },
-  {
-    className: 'dc-heading-compact',
-    name: 'Compact heading',
-    target: 'heading',
-    fontSize: '18px',
-    fontWeight: '600',
-    color: 'var(--dc-color-text, #1f2937)',
-    spacingBefore: '18px',
-    spacingAfter: '8px',
-  },
-  {
-    className: 'dc-body-lead',
-    name: 'Lead paragraph',
-    target: 'body',
-    fontSize: '16px',
-    fontWeight: '500',
-    color: 'var(--dc-color-text, #1f2937)',
-    spacingBefore: '8px',
-    spacingAfter: '16px',
-  },
-  {
-    className: 'dc-shortdesc-callout',
-    name: 'Short description callout',
-    target: 'shortdesc',
-    fontWeight: '600',
-    color: 'var(--dc-color-text, #1f2937)',
-    backgroundColor: 'var(--dc-color-surface-muted, #f3f4f6)',
-    spacingBefore: '10px',
-    spacingAfter: '16px',
-  },
-  {
-    className: 'dc-section-banded',
-    name: 'Banded section',
-    target: 'section',
-    borderColor: 'var(--dc-color-accent, #2563eb)',
-    spacingBefore: '24px',
-    spacingAfter: '22px',
-  },
-  {
-    className: 'dc-list-spacious',
-    name: 'Spacious list',
-    target: 'list',
-    spacingBefore: '14px',
-    spacingAfter: '18px',
-  },
-  {
-    className: 'dc-list-item-accent',
-    name: 'Accent list item',
-    target: 'listItem',
-    fontWeight: '600',
-    color: 'var(--dc-color-text, #1f2937)',
-    backgroundColor: 'var(--dc-color-surface-muted, #f3f4f6)',
-  },
-  {
-    className: 'dc-table-ruled',
-    name: 'Ruled table',
-    target: 'table',
-    borderColor: 'var(--dc-color-accent, #2563eb)',
-    spacingBefore: '18px',
-    spacingAfter: '20px',
-  },
-  {
-    className: 'dc-row-highlight',
-    name: 'Highlighted table row',
-    target: 'tableRow',
-    backgroundColor: 'var(--dc-color-surface-muted, #f3f4f6)',
-  },
-  {
-    className: 'dc-cell-shaded',
-    name: 'Shaded table cell',
-    target: 'tableCell',
-    backgroundColor: 'var(--dc-color-surface-muted, #f3f4f6)',
-    color: 'var(--dc-color-text, #1f2937)',
-  },
-  {
-    className: 'dc-figure-framed',
-    name: 'Framed figure',
-    target: 'figure',
-    borderColor: 'var(--dc-color-accent, #2563eb)',
-    spacingBefore: '18px',
-    spacingAfter: '18px',
-  },
-  {
-    className: 'dc-image-framed',
-    name: 'Framed image',
-    target: 'image',
-    borderColor: 'var(--dc-color-accent, #2563eb)',
-  },
-  {
-    className: 'dc-note-panel',
-    name: 'Note panel',
-    target: 'note',
-    backgroundColor: 'var(--dc-color-surface-muted, #f3f4f6)',
-    borderColor: 'var(--dc-color-accent, #2563eb)',
-    spacingBefore: '14px',
-    spacingAfter: '16px',
-  },
-  {
-    className: 'dc-code-soft',
-    name: 'Soft code block',
-    target: 'code',
-    backgroundColor: 'var(--dc-color-surface-muted, #f3f4f6)',
-    color: 'var(--dc-color-text, #1f2937)',
-  },
-  {
-    className: 'dc-lines-compact',
-    name: 'Compact lines',
-    target: 'lines',
-    fontSize: '13px',
-    spacingBefore: '8px',
-    spacingAfter: '10px',
-  },
-];
 
 const CLASS_NAME = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 const TARGETS = new Set<AuthorStyleTarget>(Object.keys(AUTHOR_STYLE_TARGET_LABELS) as AuthorStyleTarget[]);
@@ -461,6 +155,8 @@ const VALUE_FIELDS = [
   'color',
   'backgroundColor',
   'borderColor',
+  'borderEdge',
+  'borderWidth',
   'textTransform',
   'letterSpacing',
   'lineHeight',
@@ -475,38 +171,7 @@ const VALUE_FIELDS = [
   'spacingAfter',
   'contentWidth',
   'tableShadow',
-  'mastheadTitle',
-  'mastheadBg',
-  'mastheadText',
-  'mastheadAccent',
-  'sidebarWidth',
-  'sidebarBg',
-  'sidebarLink',
-  'sidebarHover',
-  'sidebarActive',
-  'sidebarAccent',
-  'sidebarCaption',
-  'linkColor',
-  'linkHover',
 ] as const;
-
-/** Page "site chrome" fields → the CSS custom property the shell reads. The boolean marks a
- *  string-valued slot (the masthead title) that must serialize as a quoted CSS string. */
-const SITE_CHROME_FIELDS: Array<[keyof AuthorStyleDefinition, string, boolean]> = [
-  ['mastheadTitle', '--dc-chrome-masthead-title', true],
-  ['mastheadBg', '--dc-chrome-masthead-bg', false],
-  ['mastheadText', '--dc-chrome-masthead-text', false],
-  ['mastheadAccent', '--dc-chrome-masthead-accent', false],
-  ['sidebarWidth', '--dc-chrome-sidebar-width', false],
-  ['sidebarBg', '--dc-chrome-sidebar-bg', false],
-  ['sidebarLink', '--dc-chrome-sidebar-link', false],
-  ['sidebarHover', '--dc-chrome-sidebar-hover', false],
-  ['sidebarActive', '--dc-chrome-sidebar-active', false],
-  ['sidebarAccent', '--dc-chrome-sidebar-accent', false],
-  ['sidebarCaption', '--dc-chrome-sidebar-caption', false],
-  ['linkColor', '--dc-chrome-link', false],
-  ['linkHover', '--dc-chrome-link-hover', false],
-];
 
 export function isAuthorStyleClassName(value: string): boolean {
   return CLASS_NAME.test(value);
@@ -554,6 +219,8 @@ export function authorStyleValidationError(style: AuthorStyleDefinition): string
   return null;
 }
 
+const BORDER_EDGES = new Set(['top', 'bottom', 'left', 'right', 'full']);
+
 export function normalizeAuthorStyle(input: unknown, fallbackIndex = 0): AuthorStyleDefinition | null {
   if (!input || typeof input !== 'object') return null;
   const raw = input as Partial<Record<keyof AuthorStyleDefinition, unknown>>;
@@ -564,9 +231,7 @@ export function normalizeAuthorStyle(input: unknown, fallbackIndex = 0): AuthorS
   // Base styles are per structural kind only; an 'all' default would fan classless rules everywhere.
   // The page target is base-style-only: presets/outputclass application are meaningless for the page.
   const isDefault = target === 'page' || (raw.isDefault === true && target !== 'all');
-  // Structural variants pin a rule to a DOM-shape predicate. Base variants
-  // (singleCol/emptyCaption) are always-on and valid only on a base style; the
-  // zebraEven preset variant is applied and valid only on a non-default table style.
+  // Structural variants are opt-in predicates carried by applied presets.
   const rawVariant = typeof raw.structuralVariant === 'string'
     ? raw.structuralVariant as AuthorStyleVariant
     : undefined;
@@ -585,7 +250,7 @@ export function normalizeAuthorStyle(input: unknown, fallbackIndex = 0): AuthorS
   }
   const style: AuthorStyleDefinition = {
     className,
-    name: name || (isDefault ? `Base ${AUTHOR_STYLE_TARGET_LABELS[target].toLowerCase()}` : `Style ${fallbackIndex + 1}`),
+    name: name || (isDefault ? 'Default' : `Style ${fallbackIndex + 1}`),
     target,
   };
   if (isDefault) style.isDefault = true;
@@ -595,6 +260,14 @@ export function normalizeAuthorStyle(input: unknown, fallbackIndex = 0): AuthorS
     if (typeof value !== 'string') continue;
     const trimmed = value.trim();
     if (trimmed) style[field] = trimmed;
+  }
+  // borderEdge names a CSS property suffix and borderWidth a length; both are
+  // table-only knobs — anything else is dropped rather than emitted.
+  if (style.borderEdge && !(style.target === 'table' && BORDER_EDGES.has(style.borderEdge))) {
+    delete style.borderEdge;
+  }
+  if (style.borderWidth && !(style.target === 'table' && /^\d{1,2}px$/.test(style.borderWidth))) {
+    delete style.borderWidth;
   }
   return authorStyleValidationError(style) ? null : style;
 }
@@ -639,13 +312,9 @@ export function hasStyleValues(style: AuthorStyleDefinition): boolean {
 
 export function serializeAuthorStyles(styles: AuthorStyleDefinition[]): string {
   // Defaults serialize first (and drop when empty) so equal-specificity preset
-  // rules later in the file win the cascade by source order. Fixed-declaration
-  // structural variants (display:none / width:100%) carry no VALUE_FIELDS but
-  // must still emit, so they're exempt from the empty-drop.
-  const hasFixedDecls = (style: AuthorStyleDefinition): boolean =>
-    style.structuralVariant === 'emptyCaption' || style.structuralVariant === 'singleCol';
+  // rules later in the file win the cascade by source order.
   const kept = normalizeAuthorStyles(styles)
-    .filter((style) => !style.isDefault || hasStyleValues(style) || hasFixedDecls(style));
+    .filter((style) => !style.isDefault || hasStyleValues(style));
   const normalized = [
     ...kept.filter((style) => style.isDefault),
     ...kept.filter((style) => !style.isDefault),
@@ -662,19 +331,6 @@ export function serializeAuthorStyles(styles: AuthorStyleDefinition[]): string {
 
 export function managedAuthorClassNames(styles: AuthorStyleDefinition[]): string[] {
   return normalizeAuthorStyles(styles).map((style) => style.className);
-}
-
-/**
- * Seed-forward: base (isDefault) styles shipped in DEFAULT_AUTHOR_STYLES that a
- * pre-existing on-disk file predates would otherwise be shadowed (the file wins on
- * read). Base styles are reserved-namespace and cannot be deleted from the panel, so
- * re-adding absent ones never resurrects user-deleted content. Preset (non-default)
- * styles are never seeded — a user may legitimately have deleted them.
- */
-export function mergeMissingDefaultStyles(parsed: AuthorStyleDefinition[]): AuthorStyleDefinition[] {
-  const present = new Set(parsed.map((style) => style.className));
-  const missing = DEFAULT_AUTHOR_STYLES.filter((style) => style.isDefault && !present.has(style.className));
-  return missing.length ? parsed.concat(missing) : parsed;
 }
 
 // F2 cell/row shading: dynamic managed classes keyed by color. Cells and rows get
@@ -759,17 +415,6 @@ function serializeStyleBlock(style: AuthorStyleDefinition): string[] {
  * author-styles <style> is last in <head>, so a user-chosen shadow wins in the
  * editor, and the doubled-class variant out-specifies the theme when published.
  */
-/**
- * A CSS string literal for a user-authored value (the masthead title). Escapes backslash,
- * quotes, control/newline chars, and angle brackets as CSS hex escapes (`\XX `) so the value
- * cannot terminate the string, the declaration, or a containing inline <style>. `<`/`>`/`{`/`}`/`;`/`* /`
- * are already rejected upstream by authorStyleValidationError; this is defense-in-depth against
- * the remaining backslash/newline escape vector.
- */
-function cssStringLiteral(raw: string): string {
-  return `"${raw.replace(/[\\"\u0000-\u001f<>]/g, (c) => `\\${c.charCodeAt(0).toString(16)} `)}"`;
-}
-
 function serializePageStyleBlock(style: AuthorStyleDefinition): string[] {
   const out: string[] = [`/* DITAEDITOR_AUTHOR_STYLE ${metadataJson(style)} */`];
   if (style.backgroundColor) {
@@ -800,18 +445,6 @@ function serializePageStyleBlock(style: AuthorStyleDefinition): string[] {
       '}',
     );
   }
-  // App-shell "site chrome": emit the set slots as :root custom properties. The shell reads them
-  // via var(--dc-chrome-*, <fallback>); an unset slot emits nothing, so the fallback stands.
-  const chromeVars = SITE_CHROME_FIELDS
-    .filter(([field]) => style[field])
-    .map(([field, cssVar, quote]) => {
-      const raw = String(style[field]);
-      const value = quote ? cssStringLiteral(raw) : raw;
-      return `  ${cssVar}: ${value};`;
-    });
-  if (chromeVars.length) {
-    out.push(':root {', ...chromeVars, '}');
-  }
   out.push('');
   return out;
 }
@@ -826,7 +459,7 @@ function selectorForStyle(style: AuthorStyleDefinition): string {
       `table.table.${cls} tbody.tbody tr.row:nth-child(even) td.entry`,
     ];
   } else if (style.isDefault && style.target !== 'all' && style.target !== 'page') {
-    selectors = defaultSelectorsForTarget(style.target, style.structuralVariant);
+    selectors = defaultSelectorsForTarget(style.target);
   } else {
     selectors = [...selectorsForTarget(style.target, cls), `.${cls}`];
   }
@@ -851,25 +484,7 @@ const DEFAULT_CLASS_MARKER = 'dc__default__marker';
  */
 export function defaultSelectorsForTarget(
   target: Exclude<AuthorStyleTarget, 'all' | 'page'>,
-  variant?: AuthorStyleVariant,
 ): string[] {
-  // Table-level structural variants target colgroup/caption, not the table's own
-  // class, so they don't derive from the doubling pass — emit them bespoke. The
-  // predicate is wrapped in :where() so it adds no specificity; ours wins over the
-  // (now-migrated) theme rule purely by source order, and the editor-scoped twin
-  // out-specifies anything else.
-  if (variant === 'singleCol') {
-    return [
-      'body.ditaeditor-canvas table.table colgroup col:where(:only-child)',
-      'table.table colgroup col:where(:only-child)',
-    ];
-  }
-  if (variant === 'emptyCaption') {
-    return [
-      'body.ditaeditor-canvas table.table caption:where(:empty)',
-      'table.table caption:where(:empty)',
-    ];
-  }
   const plain: string[] = [];
   for (const selector of selectorsForTarget(target, DEFAULT_CLASS_MARKER)) {
     if (!selector.endsWith(`.${DEFAULT_CLASS_MARKER}`)) continue;
@@ -887,8 +502,6 @@ export function defaultSelectorsForTarget(
     if (doubled === '.title.title') continue;
     plain.push(doubled);
   }
-  // Base variants (singleCol/emptyCaption) are handled bespoke above; no base
-  // predicate variants remain, so the doubled plain selectors are the result.
   return plain;
 }
 
@@ -1068,14 +681,6 @@ function selectorsForTarget(target: AuthorStyleTarget, cls: string): string[] {
 }
 
 function styleDeclarations(style: AuthorStyleDefinition): string[] {
-  // Fixed-declaration table variants: they target caption/colgroup, not a cell,
-  // so they bypass the cell/border logic entirely.
-  if (style.structuralVariant === 'emptyCaption') return ['display: none;'];
-  if (style.structuralVariant === 'singleCol') {
-    const cols: string[] = [`width: ${style.width || '100%'};`];
-    add(cols, 'overflow-x', style.overflowX);
-    return cols;
-  }
   if (style.structuralVariant === 'zebraEven') {
     return [`background-color: ${style.backgroundColor || 'var(--dc-color-surface-muted, #f3f4f6)'};`];
   }
@@ -1093,6 +698,14 @@ function styleDeclarations(style: AuthorStyleDefinition): string[] {
   if (style.target === 'table') {
     add(out, 'width', style.width);
     add(out, 'overflow-x', style.overflowX);
+    // Every authored table style opts the table out of border-collapse:
+    // Chrome paints a COLLAPSED table's own borders in the cell-grid layer,
+    // which the theme's rounded overflow:hidden card clips — accent borders
+    // compute but never render (proven in a live repro). The separate model
+    // paints borders normally, follows the card radius, and makes table
+    // padding meaningful.
+    out.push('border-collapse: separate;');
+    out.push('border-spacing: 0;');
   }
   add(out, 'margin-top', style.spacingBefore);
   add(out, 'margin-bottom', style.spacingAfter);
@@ -1106,14 +719,18 @@ function styleDeclarations(style: AuthorStyleDefinition): string[] {
     const important = headingChrome ? ' !important' : '';
     if (style.target === 'table') {
       // A base table draws the theme's full card border (all four sides); a preset
-      // keeps the lighter top/bottom rule accent so existing table presets are unchanged.
-      if (style.isDefault) {
-        out.push(`border: 1px solid ${style.borderColor};`);
+      // keeps the lighter top/bottom rule accent so existing table presets are
+      // unchanged. borderEdge/borderWidth (normalized table-only knobs) redirect
+      // the accent to one edge or all sides at a chosen thickness.
+      const accentWidth = style.borderWidth || '';
+      if (style.isDefault || style.borderEdge === 'full') {
+        out.push(`border: ${accentWidth || '1px'} solid ${style.borderColor};`);
+      } else if (style.borderEdge && BORDER_EDGES.has(style.borderEdge)) {
+        out.push(`border-${style.borderEdge}: ${accentWidth || '3px'} solid ${style.borderColor};`);
       } else {
-        out.push(`border-top: 3px solid ${style.borderColor};`);
+        out.push(`border-top: ${accentWidth || '3px'} solid ${style.borderColor};`);
         out.push(`border-bottom: 1px solid ${style.borderColor};`);
       }
-      out.push('border-collapse: collapse;');
     } else if (style.target === 'tableHeadCell') {
       out.push(`border: 1px solid ${style.borderColor};`);
     } else if (style.target === 'tableBodyCell') {

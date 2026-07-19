@@ -1,11 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  DEFAULT_AUTHOR_STYLES,
   defaultStyleClassName,
   defaultSelectorsForTarget,
   isDefaultStyleClassName,
   managedAuthorClassNames,
-  mergeMissingDefaultStyles,
   normalizeAuthorStyles,
   parseAuthorStyles,
   replaceManagedOutputClass,
@@ -16,6 +14,7 @@ import {
   type AuthorStyleDefinition,
   type AuthorStyleTarget,
 } from '../src/styles/author-styles';
+import { DEFAULT_AUTHOR_STYLES } from './fixtures/default-author-styles';
 
 function cssBlockFor(css: string, className: string): string {
   const match = css.match(new RegExp(`\\/\\* DITAEDITOR_AUTHOR_STYLE [^*]*"${className}"[\\s\\S]*?\\{\\n([\\s\\S]*?)\\n\\}`));
@@ -100,7 +99,12 @@ describe('author style registry', () => {
     const block = cssBlockFor(css, 'dc-default-table');
 
     expect(block).toContain('border: 1px solid var(--dc-color-border, #d1d5db);');
-    expect(block).toContain('border-collapse: collapse;');
+    // Separate, never collapse: Chrome clips a collapsed table's own borders
+    // under the theme's rounded overflow:hidden card (they compute but never
+    // paint), so authored table borders must use the separate model.
+    expect(block).toContain('border-collapse: separate;');
+    expect(block).toContain('border-spacing: 0;');
+    expect(block).not.toContain('border-collapse: collapse;');
     expect(block).toContain('border-radius: var(--dc-radius-md, 8px);');
     expect(block).toContain('overflow: hidden;');
     expect(block).toContain('background-color: var(--dc-color-surface, #ffffff);');
@@ -236,7 +240,7 @@ describe('kind-scoped default (base) styles', () => {
     const parsed = parseAuthorStyles(css);
 
     expect(parsed).toEqual([
-      { className: 'dc-default-body', name: 'Base paragraph', target: 'body', isDefault: true, color: '#123456' },
+      { className: 'dc-default-body', name: 'Default', target: 'body', isDefault: true, color: '#123456' },
     ]);
     expect(defaultStyleClassName('body')).toBe('dc-default-body');
     expect(isDefaultStyleClassName('dc-default-listItem')).toBe(true);
@@ -345,21 +349,6 @@ describe('structural variant base styles', () => {
     ]);
   });
 
-  test('table-level variants target colgroup/caption and are never dropped as empty', () => {
-    const css = serializeAuthorStyles([
-      { className: '', name: 'Single col', target: 'table', isDefault: true, structuralVariant: 'singleCol' },
-      { className: '', name: 'Empty caption', target: 'table', isDefault: true, structuralVariant: 'emptyCaption' },
-    ]);
-
-    expect(css).toContain('table.table colgroup col:where(:only-child)');
-    expect(css).toContain('width: 100%;');
-    expect(css).toContain('table.table caption:where(:empty)');
-    expect(css).toContain('display: none;');
-    // Both carry no VALUE_FIELDS yet must survive the defaults empty-drop.
-    expect(css).toContain('dc-default-table-singleCol');
-    expect(css).toContain('dc-default-table-emptyCaption');
-  });
-
   test('an applied header preset wins over the always-on neutral base by source order', () => {
     const css = serializeAuthorStyles([
       { className: 'dc-header-gold', name: 'Accent header', target: 'tableHeadCell', backgroundColor: '#2563eb' },
@@ -393,55 +382,11 @@ describe('structural variant base styles', () => {
     ]);
   });
 
-  test('a base structuralVariant survives a serialize/parse round trip', () => {
-    const styles: AuthorStyleDefinition[] = [
-      { className: '', name: 'Single col', target: 'table', isDefault: true, structuralVariant: 'singleCol', width: '100%' },
-    ];
-    expect(parseAuthorStyles(serializeAuthorStyles(styles))).toEqual([
-      { className: 'dc-default-table-singleCol', name: 'Single col', target: 'table', isDefault: true, structuralVariant: 'singleCol', width: '100%' },
-    ]);
-  });
-
-  test('base variants require isDefault; the zebra preset variant requires a non-default', () => {
-    // singleCol is a base variant — dropped on a non-default (preset) style.
-    const [preset] = normalizeAuthorStyles([
-      { className: 'dc-x', name: 'Preset', target: 'table', structuralVariant: 'singleCol', width: '100%' },
-    ]);
-    expect(preset.structuralVariant).toBeUndefined();
-    expect(preset.className).toBe('dc-x');
-
-    // zebraEven is a preset variant — dropped on an isDefault (base) style.
+  test('the zebra preset variant requires a non-default style', () => {
     const [base] = normalizeAuthorStyles([
       { className: '', name: 'Base', target: 'table', isDefault: true, structuralVariant: 'zebraEven', backgroundColor: '#f9fafb' },
     ]);
     expect(base.structuralVariant).toBeUndefined();
-  });
-});
-
-describe('merging forward-shipped base defaults into a stale on-disk set', () => {
-  test('appends base defaults absent from the parsed set without touching existing entries', () => {
-    const onDisk: AuthorStyleDefinition[] = [
-      { className: 'dc-default-body', name: 'Base paragraph', target: 'body', isDefault: true, color: '#abcdef' },
-      { className: 'dc-user-preset', name: 'User preset', target: 'body', color: '#123123' },
-    ];
-    const merged = mergeMissingDefaultStyles(onDisk);
-
-    // The user's own dc-default-body (customized colour) is preserved, not overwritten.
-    expect(merged.find((s) => s.className === 'dc-default-body')).toEqual(onDisk[0]);
-    // A forward-shipped structural base absent on disk is seeded in.
-    expect(merged.some((s) => s.className === 'dc-default-table-singleCol')).toBe(true);
-    // The original entries are still present and unduplicated.
-    expect(merged.filter((s) => s.className === 'dc-default-body')).toHaveLength(1);
-    expect(merged.some((s) => s.className === 'dc-user-preset')).toBe(true);
-  });
-
-  test('never seeds preset (non-default) styles a user may have deleted', () => {
-    // A file that kept only base defaults (every preset deleted) must not have the
-    // shipped presets resurrected.
-    const basesOnly = DEFAULT_AUTHOR_STYLES.filter((s) => s.isDefault);
-    const merged = mergeMissingDefaultStyles(basesOnly);
-    expect(merged.some((s) => s.className === 'dc-heading-gold')).toBe(false);
-    expect(merged.some((s) => s.className === 'dc-cell-shaded')).toBe(false);
   });
 });
 
@@ -480,33 +425,6 @@ describe('page-scoped default style', () => {
     // No element-kind background chrome may leak onto the page rules.
     expect(css).not.toContain('padding: 6px 10px;');
     expect(css).not.toContain('border-radius: 4px;');
-  });
-
-  test('page style emits site-chrome custom properties (title quoted)', () => {
-    const css = serializeAuthorStyles([
-      {
-        className: '', name: 'Page', target: 'page', isDefault: true,
-        mastheadTitle: 'Cabin Manual', mastheadBg: '#123456',
-        sidebarWidth: '300px', linkHover: '#abcabc',
-      },
-    ]);
-    expect(css).toContain(':root {');
-    expect(css).toContain('--dc-chrome-masthead-title: "Cabin Manual";');
-    expect(css).toContain('--dc-chrome-masthead-bg: #123456;');
-    expect(css).toContain('--dc-chrome-sidebar-width: 300px;');
-    expect(css).toContain('--dc-chrome-link-hover: #abcabc;');
-    // Unset chrome slots emit nothing, so the shell fallback stands.
-    expect(css).not.toContain('--dc-chrome-sidebar-caption');
-  });
-
-  test('masthead title is CSS-escaped so it cannot break out of the string', () => {
-    const css = serializeAuthorStyles([
-      { className: '', name: 'Page', target: 'page', isDefault: true, mastheadTitle: 'a\\b"c' },
-    ]);
-    // Backslash -> \5c , quote -> \22 : the value stays one well-formed CSS string.
-    expect(css).toContain('--dc-chrome-masthead-title: "a\\5c b\\22 c";');
-    // No raw closing quote can appear mid-value to terminate the string early.
-    expect(css).not.toContain('"a\\b"c"');
   });
 
   test('a page style with no chrome fields emits no chrome vars', () => {
@@ -588,5 +506,43 @@ describe('F2 shading helpers', () => {
       'dc-heading-gold dc-shade-aabbcc',
     );
     expect(replaceManagedOutputClass('dc-heading-gold dc-shade-ffe8b3', '', managed)).toBe('dc-heading-gold');
+  });
+});
+
+describe('table accent edge and width', () => {
+  test('edge/width redirect the table preset border and round-trip through CSS', () => {
+    const css = serializeAuthorStyles([
+      { className: 'dc-left-rail', name: 'Gold left', target: 'table', borderColor: '#b08747', borderEdge: 'left', borderWidth: '4px' },
+    ]);
+    expect(css).toContain('border-left: 4px solid #b08747;');
+    expect(css).not.toContain('border-top');
+    expect(parseAuthorStyles(css)).toEqual([
+      { className: 'dc-left-rail', name: 'Gold left', target: 'table', borderColor: '#b08747', borderEdge: 'left', borderWidth: '4px' },
+    ]);
+  });
+
+  test('full edge draws all sides; unset keeps the classic top/bottom rule pair', () => {
+    const full = serializeAuthorStyles([
+      { className: 'dc-boxed', name: 'Boxed', target: 'table', borderColor: '#111111', borderEdge: 'full', borderWidth: '2px' },
+    ]);
+    expect(full).toContain('border: 2px solid #111111;');
+    const classic = serializeAuthorStyles([
+      { className: 'dc-classic', name: 'Classic', target: 'table', borderColor: '#111111' },
+    ]);
+    expect(classic).toContain('border-top: 3px solid #111111;');
+    expect(classic).toContain('border-bottom: 1px solid #111111;');
+  });
+
+  test('edge/width are dropped for non-table targets and malformed values', () => {
+    const [body] = normalizeAuthorStyles([
+      { className: 'dc-b', name: 'B', target: 'body', color: '#123456', borderEdge: 'left', borderWidth: '4px' },
+    ]);
+    expect(body.borderEdge).toBeUndefined();
+    expect(body.borderWidth).toBeUndefined();
+    const [bad] = normalizeAuthorStyles([
+      { className: 'dc-t', name: 'T', target: 'table', borderColor: '#123456', borderEdge: 'diagonal', borderWidth: '4rem' },
+    ]);
+    expect(bad.borderEdge).toBeUndefined();
+    expect(bad.borderWidth).toBeUndefined();
   });
 });

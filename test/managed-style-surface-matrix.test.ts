@@ -28,11 +28,15 @@ function inspections() {
   ];
 }
 
-function embeddedPayload(cssText: string, consumer: 'canvas' | 'redline'): string {
+function surfaceHtml(
+  consumer: 'canvas' | 'redline',
+  authorStyleUri?: string,
+): { html: string; payload: string } {
   const html = buildCanvasHtml({
     bodyHtml: '<p>Matrix</p>',
     contentStyleUris: ['theme.css'],
-    managedStyleCss: cssText,
+    authorStyleUri,
+    managedStyleCss: '',
     managedStyleConsumer: consumer,
     surfaceStyleUri: consumer === 'canvas' ? 'editor.css' : 'redline.css',
     baseHref: '',
@@ -41,14 +45,14 @@ function embeddedPayload(cssText: string, consumer: 'canvas' | 'redline'): strin
   });
   const payload = html.match(/<script id="ditaeditor-managed-style-data"[^>]*>([^<]*)<\/script>/)?.[1];
   expect(payload).toBeString();
-  return payload!;
+  return { html, payload: payload! };
 }
 
 function runCanvas(payload: string): { cssText: string; styleCount: number } {
-  const source = readFileSync(new URL('../media/canvas-styles.js', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../media/canvas-style-bridge.js', import.meta.url), 'utf8');
   const win = {} as {
-    DitaEditorCanvasStyles: {
-      installStylesPanel(options: Record<string, unknown>): unknown;
+    DitaEditorCanvasStyleBridge: {
+      installStyleBridge(options: Record<string, unknown>): unknown;
     };
   };
   const document = new TestDocument();
@@ -60,23 +64,15 @@ function runCanvas(payload: string): { cssText: string; styleCount: number } {
   data.textContent = payload;
   document.body.appendChild(data);
   new Function('window', source)(win);
-  win.DitaEditorCanvasStyles.installStylesPanel({
+  win.DitaEditorCanvasStyleBridge.installStyleBridge({
     document,
-    window: {
-      innerWidth: 1200,
-      addEventListener() { /* no-op */ },
-      removeEventListener() { /* no-op */ },
-    },
+    window: {},
     vscode: {
       postMessage() { /* no-op */ },
-      getState: () => undefined,
-      setState() { /* no-op */ },
     },
-    fontFamily: 'sans-serif',
-    saveRequestSessionId: 'surface-matrix',
     getStyleState: () => ({ styles: [], cssText: '', writable: false }),
     getCurrentTarget: () => null,
-    announceNav() { /* no-op */ },
+    getStructVersion: () => 0,
   });
   return {
     cssText: liveStyle.textContent,
@@ -123,20 +119,35 @@ function runRedline(payload: string): { cssText: string; appended: number } {
 
 describe('managed stylesheet surface matrix', () => {
   for (const inspection of inspections()) {
-    test(`${inspection.kind} source reaches canvas and redline exactly through the existing slot`, () => {
-      if (inspection.kind === 'missing') {
-        expect(inspection.renderCssText).toContain('DITAEDITOR_AUTHOR_STYLE');
-      } else {
-        expect(inspection.renderCssText).toBe(inspection.sourceText);
+    test(`${inspection.kind} source uses the linked author stylesheet contract in canvas and redline`, () => {
+      expect(inspection.renderCssText).toBe(
+        inspection.kind === 'missing' ? '' : inspection.sourceText,
+      );
+      const href = inspection.kind === 'missing'
+        ? undefined
+        : `author.css?v=${inspection.sourceHash}`;
+
+      for (const consumer of ['canvas', 'redline'] as const) {
+        const surface = surfaceHtml(consumer, href);
+        if (href) {
+          expect(surface.html).toContain(
+            `<link rel="stylesheet" href="${href}" data-ditaeditor-style-origin="author">`,
+          );
+        } else {
+          expect(surface.html).not.toContain('data-ditaeditor-style-origin="author"');
+        }
+        expect(surface.html).not.toContain(inspection.sourceText || 'DITAEDITOR_AUTHOR_STYLE');
+
+        if (consumer === 'canvas') {
+          const canvas = runCanvas(surface.payload);
+          expect(canvas.cssText).toBe('');
+          expect(canvas.styleCount).toBe(1);
+        } else {
+          const redline = runRedline(surface.payload);
+          expect(redline.cssText).toBe('');
+          expect(redline.appended).toBe(0);
+        }
       }
-
-      const canvas = runCanvas(embeddedPayload(inspection.renderCssText, 'canvas'));
-      expect(canvas.cssText).toBe(inspection.renderCssText);
-      expect(canvas.styleCount).toBe(1);
-
-      const redline = runRedline(embeddedPayload(inspection.renderCssText, 'redline'));
-      expect(redline.cssText).toBe(inspection.renderCssText);
-      expect(redline.appended).toBe(0);
     });
   }
 });

@@ -43,6 +43,28 @@
       barIcons: barIcons,
     });
     const cmdBar = ui.cmdBar;
+
+    // Optional like viewTools: absent in headless installs, where rows have no
+    // layout to overflow and native focus/hover semantics are not exercised.
+    const overflowNs = window.DitaEditorCanvasCommandBarOverflow;
+    const overflow = overflowNs
+      ? overflowNs.installOverflow({
+          document: document,
+          ui: ui,
+          measureWidth: function (el) {
+            const rect = typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect() : null;
+            return (rect && rect.width) || 0;
+          },
+        })
+      : null;
+    if (overflow) ui.moreBtn._barRun = overflow.toggle;
+    const tooltipsNs = window.DitaEditorCanvasTooltips;
+    if (tooltipsNs) {
+      const tooltips = tooltipsNs.createTooltipController({ document: document, windowObj: windowObj });
+      tooltips.attach(cmdBar);
+      tooltips.attach(ui.overflowPop);
+    }
+
     let toolbarHeight = 0;
     function syncToolbarHeight() {
       const rect = typeof cmdBar.getBoundingClientRect === 'function' ? cmdBar.getBoundingClientRect() : null;
@@ -62,25 +84,21 @@
         if (main) main.style.paddingTop = measured + 'px';
       }
     }
+    function onBarResize() {
+      if (overflow) overflow.update();
+      syncToolbarHeight();
+    }
     if (typeof windowObj.ResizeObserver === 'function') {
-      const toolbarObserver = new windowObj.ResizeObserver(syncToolbarHeight);
+      const toolbarObserver = new windowObj.ResizeObserver(onBarResize);
       toolbarObserver.observe(cmdBar);
     } else if (typeof windowObj.addEventListener === 'function') {
-      windowObj.addEventListener('resize', syncToolbarHeight);
+      windowObj.addEventListener('resize', onBarResize);
     }
-    syncToolbarHeight();
+    onBarResize();
 
     const hUndo = ui.hUndo;
     const hRedo = ui.hRedo;
     const hFind = ui.hFind;
-    const eSave = ui.eSave;
-    const eCopy = ui.eCopy;
-    const ePasteBefore = ui.ePasteBefore;
-    const ePasteAfter = ui.ePasteAfter;
-    const eDelete = ui.eDelete;
-    const eMoveEarlier = ui.eMoveEarlier;
-    const eMoveLater = ui.eMoveLater;
-    eSave._barRun = function () { vscode.postMessage({ type: 'saveDocument' }); };
     hUndo._barRun = function () { vscode.postMessage({ type: 'history', op: 'undo' }); };
     hRedo._barRun = function () { vscode.postMessage({ type: 'history', op: 'redo' }); };
     hFind._barRun = function () { vscode.postMessage({ type: 'history', op: 'find' }); };
@@ -427,70 +445,20 @@
       return barCurrent;
     }
 
-    function selectedActionIds() {
-      const selection = getSelection ? getSelection() : null;
-      let ids = [];
-      if (selection) {
-        if (selection.mode === 'single' && selection.id != null) ids = [selection.id];
-        else if (selection.mode === 'multiSet') ids = (selection.units || []).map((unit) => unit && unit.id);
-        else ids = (selection.members || []).map((member) => member && member.id);
-      }
-      if (!ids.length) {
-        const current = refreshBarCurrent();
-        if (current && current.id != null) ids = [current.id];
-      }
-      return ids.filter((id, index) => id != null && ids.indexOf(id) === index).map(String);
-    }
-
-    function structuralSibling(el, direction) {
-      if (!el) return null;
-      let sibling = direction < 0 ? el.previousElementSibling : el.nextElementSibling;
-      while (sibling && !(sibling.hasAttribute && sibling.hasAttribute('data-struct-id'))) {
-        sibling = direction < 0 ? sibling.previousElementSibling : sibling.nextElementSibling;
-      }
-      return sibling;
-    }
-
-    function moveCurrent(direction) {
-      const current = refreshBarCurrent();
-      const sibling = current && structuralSibling(current.structEl, direction);
-      if (!current || current.id == null || !sibling) return;
-      const refId = sibling.getAttribute('data-struct-id');
-      if (refId == null) return;
-      postStructural(direction < 0 ? 'moveBefore' : 'moveAfter', current.id, {
-        refId: refId,
-        announceOnSuccess: direction < 0 ? 'Moved the element earlier.' : 'Moved the element later.',
-      });
-    }
-
-    eCopy._barRun = function () {
-      const ids = selectedActionIds();
-      if (ids.length) vscode.postMessage({ type: 'copyDita', ids: ids });
-    };
-    ePasteBefore._barRun = function () {
-      const current = refreshBarCurrent();
-      if (current && current.id != null) vscode.postMessage({
-        type: 'pasteDita', id: String(current.id), op: 'before', baseStructVersion: getStructVersion(),
-      });
-    };
-    ePasteAfter._barRun = function () {
-      const current = refreshBarCurrent();
-      if (current && current.id != null) vscode.postMessage({
-        type: 'pasteDita', id: String(current.id), op: 'after', baseStructVersion: getStructVersion(),
-      });
-    };
-    eDelete._barRun = function () {
-      const current = refreshBarCurrent();
-      if (current && current.id != null) {
-        postStructural('deleteElement', current.id, withStructuralSuccess('deleteElement', current.kind));
-      }
-    };
-    eMoveEarlier._barRun = function () { moveCurrent(-1); };
-    eMoveLater._barRun = function () { moveCurrent(1); };
 
     let cmdRovingIdx = 0;
+    // Buttons parked in the closed overflow popover are off-screen; roving
+    // must skip them until the » caret opens the popover.
+    function inClosedOverflowPop(b) {
+      let el = b.parentElement;
+      while (el) {
+        if (el === ui.overflowPop) return ui.overflowPop.style.display === 'none';
+        el = el.parentElement;
+      }
+      return false;
+    }
     function visibleCmdBtns() {
-      return cmdBtns.filter((b) => b.style.display !== 'none');
+      return cmdBtns.filter((b) => b.style.display !== 'none' && !inClosedOverflowPop(b));
     }
     function setCmdRoving(i) {
       const vis = visibleCmdBtns();
@@ -795,38 +763,6 @@
       const multiListIds = selectedListItemIds();
       const multiListTransform = hasMultiListItemSelection();
       const hasMultiSelection = hasCanvasMultiSelection();
-      const actionIds = selectedActionIds();
-      setBtnEnabled(eSave, true, 'Save document');
-      setBtnEnabled(
-        eCopy,
-        actionIds.length > 0,
-        actionIds.length > 0 ? 'Copy selected element as DITA' : 'Select an element to copy as DITA',
-      );
-      const hasSingleTarget = !hasMultiSelection && !!(c && c.id != null);
-      setBtnEnabled(
-        ePasteBefore,
-        hasSingleTarget,
-        hasSingleTarget ? 'Paste DITA before selected element' : 'Select one element to paste before',
-      );
-      setBtnEnabled(
-        ePasteAfter,
-        hasSingleTarget,
-        hasSingleTarget ? 'Paste DITA after selected element' : 'Select one element to paste after',
-      );
-      if (hasSingleTarget) applyAvail(eDelete, c.id, 'deleteElement', 'Delete selected element');
-      else setBtnEnabled(eDelete, false, 'Select one element to delete');
-      const previous = hasSingleTarget ? structuralSibling(c.structEl, -1) : null;
-      const next = hasSingleTarget ? structuralSibling(c.structEl, 1) : null;
-      setBtnEnabled(
-        eMoveEarlier,
-        !!previous,
-        previous ? 'Move selected element earlier' : 'The selected element is already first in its container',
-      );
-      setBtnEnabled(
-        eMoveLater,
-        !!next,
-        next ? 'Move selected element later' : 'The selected element is already last in its container',
-      );
 
       const fmtTarget = currentFormatTarget();
       const canFormat = !!((fmtTarget && fmtTarget.mid !== '') || formattableSelectionIds().length);
@@ -951,10 +887,11 @@
       }
 
       refreshViewGroup();
+      if (overflow) overflow.update();
       setCmdRoving(cmdRovingIdx);
     }
 
-    cmdBar.addEventListener('keydown', (e) => {
+    const handleBarKeydown = (e) => {
       const vis = visibleCmdBtns();
       if (!vis.length) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End') {
@@ -975,7 +912,10 @@
         e.stopPropagation();
         activateCmdBtn(btn);
       }
-    });
+    };
+    cmdBar.addEventListener('keydown', handleBarKeydown);
+    // The popover is a body-level sibling, so the bar's listener cannot reach it.
+    ui.overflowPop.addEventListener('keydown', handleBarKeydown);
 
     document.addEventListener('selectionchange', refresh);
     document.addEventListener('keydown', (e) => {

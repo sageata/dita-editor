@@ -180,6 +180,13 @@ describe('configureRedlineWebviewResources', () => {
     expect(multiSource).toContain('additionalResourceUris: selections.slice(1).map((selection) => selection.resource)');
     expect(multiSource).toContain("if (resource.scheme !== 'file') return file;");
     expect(multiSource).toContain('rewriteRedlineImageSources(file.sideBySideHtml');
+    expect(multiSource).toContain('createManagedStyleDocumentRefreshHandler({');
+    expect(multiSource).toContain('matchesManagedStyleDocumentTarget(');
+    expect(multiSource).toContain('watcher.onDidChange(scheduleManagedStyleRefresh)');
+    expect(multiSource).toContain('watcher.onDidCreate(scheduleManagedStyleRefresh)');
+    expect(multiSource).toContain('watcher.onDidDelete(scheduleManagedStyleRefresh)');
+    expect(multiSource).toContain('disposeManagedStyleWatcher(entry)');
+    expect(multiSource).toContain('panel.webview.postMessage(managedStyles.message)');
     expect(multiSource).toContain("baseHref: '',");
   });
 });
@@ -203,7 +210,7 @@ describe('rewriteRedlineImageSources', () => {
 });
 
 describe('redline managed stylesheet bridge', () => {
-  test('uses one inspection for friendly labels and the exact complete CSS delivered by the live bridge', () => {
+  test('uses one inspection for friendly labels, linked project CSS, and generated live declarations', () => {
     const managedBody = serializeAuthorStyles([{
       className: 'review-accent',
       name: 'Review accent',
@@ -219,7 +226,8 @@ describe('redline managed stylesheet bridge', () => {
       '',
     ].join('\n');
     const inspection = inspectManagedAuthorStylesheet(completeCss);
-    const presentation = redlineManagedStylePresentation(inspection);
+    const stylesheetHref = `author.css?v=${inspection.sourceHash}`;
+    const presentation = redlineManagedStylePresentation(inspection, stylesheetHref);
     const oldDocument = parse(
       '<topic id="t"><title>T</title><body><p>Same</p></body></topic>',
     );
@@ -233,69 +241,12 @@ describe('redline managed stylesheet bridge', () => {
     expect(redline.html).toContain(
       '<span class="redline-fmt-label">Formatting: Review accent applied</span>',
     );
-    expect(presentation.message).toEqual({ type: 'managedStyles', cssText: completeCss });
-
-    const source = readFileSync(new URL('../media/redline-review.js', import.meta.url), 'utf8');
-    const postedMessages: unknown[] = [];
-    const windowListeners = new Map<string, Array<(event: { data?: unknown }) => void>>();
-    class FakeElement {
-      id = '';
-      textContent = '';
-      getAttribute(): string | null { return null; }
-      closest(): FakeElement | null { return null; }
-    }
-    const styles = new Map<string, FakeElement>();
-    const liveStyle = new FakeElement();
-    liveStyle.id = 'ditaeditor-author-styles-live';
-    styles.set(liveStyle.id, liveStyle);
-    const managedData = new FakeElement();
-    managedData.id = 'ditaeditor-managed-style-data';
-    managedData.textContent = JSON.stringify({ consumer: 'redline', cssText: completeCss });
-    styles.set(managedData.id, managedData);
-    const document = {
-      head: {
-        appendChild(style: FakeElement) {
-          styles.set(style.id, style);
-          return style;
-        },
-      },
-      createElement() { return new FakeElement(); },
-      getElementById(id: string) { return styles.get(id) ?? null; },
-      addEventListener() { /* click behavior is outside this bridge test */ },
-    };
-    const window = {
-      addEventListener(type: string, listener: (event: { data?: unknown }) => void) {
-        const listeners = windowListeners.get(type) ?? [];
-        listeners.push(listener);
-        windowListeners.set(type, listeners);
-      },
-      scrollTo() { /* no persisted position in this fixture */ },
-      scrollY: 0,
-    };
-    const vscode = {
-      getState: () => null,
-      postMessage(message: unknown) { postedMessages.push(message); },
-      setState() { /* scroll persistence is outside this bridge test */ },
-    };
-    new Function(
-      'window',
-      'document',
-      'Element',
-      'acquireVsCodeApi',
-      'requestAnimationFrame',
-      source,
-    )(
-      window,
-      document,
-      FakeElement,
-      () => vscode,
-      (callback: () => void) => callback(),
-    );
-    for (const listener of windowListeners.get('message') ?? []) {
-      listener({ data: presentation.message });
-    }
-
-    expect(postedMessages).toEqual([{ type: 'redlineReady' }]);
-    expect(document.getElementById('ditaeditor-author-styles-live')?.textContent).toBe(completeCss);
+    expect(presentation.message).toEqual({
+      type: 'managedStyles',
+      cssText: managedBody,
+      stylesheetHref,
+    });
+    expect(presentation.message.cssText).not.toContain('developer-owned prefix');
+    expect(presentation.message.cssText).not.toContain('developer-owned-suffix');
   });
 });

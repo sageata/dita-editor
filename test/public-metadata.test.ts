@@ -79,6 +79,7 @@ describe('public extension metadata', () => {
       untrustedWorkspaces: {
         supported: 'limited',
         restrictedConfigurations: [
+          'ditaeditor.visual.authorStylesheet',
           'ditaeditor.visual.contentStylesheets',
           'ditaeditor.visual.managedAuthorStylesheet',
           'ditaeditor.visual.taxonomyFile',

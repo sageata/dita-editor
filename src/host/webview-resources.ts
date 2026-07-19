@@ -4,6 +4,10 @@ import { CANVAS_SCRIPT_FILES } from '../webview/canvas-scripts';
 import type { ResolvedWorkspaceFile } from './workspace-files';
 
 const REDLINE_RESOURCE_REVISION = 'navigation-4';
+// Bump whenever media/editor.css or any CANVAS_SCRIPT_FILES entry changes:
+// VS Code caches raw webview resources aggressively, and a stale/fresh mix of
+// canvas scripts is a hard failure (missing window namespaces).
+const CANVAS_RESOURCE_REVISION = 'inspector-views-1';
 
 export interface VisualWebviewResourceUris {
   contentStyleUris: string[];
@@ -34,14 +38,15 @@ export function configureVisualWebviewResources(params: {
   const contentStyleUris = [neutralThemeUri, ...configuredStyleUris];
   const surfaceStyleUri = webview
     .asWebviewUri(joinPath(extensionUri, 'media', 'editor.css'))
-    .toString();
+    .toString() + `?v=${CANVAS_RESOURCE_REVISION}`;
   // Non-file documents (e.g. the git:-scheme side of a diff) cannot map to a
   // webview resource URI, so a document-relative base would be broken anyway.
   const baseHref = folder && documentUri.scheme === 'file'
     ? `${webview.asWebviewUri(joinPath(documentUri, '..')).toString()}/`
     : '';
   const scriptUris = CANVAS_SCRIPT_FILES.map((file) =>
-    webview.asWebviewUri(joinPath(extensionUri, 'media', file)).toString(),
+    webview.asWebviewUri(joinPath(extensionUri, 'media', file)).toString()
+      + `?v=${CANVAS_RESOURCE_REVISION}`,
   );
 
   return { contentStyleUris, surfaceStyleUri, baseHref, scriptUris };

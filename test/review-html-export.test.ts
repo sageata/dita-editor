@@ -223,6 +223,9 @@ describe('review export host wiring', () => {
       expect(source, relativePath).toContain("message?.type === 'exportHtml'");
       expect(source, relativePath).toContain('saveReviewExport(');
       expect(source, relativePath).toContain('captureReviewExportStylesheets(');
+      expect(source, relativePath).toContain("authorStylesheet: target && inspection.kind !== 'missing'");
+      expect(source, relativePath).toContain('{ cssText: inspection.sourceText, baseUri: target.uri }');
+      expect(source, relativePath).toContain("managedCssText: target && inspection.kind !== 'missing' ? '' : inspection.renderCssText");
       expect(htmlAssignment, relativePath).toBeGreaterThan(-1);
       expect(snapshotReplace, relativePath).toBeGreaterThan(htmlAssignment);
     }
@@ -237,5 +240,6 @@ describe('review export host wiring', () => {
     expect(source).toContain('isCanonicalPathInside(root, target, process.platform)');
     expect(source).toContain('Export resource escapes the allowed workspace roots');
     expect(source).toContain('createReviewExportResourceReader(allowedFileRoots)');
+    expect(source).toContain('...(params.authorStylesheet ? [params.authorStylesheet] : [])');
   });
 });

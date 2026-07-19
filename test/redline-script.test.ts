@@ -2,12 +2,39 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 describe('redline managed stylesheet script', () => {
-  test('uses only the pre-existing slot for embedded and live CSS', () => {
+  test('refreshes the linked author stylesheet through the pre-existing live CSS bridge', () => {
     const source = readFileSync(new URL('../media/redline-review.js', import.meta.url), 'utf8');
     const listeners = new Map<string, Array<(event: { data?: unknown }) => void>>();
     const posted: unknown[] = [];
-    const appended: unknown[] = [];
-    const liveStyle = { textContent: '' };
+    let authorLink: FakeLink | null = null;
+
+    class FakeLink {
+      parentNode: { removeChild(value: FakeLink): void } | null = null;
+      private readonly attrs = new Map<string, string>();
+      private readonly listeners = new Map<string, Array<() => void>>();
+      getAttribute(name: string): string | null { return this.attrs.get(name) ?? null; }
+      setAttribute(name: string, value: string): void { this.attrs.set(name, value); }
+      addEventListener(type: string, listener: () => void): void {
+        const current = this.listeners.get(type) ?? [];
+        current.push(listener);
+        this.listeners.set(type, current);
+      }
+      dispatch(type: string): void {
+        for (const listener of this.listeners.get(type) ?? []) listener();
+      }
+    }
+    const parentSlot = {
+      insertBefore(value: FakeLink) {
+        authorLink = value;
+        value.parentNode = parentSlot;
+      },
+      removeChild(value: FakeLink) {
+        if (authorLink === value) authorLink = null;
+        value.parentNode = null;
+      },
+    };
+    const getAuthorLink = (): FakeLink | null => authorLink;
+    const liveStyle = { textContent: '', parentNode: parentSlot };
     const data = {
       textContent: JSON.stringify({ consumer: 'redline', cssText: '.initial { color: red; }' }),
     };
@@ -17,8 +44,13 @@ describe('redline managed stylesheet script', () => {
         if (id === 'ditaeditor-managed-style-data') return data;
         return null;
       },
-      head: { appendChild(value: unknown) { appended.push(value); } },
-      createElement() { throw new Error('redline must not create a live style element'); },
+      querySelector(selector: string) {
+        return selector === 'link[data-ditaeditor-style-origin="author"]' ? authorLink : null;
+      },
+      createElement(tag: string) {
+        if (tag !== 'link') throw new Error(`unexpected element ${tag}`);
+        return new FakeLink();
+      },
       addEventListener() { /* delegated banner click is outside this test */ },
     };
     const window = {
@@ -53,15 +85,40 @@ describe('redline managed stylesheet script', () => {
 
     expect(liveStyle.textContent).toBe('.initial { color: red; }');
     for (const listener of listeners.get('message') ?? []) {
-      listener({ data: { type: 'managedStyles', cssText: '.updated { color: blue; }' } });
+      listener({
+        data: {
+          type: 'managedStyles',
+          cssText: '.updated { color: blue; }',
+          stylesheetHref: 'author.css?v=one',
+        },
+      });
     }
     expect(liveStyle.textContent).toBe('.updated { color: blue; }');
+    const firstLink = getAuthorLink();
+    expect(firstLink?.getAttribute('href')).toBe('author.css?v=one');
+
+    firstLink?.dispatch('load');
+    expect(liveStyle.textContent).toBe('');
+
+    for (const listener of listeners.get('message') ?? []) {
+      listener({
+        data: {
+          type: 'managedStyles',
+          cssText: '.newer { color: green; }',
+          stylesheetHref: 'author.css?v=two',
+        },
+      });
+    }
+    expect(liveStyle.textContent).toBe('.newer { color: green; }');
+    getAuthorLink()?.dispatch('error');
+    expect(posted).toContainEqual({ type: 'authorStylesheetLoadError' });
+
     for (const listener of listeners.get('message') ?? []) {
       listener({ data: { type: 'managedStyles', cssText: '' } });
     }
     expect(liveStyle.textContent).toBe('');
-    expect(appended).toEqual([]);
-    expect(posted).toEqual([{ type: 'redlineReady' }]);
+    expect(authorLink).toBeNull();
+    expect(posted[0]).toEqual({ type: 'redlineReady' });
   });
 
   test('posts only the opaque token for a Review revert and handles host results', () => {
