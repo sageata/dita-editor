@@ -65,6 +65,7 @@ async function capturedStylesheet(
 export async function captureReviewExportStylesheets(params: {
   extensionUri: vscode.Uri;
   configuredStyleUris: readonly vscode.Uri[];
+  authorStylesheet?: ReviewExportStylesheet;
   managedCssText: string;
   managedBaseUri: vscode.Uri;
   allowedFileRoots: readonly vscode.Uri[];
@@ -86,7 +87,13 @@ export async function captureReviewExportStylesheets(params: {
     vscode.Uri.joinPath(params.extensionUri, 'media', 'redline.css'),
     readResource,
   );
-  return [neutral, ...configured, managed, redline];
+  return [
+    neutral,
+    ...configured,
+    ...(params.authorStylesheet ? [params.authorStylesheet] : []),
+    managed,
+    redline,
+  ];
 }
 
 export function reviewDocumentDirectory(documentUri: vscode.Uri): vscode.Uri {

@@ -10,13 +10,13 @@ describe('buildCanvasHtml', () => {
       'https://x.vscode-cdn.net/css/workspace-base.css',
       'https://x.vscode-cdn.net/css/workspace-tokens.css',
     ],
+    authorStyleUri: 'https://x.vscode-cdn.net/css/ditaeditor-author-styles.css?v=abc123',
     managedStyleCss: '.dc-managed { color: #123456; }',
     managedStyleConsumer: 'canvas',
     surfaceStyleUri: 'https://x.vscode-cdn.net/media/editor.css',
     baseHref: 'https://x.vscode-cdn.net/src/dita/topic/',
     cspSource: 'https://x.vscode-cdn.net',
     nonce: 'DATA123',
-    taxonomy: { version: 1, fields: [{ attribute: 'owner', label: 'Owner', input: 'text' }] },
   });
 
   test('locks down CSP to local resources only', () => {
@@ -29,16 +29,18 @@ describe('buildCanvasHtml', () => {
     expect(html).toContain('<meta name="color-scheme" content="light">');
   });
 
-  test('loads the neutral theme, configured styles, live slot, and surface sheet in exact cascade order', () => {
+  test('loads structural, legacy, project author, live, and surface styles in exact cascade order', () => {
     const neutral = html.indexOf('<link rel="stylesheet" href="https://x.vscode-cdn.net/media/content-theme.css">');
     const configuredOne = html.indexOf('<link rel="stylesheet" href="https://x.vscode-cdn.net/css/workspace-base.css" data-ditaeditor-style-origin="configured">');
     const configuredTwo = html.indexOf('<link rel="stylesheet" href="https://x.vscode-cdn.net/css/workspace-tokens.css" data-ditaeditor-style-origin="configured">');
+    const author = html.indexOf('<link rel="stylesheet" href="https://x.vscode-cdn.net/css/ditaeditor-author-styles.css?v=abc123" data-ditaeditor-style-origin="author">');
     const live = html.indexOf('<style id="ditaeditor-author-styles-live"></style>');
     const surface = html.indexOf('<link rel="stylesheet" href="https://x.vscode-cdn.net/media/editor.css">');
     expect(neutral).toBeGreaterThan(-1);
     expect(neutral).toBeLessThan(configuredOne);
     expect(configuredOne).toBeLessThan(configuredTwo);
-    expect(configuredTwo).toBeLessThan(live);
+    expect(configuredTwo).toBeLessThan(author);
+    expect(author).toBeLessThan(live);
     expect(live).toBeLessThan(surface);
     expect(html).toContain('<script id="ditaeditor-managed-style-data" type="application/json" nonce="DATA123">');
     expect(html).toContain('"consumer":"canvas"');
@@ -67,46 +69,15 @@ describe('buildCanvasHtml', () => {
     expect(withSession).toContain(`data-vscode-context='{"ditaNativeSession":"native-session-123"}'`);
   });
 
+  test('no longer embeds a taxonomy slot (the native Properties view owns taxonomy)', () => {
+    expect(html).not.toContain('ditaeditor-taxonomy-data');
+  });
+
   test('keeps executable scripts after main', () => {
     const data = html.indexOf('<script id="ditaeditor-managed-style-data"');
     const main = html.indexOf('<main role="main">');
     expect(main).toBeLessThan(data);
     expect(html).not.toContain(' src=');
-  });
-
-  test('embeds taxonomy as inert JSON after main and before executable scripts', () => {
-    const taxonomy = html.indexOf('<script id="ditaeditor-taxonomy-data" type="application/json" nonce="DATA123">');
-    const main = html.indexOf('<main role="main">');
-    expect(taxonomy).toBeGreaterThan(main);
-    const payload = html.match(/id="ditaeditor-taxonomy-data"[^>]*>([\s\S]*?)<\/script>/)?.[1];
-    expect(JSON.parse(payload ?? 'null')).toEqual({
-      version: 1,
-      fields: [{ attribute: 'owner', label: 'Owner', input: 'text' }],
-    });
-  });
-
-  test('escapes hostile taxonomy strings without creating executable markup', () => {
-    const label = '</script><img onerror=marker>&\u2028\u2029';
-    const hostile = buildCanvasHtml({
-      bodyHtml: '<article></article>',
-      contentStyleUris: ['theme.css'],
-      managedStyleCss: '',
-      managedStyleConsumer: 'canvas',
-      surfaceStyleUri: 'editor.css',
-      baseHref: '',
-      cspSource: 'vscode-webview:',
-      scriptUris: ['canvas.js'],
-      nonce: 'nonce',
-      taxonomy: {
-        version: 1,
-        fields: [{ attribute: 'owner', label, input: 'text' }],
-      },
-    });
-    const payload = hostile.match(/id="ditaeditor-taxonomy-data"[^>]*>([\s\S]*?)<\/script>/)?.[1] ?? '';
-    expect(payload).not.toContain('</script');
-    expect(payload).not.toContain('<img');
-    expect(JSON.parse(payload).fields[0].label).toBe(label);
-    expect(hostile.indexOf('ditaeditor-taxonomy-data')).toBeLessThan(hostile.indexOf('src="canvas.js"'));
   });
 
   test('embeds hostile managed CSS only as escaped, round-trippable JSON for both surfaces', () => {

@@ -161,6 +161,15 @@ describe('workspace settings', () => {
     });
   });
 
+  test('prefers the one author stylesheet setting over the deprecated fallback', () => {
+    const settings = readWorkspaceVisualSettings(configuration({
+      authorStylesheet: 'styles/author.css',
+      managedAuthorStylesheet: 'styles/legacy.css',
+    }));
+
+    expect(settings.managedAuthorStylesheet).toBe('styles/author.css');
+  });
+
   test('uses exact defaults and keeps multi-root configurations independent', () => {
     const first = readWorkspaceVisualSettings(configuration({
       contentStylesheets: ['first.css'],
@@ -515,7 +524,7 @@ describe('resolveVisualWorkspaceFiles managed destination', () => {
     expect(result.managedAuthorStylesheetExists).toBe(false);
     expect(result.writable).toBe(false);
     expect(logs).toContain(
-      'ditaeditor.visual.managedAuthorStylesheet "styles/generated/author.css": direct parent "styles/generated" does not exist.',
+      'ditaeditor.visual.authorStylesheet "styles/generated/author.css": direct parent "styles/generated" does not exist.',
     );
   });
 
@@ -529,7 +538,7 @@ describe('resolveVisualWorkspaceFiles managed destination', () => {
     expect(result.managedAuthorStylesheet).toBeNull();
     expect(result.writable).toBe(false);
     expect(logs).toContain(
-      'ditaeditor.visual.managedAuthorStylesheet "css/ditaeditor-author-styles.css": path component "css" is a symbolic link or reparse point.',
+      'ditaeditor.visual.authorStylesheet "css/ditaeditor-author-styles.css": path component "css" is a symbolic link or reparse point.',
     );
   });
 
@@ -553,7 +562,7 @@ describe('resolveVisualWorkspaceFiles managed destination', () => {
     expect(result.managedAuthorStylesheet).toBeNull();
     expect(result.writable).toBe(false);
     expect(logs).toContain(
-      'ditaeditor.visual.managedAuthorStylesheet "css/managed.css": destination is a symbolic link or reparse point.',
+      'ditaeditor.visual.authorStylesheet "css/managed.css": destination is a symbolic link or reparse point.',
     );
   });
 
@@ -571,7 +580,7 @@ describe('resolveVisualWorkspaceFiles managed destination', () => {
     expect(result.managedAuthorStylesheet).toBeNull();
     expect(result.writable).toBe(false);
     expect(logs).toContain(
-      'ditaeditor.visual.managedAuthorStylesheet "css/new.css": canonical existing parent escapes the workspace.',
+      'ditaeditor.visual.authorStylesheet "css/new.css": canonical existing parent escapes the workspace.',
     );
   });
 
@@ -597,7 +606,7 @@ describe('resolveVisualWorkspaceFiles managed destination', () => {
     expect(result.managedAuthorStylesheetExists).toBe(false);
     expect(result.writable).toBe(false);
     expect(logs).toContain(
-      'ditaeditor.visual.managedAuthorStylesheet "css/managed.css": canonical target collides with a developer content stylesheet.',
+      'ditaeditor.visual.authorStylesheet "css/managed.css": canonical target collides with a developer content stylesheet.',
     );
   });
 
@@ -622,7 +631,7 @@ describe('resolveVisualWorkspaceFiles managed destination', () => {
     expect(result.managedAuthorStylesheetExists).toBe(false);
     expect(result.writable).toBe(false);
     expect(logs).toContain(
-      'ditaeditor.visual.managedAuthorStylesheet "css/shared.css": canonical target collides with the taxonomy file.',
+      'ditaeditor.visual.authorStylesheet "css/shared.css": canonical target collides with the taxonomy file.',
     );
   });
 
@@ -653,7 +662,7 @@ describe('resolveVisualWorkspaceFiles managed destination', () => {
     expect(result.managedAuthorStylesheet).toBeNull();
     expect(result.writable).toBe(false);
     expect(logs).toContain(
-      'ditaeditor.visual.managedAuthorStylesheet "css/managed.css": canonical target collides with the taxonomy file.',
+      'ditaeditor.visual.authorStylesheet "css/managed.css": canonical target collides with the taxonomy file.',
     );
   });
 });
@@ -678,7 +687,7 @@ describe('resolver refusal logging', () => {
       'ditaeditor.visual.contentStylesheets "/outside.css": Path must be workspace-relative.',
     );
     expect(logs).toContain(
-      'ditaeditor.visual.managedAuthorStylesheet "../managed.css": Path escapes the workspace.',
+      'ditaeditor.visual.authorStylesheet "../managed.css": Path escapes the workspace.',
     );
     expect(logs).toContain(
       'ditaeditor.visual.taxonomyFile "file:///outside.json": Path must not be a URI.',

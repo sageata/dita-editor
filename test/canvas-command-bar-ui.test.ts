@@ -34,15 +34,8 @@ function loadHelper() {
     fmtBtnByOp: Record<string, TestElement>;
     fmtBold: TestElement;
     tableDivider: TestElement;
-    editGroup: { wrap: TestElement; label: TestElement };
-    editDivider: TestElement;
-    eSave: TestElement;
-    eCopy: TestElement;
-    ePasteBefore: TestElement;
-    ePasteAfter: TestElement;
-    eDelete: TestElement;
-    eMoveEarlier: TestElement;
-    eMoveLater: TestElement;
+    topicGroup: { wrap: TestElement; label: TestElement };
+    topicDivider: TestElement;
     biLines: TestElement;
   }
   const win = {} as {
@@ -67,18 +60,17 @@ describe('canvas-command-bar-ui', () => {
     const { doc, ui } = loadHelper();
 
     expect((ui.cmdBar as TestElement).getAttribute('role')).toBe('toolbar');
-    expect(ui.editGroup.wrap.getAttribute('role')).toBe('group');
-    expect(ui.editGroup.wrap.getAttribute('aria-labelledby')).toBe(ui.editGroup.label.id);
-    expect(ui.editDivider.getAttribute('aria-hidden')).toBe('true');
+    expect(ui.topicGroup.wrap.getAttribute('role')).toBe('group');
+    expect(ui.topicGroup.wrap.getAttribute('aria-labelledby')).toBe(ui.topicGroup.label.id);
+    expect(ui.topicDivider.getAttribute('aria-hidden')).toBe('true');
     expect(doc.main.style.paddingTop).toBe('var(--ditaeditor-toolbar-height, 72px)');
-    expect(ui.cmdBtns as TestElement[]).toHaveLength(46);
+    expect(ui.cmdBtns as TestElement[]).toHaveLength(40);
     expect((ui as unknown as { vZoomPct: TestElement }).vZoomPct.textContent).toBe('100%');
     expect((ui as unknown as { vHelp: TestElement }).vHelp.getAttribute('aria-label')).toBe('Keyboard shortcuts');
     expect((ui.cmdStatus as TestElement).textContent).toBe('DITA · visual');
-    expect([
-      ui.eSave, ui.eCopy, ui.ePasteBefore, ui.ePasteAfter,
-      ui.eDelete, ui.eMoveEarlier, ui.eMoveLater,
-    ].map((button) => button.getAttribute('aria-label'))).toEqual([
+    // The EDIT group (Save + cryptic element-edit icon buttons) is gone: its
+    // actions live on the keyboard (Cmd/Ctrl+S, Alt+Arrow move, clipboard).
+    for (const gone of [
       'Save document',
       'Copy selected element as DITA',
       'Paste DITA before selected element',
@@ -86,7 +78,11 @@ describe('canvas-command-bar-ui', () => {
       'Delete selected element',
       'Move selected element earlier',
       'Move selected element later',
-    ]);
+    ]) {
+      expect(doc.body.querySelector(`[aria-label="${gone}"]`)).toBeNull();
+    }
+    expect((ui as unknown as { eSave?: TestElement }).eSave).toBeUndefined();
+    expect((ui as unknown as { editGroup?: unknown }).editGroup).toBeUndefined();
     expect((ui.biParagraph as TestElement).getAttribute('aria-label')).toBe('Paragraph');
     expect((ui.aiList as TestElement).getAttribute('aria-label')).toBe('Alphabetic list');
     expect((ui.biLines as TestElement).getAttribute('aria-label')).toBe('Lines');
@@ -106,6 +102,71 @@ describe('canvas-command-bar-ui', () => {
       'Cross-reference',
       'Reuse content',
     ]);
+  });
+
+  test('lays all groups on one row with a hidden overflow caret and popover', () => {
+    const { doc, ui } = loadHelper();
+    const bar = ui as unknown as {
+      cmdBar: TestElement;
+      cmdRows: TestElement;
+      cmdRow: TestElement;
+      cmdRowEntries: Array<{ wrap: TestElement; divider: TestElement | null }>;
+      moreBtn: TestElement;
+      overflowPop: TestElement;
+      cmdStatus: TestElement;
+      topicGroup: { wrap: TestElement };
+      historyGroup: { wrap: TestElement };
+      fmtGroup: { wrap: TestElement };
+      structGroup: { wrap: TestElement };
+      insertGroup: { wrap: TestElement };
+      tableGroup: { wrap: TestElement };
+      viewGroup: { wrap: TestElement };
+      cmdBtns: TestElement[];
+    };
+
+    expect(bar.cmdRows.parentElement).toBe(bar.cmdBar);
+    expect(bar.cmdRow.parentElement).toBe(bar.cmdRows);
+    expect(bar.cmdRows.children).toHaveLength(1);
+    expect(bar.cmdStatus.parentElement).toBe(bar.cmdRow);
+    // Canonical group order on the single row; every group parents to it.
+    expect(bar.cmdRowEntries.map((entry) => entry.wrap)).toEqual([
+      bar.topicGroup.wrap,
+      bar.historyGroup.wrap,
+      bar.fmtGroup.wrap,
+      bar.structGroup.wrap,
+      bar.insertGroup.wrap,
+      bar.tableGroup.wrap,
+      bar.viewGroup.wrap,
+    ]);
+    for (const entry of bar.cmdRowEntries) {
+      expect(entry.wrap.parentElement).toBe(bar.cmdRow);
+    }
+    // Every group after the first is preceded by a divider.
+    expect(bar.cmdRowEntries[0].divider).toBeNull();
+    for (const entry of bar.cmdRowEntries.slice(1)) {
+      expect(entry.divider).toBeInstanceOf(TestElement);
+    }
+
+    expect(bar.moreBtn.parentElement).toBe(bar.cmdBar);
+    expect(bar.moreBtn.style.display).toBe('none');
+    expect(bar.moreBtn.getAttribute('aria-haspopup')).toBe('true');
+    expect(bar.moreBtn.getAttribute('aria-expanded')).toBe('false');
+    expect(bar.moreBtn.getAttribute('aria-controls')).toBe('ditaeditor-command-overflow');
+    expect(bar.cmdBtns.at(-1)).toBe(bar.moreBtn);
+
+    expect(bar.overflowPop.parentElement).toBe(doc.body);
+    expect(bar.overflowPop.id).toBe('ditaeditor-command-overflow');
+    expect(bar.overflowPop.getAttribute('role')).toBe('group');
+    expect(bar.overflowPop.getAttribute('aria-label')).toBe('More commands');
+    expect(bar.overflowPop.style.display).toBe('none');
+  });
+
+  test('bar buttons opt out of native titles in favor of the custom tooltip', () => {
+    const { ui } = loadHelper();
+    for (const btn of ui.cmdBtns as TestElement[]) {
+      expect(btn.dataset.tooltipOnly).toBe('1');
+      expect(btn.title).toBe('');
+    }
   });
 
   test('returns the command maps consumed by canvas-command-bar behavior', () => {

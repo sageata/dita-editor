@@ -3,14 +3,15 @@
 // real webview URIs, cspSource, and nonce.
 
 import { serializeEmbeddedJson } from './embedded-json';
-import { escapeJsonForHtml, type TaxonomyConfig } from '../config/taxonomy';
 
 export interface CanvasHtmlOptions {
   /** Rendered topic body HTML (from src/render/to-html.ts). */
   bodyHtml: string;
-  /** Neutral theme first, followed by configured workspace sheets in order. */
+  /** Legacy configured workspace sheets, after the structural stylesheet. */
   contentStyleUris: string[];
-  /** Complete inspected managed stylesheet source, embedded only as inert JSON. */
+  /** Complete repository-owned author entry point, linked for relative imports. */
+  authorStyleUri?: string;
+  /** Temporary generated declarations used while a refreshed link is loading. */
   managedStyleCss: string;
   /** Ensures only the intended surface consumes the embedded source. */
   managedStyleConsumer: 'canvas' | 'redline';
@@ -27,8 +28,6 @@ export interface CanvasHtmlOptions {
   scriptUris?: string[];
   /** Nonce that authorises scriptUri/scriptUris under CSP. */
   nonce?: string;
-  /** Current normalized workspace taxonomy, embedded as inert JSON only. */
-  taxonomy?: TaxonomyConfig | null;
   /** Random id used to route native context commands back to this webview. */
   nativeContextSession?: string;
 }
@@ -52,12 +51,14 @@ export function buildCanvasHtml(options: CanvasHtmlOptions): string {
       ? `<link rel="stylesheet" href="${uri}">`
       : `<link rel="stylesheet" href="${uri}" data-ditaeditor-style-origin="configured">`,
   ).join('\n  ');
+  const authorLink = options.authorStyleUri
+    ? `<link rel="stylesheet" href="${options.authorStyleUri}" data-ditaeditor-style-origin="author">`
+    : '';
   const surfaceLink = `<link rel="stylesheet" href="${options.surfaceStyleUri}">`;
   const managedStyleData = serializeEmbeddedJson({
     consumer: options.managedStyleConsumer,
     cssText: options.managedStyleCss,
   });
-  const taxonomyData = escapeJsonForHtml(options.taxonomy ?? null);
   const dataNonce = options.nonce ? ` nonce="${options.nonce}"` : '';
   const scriptUris = options.scriptUris ?? (options.scriptUri ? [options.scriptUri] : []);
   const scripts =
@@ -72,12 +73,12 @@ export function buildCanvasHtml(options: CanvasHtmlOptions): string {
   <meta http-equiv="Content-Security-Policy" content="${csp}">
   ${base}
   ${contentLinks}
+  ${authorLink}
   <style id="ditaeditor-author-styles-live"></style>
   ${surfaceLink}
 </head>
 <body class="ditaeditor-canvas"${options.nativeContextSession ? ` data-vscode-context='${JSON.stringify({ ditaNativeSession: options.nativeContextSession })}'` : ''}>
   <main role="main">${options.bodyHtml}</main>
-  <script id="ditaeditor-taxonomy-data" type="application/json"${dataNonce}>${taxonomyData}</script>
   <script id="ditaeditor-managed-style-data" type="application/json"${dataNonce}>${managedStyleData}</script>
   ${scripts}
 </body>

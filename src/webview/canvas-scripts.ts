@@ -34,9 +34,10 @@ export const CANVAS_SCRIPT_FILES = [
   'canvas-command-insert.js',
   'canvas-command-structure.js',
   'canvas-command-bar-ui.js',
+  'canvas-command-bar-overflow.js',
+  'canvas-tooltips.js',
   'canvas-command-bar.js',
-  'canvas-properties.js',
-  'canvas-styles.js',
+  'canvas-style-bridge.js',
   'canvas-table-resize.js',
   'canvas-table-hover.js',
   'canvas-table-insert-plus.js',
@@ -51,6 +52,7 @@ export const CANVAS_SCRIPT_FILES = [
   'canvas-selection-dependencies.js',
   'canvas-selection-controller.js',
   'canvas-scroll-anchor.js',
+  'canvas-scroll-highlight.js',
   'canvas.js',
 ] as const;
 

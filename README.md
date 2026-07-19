@@ -33,7 +33,7 @@ Visual Editor renders supported topic content as an editable canvas while retain
 
 ### Styles
 
-Styles provides project presentation without changing the built-in editor. Color fields combine a native picker, editable CSS value, presets, and a Default action; authored values such as CSS variables and `color-mix(...)` remain unchanged until explicitly replaced. Ordered developer stylesheets are read-only. The panel can apply author classes and manage rules only inside the configured managed author stylesheet; guarded writes are refused if the path, file state, lock, encoding, or concurrent content is unsafe. See [Styling DITA topics](docs/STYLING.md) for settings, cascade order, and managed-region rules.
+Styles uses one repository-owned author stylesheet for project presentation without changing the built-in editor. If the file is missing, the panel offers explicit initialization and adds no built-in presets. Color fields combine a native picker, editable CSS value, presets, and a Default action; authored values such as CSS variables and `color-mix(...)` remain unchanged until explicitly replaced. The panel applies author classes as standard DITA `outputclass` values and manages rules only inside the file's marked region; guarded writes are refused if the path, file state, lock, encoding, or concurrent content is unsafe. See [Styling DITA topics](docs/STYLING.md) for the setting, cascade order, initialization, and managed-region rules.
 
 ### Review Changes
 
@@ -47,7 +47,7 @@ Run **DITA Editor: Review Changes (Track Changes)**, or open an eligible `.dita`
 
 Parsing, editing, styling, taxonomy loading, review rendering, and file writes happen locally. DITA Editor has no telemetry, does not upload document content, and makes no runtime network requests. Links you choose to open and normal Visual Studio Code, Git, or Marketplace behavior are outside the extension.
 
-In Restricted Mode, topics remain viewable, but workspace-provided content stylesheets, the managed author stylesheet, and taxonomy configuration are disabled. No managed stylesheet can be written. Trust a folder only when you trust its files.
+In Restricted Mode, topics remain viewable, but the workspace-provided author stylesheet, deprecated content stylesheet fallbacks, and taxonomy configuration are disabled. No author stylesheet can be initialized or changed. Trust a folder only when you trust its files.
 
 ## Relationship to DitaCraft and DITA-OT
 

@@ -68,7 +68,7 @@ function harness(elements: FakeElement[]) {
     create(options: object): {
       start(): void;
       didRerender(): void;
-      restore(id: string): boolean;
+      restore(id: string, block?: 'start' | 'center'): boolean;
     };
   };
   const controller = factory.create({
@@ -110,5 +110,14 @@ describe('canvas scroll anchor', () => {
     expect(view.controller.restore('e7')).toBe(true);
     expect(paragraph.scrollOptions).toEqual({ block: 'start' });
     expect(view.controller.restore('missing')).toBe(false);
+  });
+
+  test('restores centered when asked, defaulting to start otherwise', () => {
+    const paragraph = element('e7', 12, 80);
+    const view = harness([paragraph]);
+    expect(view.controller.restore('e7', 'center')).toBe(true);
+    expect(paragraph.scrollOptions).toEqual({ block: 'center' });
+    expect(view.controller.restore('e7', 'bogus' as never)).toBe(true);
+    expect(paragraph.scrollOptions).toEqual({ block: 'start' });
   });
 });

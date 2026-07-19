@@ -11,6 +11,12 @@
     function makeBarBtn(content, title, isSvg) {
       const b = makeBtn('', title);
       b.classList.add('tb-iconbtn');
+      // Command-bar buttons use the fast custom tooltip (canvas-tooltips.js)
+      // instead of the slow native title bubble; aria-label stays the source
+      // of truth. tooltipOnly tells setBtnEnabled not to restore the title.
+      b.title = '';
+      if (typeof b.removeAttribute === 'function') b.removeAttribute('title');
+      b.dataset.tooltipOnly = '1';
       if (isSvg) b.innerHTML = content;
       else b.textContent = content;
       b.style.cssText =
@@ -53,10 +59,26 @@
     cmdBar.setAttribute('aria-label', 'Document commands');
     cmdBar.className = 'cmd-bar';
     cmdBar.style.cssText =
-      'position:fixed;top:0;left:0;right:0;z-index:75;display:flex;align-items:flex-start;gap:0;' +
-      'box-sizing:border-box;min-height:36px;padding:8px 14px;overflow-x:auto;overflow-y:hidden;background:#fafafa;' +
+      'position:fixed;top:0;left:0;right:0;z-index:75;display:flex;align-items:stretch;gap:0;' +
+      'box-sizing:border-box;min-height:36px;padding:8px 14px;overflow:visible;background:#fafafa;' +
       'border-bottom:1px solid #ebebeb;font-family:' + fontFamily + ';';
     document.body.appendChild(cmdBar);
+
+    // One fixed row of groups. When the row cannot fit them all it hands
+    // trailing groups to the overflow popover (the » caret) — nothing is ever
+    // clipped. overflow-x:auto on the row is a safety net if the overflow
+    // script fails to load.
+    const cmdRows = document.createElement('div');
+    cmdRows.className = 'cmd-rows';
+    cmdRows.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:1 1 auto;min-width:0;';
+    function makeCmdRow() {
+      const row = document.createElement('div');
+      row.className = 'cmd-row';
+      row.style.cssText = 'display:flex;align-items:flex-start;gap:0;overflow-x:auto;overflow-y:hidden;';
+      return row;
+    }
+    const cmdRow = makeCmdRow();
+    cmdRows.append(cmdRow);
 
     const cmdMain = document.querySelector('main');
     if (cmdMain) cmdMain.style.paddingTop = 'var(--ditaeditor-toolbar-height, 72px)';
@@ -65,18 +87,6 @@
     const tPrev = makeBarBtn('‹', 'Previous topic in this folder', false);
     const tNext = makeBarBtn('›', 'Next topic in this folder', false);
     topicGroup.row.append(tPrev, tNext);
-
-    const editGroup = makeBarGroup('Edit');
-    const eSave = makeBarBtn('Save', 'Save document', false);
-    eSave.style.width = 'auto';
-    eSave.style.padding = '0 7px';
-    const eCopy = makeBarBtn('⧉', 'Copy selected element as DITA', false);
-    const ePasteBefore = makeBarBtn('↑▣', 'Paste DITA before selected element', false);
-    const ePasteAfter = makeBarBtn('↓▣', 'Paste DITA after selected element', false);
-    const eDelete = makeBarBtn('⌫', 'Delete selected element', false);
-    const eMoveEarlier = makeBarBtn('↑', 'Move selected element earlier', false);
-    const eMoveLater = makeBarBtn('↓', 'Move selected element later', false);
-    editGroup.row.append(eSave, eCopy, ePasteBefore, ePasteAfter, eDelete, eMoveEarlier, eMoveLater);
 
     const historyGroup = makeBarGroup('History');
     const hUndo = makeBarBtn(barIcons.undo, 'Undo', true);
@@ -158,9 +168,8 @@
     viewGroup.row.append(vZoomOut, vZoomPct, vZoomIn, vSpell, vHelp);
 
     const topicDivider = makeBarDivider();
-    const editDivider = makeBarDivider();
     const historyDivider = makeBarDivider();
-    const formatDivider = makeBarDivider();
+    const fmtDivider = makeBarDivider();
     const tableDivider = makeBarDivider();
     const insertDivider = makeBarDivider();
     const viewDivider = makeBarDivider();
@@ -171,45 +180,79 @@
     cmdStatus.setAttribute('aria-label', 'DITA Editor visual editor');
     cmdStatus.style.cssText =
       'margin-left:auto;flex:0 0 auto;align-self:center;font:11px/1.5 ' + fontFamily + ';color:#5a6b78;white-space:nowrap;';
-    cmdBar.append(
+    cmdRow.append(
       topicGroup.wrap, topicDivider,
-      editGroup.wrap, editDivider,
       historyGroup.wrap, historyDivider,
-      fmtGroup.wrap, formatDivider,
+      fmtGroup.wrap, fmtDivider,
       structGroup.wrap, insertDivider, insertGroup.wrap,
       tableDivider, tableGroup.wrap,
       viewDivider, viewGroup.wrap,
       cmdStatus,
     );
 
+    // Large caret at the bar's right edge; hidden until the row overflows.
+    // The overflow module toggles it and owns the popover it points at.
+    const moreBtn = makeBarBtn('»', 'More commands', false);
+    moreBtn.classList.add('cmd-more');
+    moreBtn.setAttribute('aria-haspopup', 'true');
+    moreBtn.setAttribute('aria-expanded', 'false');
+    moreBtn.setAttribute('aria-controls', 'ditaeditor-command-overflow');
+    moreBtn.style.width = '30px';
+    moreBtn.style.height = 'auto';
+    moreBtn.style.alignSelf = 'stretch';
+    moreBtn.style.flex = '0 0 auto';
+    moreBtn.style.marginLeft = '8px';
+    moreBtn.style.fontSize = '20px';
+    moreBtn.style.display = 'none';
+
+    const overflowPop = document.createElement('div');
+    overflowPop.id = 'ditaeditor-command-overflow';
+    overflowPop.className = 'cmd-overflow-pop';
+    overflowPop.setAttribute('role', 'group');
+    overflowPop.setAttribute('aria-label', 'More commands');
+    overflowPop.style.cssText =
+      'position:fixed;top:var(--ditaeditor-toolbar-height, 72px);right:8px;z-index:80;display:none;' +
+      'flex-direction:column;align-items:flex-start;gap:14px;padding:12px 14px;background:#fafafa;' +
+      'border:1px solid #e3e3e3;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.14);' +
+      'max-height:calc(100vh - 140px);overflow:auto;font-family:' + fontFamily + ';';
+    // Set separately from cssText: the overflow manager and roving filter key
+    // off style.display, and the closed state must survive a stale stylesheet.
+    overflowPop.style.display = 'none';
+    document.body.appendChild(overflowPop);
+
+    cmdBar.append(cmdRows, moreBtn);
+
+    // Canonical row membership for the overflow manager: each entry pairs a
+    // group with the divider rendered before it in the row.
+    const cmdRowEntries = [
+      { wrap: topicGroup.wrap, divider: null },
+      { wrap: historyGroup.wrap, divider: topicDivider },
+      { wrap: fmtGroup.wrap, divider: historyDivider },
+      { wrap: structGroup.wrap, divider: fmtDivider },
+      { wrap: insertGroup.wrap, divider: insertDivider },
+      { wrap: tableGroup.wrap, divider: tableDivider },
+      { wrap: viewGroup.wrap, divider: viewDivider },
+    ];
+
     const cmdBtns = [
       tPrev, tNext,
-      eSave, eCopy, ePasteBefore, ePasteAfter, eDelete, eMoveEarlier, eMoveLater,
       hUndo, hRedo, hFind, hReplace,
       fmtBold, fmtItalic, fmtUnderline, fmtStrike, fmtCode, fmtSub, fmtSup, fmtClear,
       biParagraph, biSection, biList, aiList, niList, biLines, biNote, biCode, biIndent, biOutdent, biTable, biImage, biXref, biConref,
       cRowAdd, cRowDel, cColAdd, cColDel, cAlignHorizontal, cAlignVertical,
       vZoomOut, vZoomPct, vZoomIn, vSpell, vHelp,
+      moreBtn,
     ];
 
     return {
       cmdBar: cmdBar,
-      editGroup: editGroup,
-      editDivider: editDivider,
-      eSave: eSave,
-      eCopy: eCopy,
-      ePasteBefore: ePasteBefore,
-      ePasteAfter: ePasteAfter,
-      eDelete: eDelete,
-      eMoveEarlier: eMoveEarlier,
-      eMoveLater: eMoveLater,
       historyGroup: historyGroup,
       fmtGroup: fmtGroup,
       structGroup: structGroup,
       insertGroup: insertGroup,
       tableGroup: tableGroup,
       historyDivider: historyDivider,
-      formatDivider: formatDivider,
+      fmtDivider: fmtDivider,
       insertDivider: insertDivider,
       tableDivider: tableDivider,
       cmdStatus: cmdStatus,
@@ -264,6 +307,11 @@
       vZoomIn: vZoomIn,
       vSpell: vSpell,
       vHelp: vHelp,
+      cmdRows: cmdRows,
+      cmdRow: cmdRow,
+      cmdRowEntries: cmdRowEntries,
+      moreBtn: moreBtn,
+      overflowPop: overflowPop,
     };
   }
 

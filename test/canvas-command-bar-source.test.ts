@@ -62,13 +62,16 @@ describe('canvas-command-bar source contract', () => {
     expect(source).toContain("postStructural('addColumnAfter', barCurrent.cellEntryId");
   });
 
-  test('adds guarded edit commands and a serialized explicit save', () => {
-    expect(uiSource).toContain("const editGroup = makeBarGroup('Edit');");
-    expect(source).toContain("vscode.postMessage({ type: 'saveDocument' })");
-    expect(source).toContain("vscode.postMessage({ type: 'copyDita', ids: ids })");
-    expect(source).toContain("type: 'pasteDita', id: String(current.id), op: 'before'");
-    expect(source).toContain("postStructural('deleteElement'");
-    expect(source).toContain("direction < 0 ? 'moveBefore' : 'moveAfter'");
+  test('drops the EDIT group and its element commands from the bar', () => {
+    // Removed per user feedback (2026-07-18): the icon buttons were cryptic.
+    // Their actions live on the keyboard (Cmd/Ctrl+S save, Alt+Arrow move,
+    // clipboard); the host-side saveDocument handler stays for the protocol.
+    expect(uiSource).not.toContain("makeBarGroup('Edit')");
+    expect(source).not.toContain("type: 'saveDocument'");
+    expect(source).not.toContain("type: 'copyDita'");
+    expect(source).not.toContain("type: 'pasteDita'");
+    expect(source).not.toContain("postStructural('deleteElement'");
+    expect(source).not.toContain("'moveBefore' : 'moveAfter'");
     expect(providerSource).toContain("msg.type === 'saveDocument'");
     expect(providerSource).toContain('const saved = await document.save();');
   });

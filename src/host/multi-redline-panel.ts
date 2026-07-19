@@ -17,6 +17,10 @@ import { buildCanvasHtml } from '../webview/canvas-html';
 import { inspectAuthorStyleSource } from './author-style-source';
 import { gitRevisionLocation } from './git-revision-uri';
 import { createNodeManagedStyleFiles, type ManagedStyleDocument, type ManagedStyleTarget } from './managed-style-persistence';
+import {
+  createManagedStyleDocumentRefreshHandler,
+  matchesManagedStyleDocumentTarget,
+} from './managed-style-refresh';
 import { makeNonce } from './nonce';
 import { redlineManagedStylePresentation } from './redline-managed-style-presentation';
 import { renderReviewSources } from './redline-sources';
@@ -35,6 +39,7 @@ import {
   readWorkspaceVisualSettings,
   resolveVisualWorkspaceFiles,
 } from './workspace-files';
+import { resolvedWorkspaceWatcherPattern } from './workspace-watcher-path';
 import {
   captureReviewExportStylesheets,
   reviewDocumentDirectory,
@@ -45,8 +50,22 @@ const MULTI_REDLINE_VIEW_TYPE = 'ditaeditor.multiRedline';
 interface MultiRedlineEntry {
   panel: vscode.WebviewPanel;
   exportSnapshots: ReviewExportSnapshotStore;
+  subscriptions: vscode.Disposable[];
+  managedStyleWatcher: vscode.FileSystemWatcher | null;
+  managedStyleWatcherSubscriptions: vscode.Disposable[];
+  styleRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+  styleRefreshQueue: Promise<void>;
+  disposed: boolean;
 }
 const panels = new Map<string, MultiRedlineEntry>();
+const STYLE_REFRESH_DEBOUNCE_MS = 300;
+
+function disposeManagedStyleWatcher(entry: MultiRedlineEntry): void {
+  for (const subscription of entry.managedStyleWatcherSubscriptions) subscription.dispose();
+  entry.managedStyleWatcherSubscriptions = [];
+  entry.managedStyleWatcher?.dispose();
+  entry.managedStyleWatcher = null;
+}
 
 async function mapWithConcurrency<T, R>(
   values: readonly T[],
@@ -136,11 +155,14 @@ export async function openMultiRedlinePanel(
     platform: process.platform,
     log: (message) => debug.appendLine(message),
   });
-  const managedStyles = redlineManagedStylePresentation(inspection);
+  let managedStyles = redlineManagedStylePresentation(inspection);
   const exportStylesheets = await captureReviewExportStylesheets({
     extensionUri: context.extensionUri,
     configuredStyleUris: resolved.contentStylesheets.map((stylesheet) => stylesheet.uri),
-    managedCssText: inspection.renderCssText,
+    authorStylesheet: target && inspection.kind !== 'missing'
+      ? { cssText: inspection.sourceText, baseUri: target.uri }
+      : undefined,
+    managedCssText: target && inspection.kind !== 'missing' ? '' : inspection.renderCssText,
     managedBaseUri: target
       ? vscode.Uri.parse(target.uri, true)
       : vscode.Uri.joinPath(reviewDocumentDirectory(first.resource), 'ditaeditor-managed.css'),
@@ -220,12 +242,22 @@ export async function openMultiRedlinePanel(
   const entry: MultiRedlineEntry = {
     panel,
     exportSnapshots: new ReviewExportSnapshotStore(),
+    subscriptions: [],
+    managedStyleWatcher: null,
+    managedStyleWatcherSubscriptions: [],
+    styleRefreshTimer: undefined,
+    styleRefreshQueue: Promise.resolve(),
+    disposed: false,
   };
   panels.set(key, entry);
-  panel.onDidDispose(() => panels.delete(key));
-  panel.webview.onDidReceiveMessage((message: { type?: string } | undefined) => {
+  entry.subscriptions.push(panel.webview.onDidReceiveMessage((message: { type?: string } | undefined) => {
     if (message?.type === 'redlineReady') {
       void panel.webview.postMessage(managedStyles.message);
+      return;
+    }
+    if (message?.type === 'authorStylesheetLoadError') {
+      debug.appendLine('DITA Editor: repository author stylesheet failed to load in Review Changes.');
+      void vscode.window.showErrorMessage('DITA Editor: the repository author stylesheet could not be loaded in Review Changes.');
       return;
     }
     if (message?.type === 'openSourceDiff') {
@@ -248,7 +280,7 @@ export async function openMultiRedlinePanel(
         ),
       );
     }
-  });
+  }));
 
   const { contentStyleUris, surfaceStyleUri, scriptUris } = configureRedlineWebviewResources({
     webview: panel.webview,
@@ -259,6 +291,82 @@ export async function openMultiRedlinePanel(
     contentStylesheets: resolved.contentStylesheets,
     joinPath: vscode.Uri.joinPath,
   });
+  const authorStyleUri = target && inspection.kind !== 'missing'
+    ? `${panel.webview.asWebviewUri(vscode.Uri.parse(target.uri)).toString()}?v=${inspection.sourceHash}`
+    : undefined;
+  managedStyles = redlineManagedStylePresentation(inspection, authorStyleUri);
+
+  const refreshManagedStyles = async (): Promise<void> => {
+    const nextInspection = await inspectAuthorStyleSource(target, {
+      files: styleFiles,
+      listDocuments: documents,
+      resolveDocumentIdentity: async (fsPath) =>
+        canonicalIdentity(await styleFiles.realpath(fsPath), process.platform),
+      platform: process.platform,
+      log: (message) => debug.appendLine(message),
+    });
+    if (entry.disposed) return;
+    const nextAuthorStyleUri = target && nextInspection.kind !== 'missing'
+      ? `${panel.webview.asWebviewUri(vscode.Uri.parse(target.uri)).toString()}?v=${nextInspection.sourceHash}`
+      : undefined;
+    managedStyles = redlineManagedStylePresentation(nextInspection, nextAuthorStyleUri);
+    await panel.webview.postMessage(managedStyles.message);
+  };
+  const scheduleManagedStyleRefresh = (): void => {
+    if (entry.disposed) return;
+    if (entry.styleRefreshTimer !== undefined) clearTimeout(entry.styleRefreshTimer);
+    entry.styleRefreshTimer = setTimeout(() => {
+      entry.styleRefreshTimer = undefined;
+      entry.styleRefreshQueue = entry.styleRefreshQueue
+        .then(refreshManagedStyles)
+        .catch((error) => {
+          if (!entry.disposed) {
+            debug.appendLine(`dita-editor: multi-file Review stylesheet refresh failed: ${String(error)}`);
+          }
+        });
+    }, STYLE_REFRESH_DEBOUNCE_MS);
+  };
+  const refreshForManagedStyleDocument = createManagedStyleDocumentRefreshHandler({
+    matches: (document: vscode.TextDocument) => matchesManagedStyleDocumentTarget(
+      document,
+      target,
+      styleFiles,
+      process.platform,
+    ),
+    request: scheduleManagedStyleRefresh,
+    log: (message) => debug.appendLine(message),
+  });
+  entry.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      if (event.contentChanges.length > 0) refreshForManagedStyleDocument(event.document);
+    }),
+    vscode.workspace.onDidSaveTextDocument(refreshForManagedStyleDocument),
+    vscode.workspace.onDidOpenTextDocument(refreshForManagedStyleDocument),
+    vscode.workspace.onDidCloseTextDocument(refreshForManagedStyleDocument),
+  );
+  const watchPattern = folder && target
+    ? resolvedWorkspaceWatcherPattern(folder.uri.fsPath, target.lexicalPath, process.platform)
+    : null;
+  if (folder && watchPattern) {
+    const watcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(folder, watchPattern),
+    );
+    entry.managedStyleWatcher = watcher;
+    entry.managedStyleWatcherSubscriptions = [
+      watcher.onDidChange(scheduleManagedStyleRefresh),
+      watcher.onDidCreate(scheduleManagedStyleRefresh),
+      watcher.onDidDelete(scheduleManagedStyleRefresh),
+    ];
+  }
+  panel.onDidDispose(() => {
+    entry.disposed = true;
+    if (entry.styleRefreshTimer !== undefined) clearTimeout(entry.styleRefreshTimer);
+    entry.styleRefreshTimer = undefined;
+    disposeManagedStyleWatcher(entry);
+    for (const subscription of entry.subscriptions) subscription.dispose();
+    panels.delete(key);
+  });
+
   const liveFiles = files.map((file, index) => {
     const resource = selections[index].resource;
     if (resource.scheme !== 'file') return file;
@@ -284,7 +392,8 @@ export async function openMultiRedlinePanel(
       skippedFileCount: Math.max(0, totalTextDiffs - comparisons.length),
     }),
     contentStyleUris,
-    managedStyleCss: inspection.renderCssText,
+    authorStyleUri,
+    managedStyleCss: '',
     managedStyleConsumer: 'redline',
     surfaceStyleUri,
     // Each topic's relative image URLs are rewritten against its own resource URI.

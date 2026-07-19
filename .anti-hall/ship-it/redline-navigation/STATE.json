@@ -1,0 +1,12 @@
+{
+  "plan_hash": "14687b7e755b3c1c4256e02296cb817d2a2c54bdddb604d018a340d9e52bf53e",
+  "phases": [
+    { "label": "handover-review", "status": "done", "gate": "locked" },
+    { "label": "focused-verification", "status": "done", "gate": "locked" },
+    { "label": "full-verification", "status": "done", "gate": "locked" },
+    { "label": "release-hardening", "status": "done", "gate": "locked" },
+    { "label": "package-and-publish", "status": "done", "gate": "locked" },
+    { "label": "marketplace-verification", "status": "done", "gate": "locked" }
+  ],
+  "escalations": 0
+}

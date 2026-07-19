@@ -317,7 +317,7 @@ async function renderIntoPanel(
     platform: process.platform,
     log: (message) => debug.appendLine(message),
   });
-  const managedStyles = redlineManagedStylePresentation(inspection);
+  let managedStyles = redlineManagedStylePresentation(inspection);
 
   const editableDocument = !selection.historical && selection.document.scheme === 'file'
     ? await vscode.workspace.openTextDocument(selection.document)
@@ -360,7 +360,10 @@ async function renderIntoPanel(
   const exportStylesheets = await captureReviewExportStylesheets({
     extensionUri: context.extensionUri,
     configuredStyleUris: resolved.contentStylesheets.map((stylesheet) => stylesheet.uri),
-    managedCssText: inspection.renderCssText,
+    authorStylesheet: target && inspection.kind !== 'missing'
+      ? { cssText: inspection.sourceText, baseUri: target.uri }
+      : undefined,
+    managedCssText: target && inspection.kind !== 'missing' ? '' : inspection.renderCssText,
     managedBaseUri: target
       ? vscode.Uri.parse(target.uri, true)
       : vscode.Uri.joinPath(reviewDocumentDirectory(selection.resource), 'ditaeditor-managed.css'),
@@ -370,7 +373,6 @@ async function renderIntoPanel(
     ],
   });
   if (!entry.refreshGeneration.isCurrent(generation)) return;
-  entry.managedStylesMessage = managedStyles.message;
   entry.managedStyleTarget = target;
   retargetManagedStyleWatcher(context, selection, entry, debug, folder, target);
   retargetTaxonomyWatcher(
@@ -391,6 +393,11 @@ async function renderIntoPanel(
     contentStylesheets: resolved.contentStylesheets,
     joinPath: vscode.Uri.joinPath,
   });
+  const authorStyleUri = target && inspection.kind !== 'missing'
+    ? `${entry.panel.webview.asWebviewUri(vscode.Uri.parse(target.uri)).toString()}?v=${inspection.sourceHash}`
+    : undefined;
+  managedStyles = redlineManagedStylePresentation(inspection, authorStyleUri);
+  entry.managedStylesMessage = managedStyles.message;
   entry.revertActions = nextRevertActions;
   entry.panel.webview.html = buildCanvasHtml({
     bodyHtml: renderReviewShell({
@@ -401,7 +408,8 @@ async function renderIntoPanel(
       sideBySideHtml: rendered.sideBySide.html,
     }),
     contentStyleUris,
-    managedStyleCss: inspection.renderCssText,
+    authorStyleUri,
+    managedStyleCss: '',
     managedStyleConsumer: 'redline',
     surfaceStyleUri,
     baseHref,
@@ -522,6 +530,11 @@ export async function openRedlinePanel(
       panel.webview.onDidReceiveMessage((message: { type?: string; token?: unknown } | undefined) => {
         if (message?.type === 'redlineReady') {
           void panel.webview.postMessage(created.managedStylesMessage);
+          return;
+        }
+        if (message?.type === 'authorStylesheetLoadError') {
+          debug.appendLine('DITA Editor: repository author stylesheet failed to load in Review Changes.');
+          void vscode.window.showErrorMessage('DITA Editor: the repository author stylesheet could not be loaded in Review Changes.');
           return;
         }
         if (message?.type === 'revertChange') {

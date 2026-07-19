@@ -53,7 +53,7 @@ describe('release tooling contract', () => {
     expect(readFileSync(join(root, '.gitattributes'), 'utf8')).toBe(expectedAttributes);
     expect(pkg.devDependencies).toEqual({
       '@types/bun': '1.3.14',
-      '@types/vscode': '1.90.0',
+      '@types/vscode': '1.106.1',
       '@types/yauzl': '3.4.0',
       '@vscode/test-electron': '3.0.0',
       '@vscode/vsce': '3.9.2',

@@ -239,7 +239,6 @@
     });
     if (window.addEventListener) {
       window.addEventListener('resize', applyBreadcrumbInset);
-      window.addEventListener('ditaeditor:layoutchange', applyBreadcrumbInset);
     }
 
     function ditaSegmentOf(el) {

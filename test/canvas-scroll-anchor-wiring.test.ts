@@ -9,6 +9,6 @@ describe('canvas scroll anchor wiring', () => {
     expect(source).toContain('scrollAnchor.start()');
     expect(source).toContain('scrollAnchor.didRerender()');
     expect(source).toContain("msg.type === 'scrollToAnchor'");
-    expect(source).toContain('scrollAnchor.restore(msg.id)');
+    expect(source).toContain("scrollAnchor.restore(msg.id, msg.highlight ? 'center' : 'start')");
   });
 });

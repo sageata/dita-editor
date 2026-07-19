@@ -44,22 +44,6 @@
   // branch in extension.ts), it stays {} and transformAvailFor defaults to 'ok' (host still
   // plans+refuses+resyncs a bad transform), so the menu can drive the host once that branch lands.
   let transformMap = {};
-  // FILE-LEVEL document properties for the left Properties sidebar: { id, kind, attrs:[{name,value}] }
-  // of the outermost topic root (host buildDocProps), pushed like the other maps. The panel edits the
-  // WHOLE document's metadata on the root element, NOT the selected element. null until the host ships it.
-  let docProps = null;
-  function readEmbeddedTaxonomy() {
-    const node = document.getElementById('ditaeditor-taxonomy-data');
-    if (!node) return null;
-    try {
-      const parsed = JSON.parse(node.textContent || 'null');
-      return parsed && parsed.version === 1 && Array.isArray(parsed.fields) ? parsed : null;
-    } catch (error) {
-      console.error('DITA Editor: embedded taxonomy JSON could not be parsed.', error);
-      return null;
-    }
-  }
-  let taxonomy = readEmbeddedTaxonomy();
   // CSS-backed author styles for the right Styles panel. The host reads/writes the real workspace CSS
   // file and pushes definitions + generated CSS; the canvas only renders controls and posts intents.
   let styleState = { styles: [], cssText: '', writable: false, sourceHash: '', targetToken: '' };
@@ -459,23 +443,6 @@
   // remains visually constant when zoom is not 100%.
   zoomCtl.apply();
 
-  // ==================== Properties sidebar (Frame A left bar; FILE-LEVEL attribute editor) ====================
-  const canvasProperties = window.DitaEditorCanvasProperties;
-  if (!canvasProperties) throw new Error('DITA Editor properties script did not load before canvas.js');
-  const propertiesPanel = canvasProperties.installPropertiesPanel({
-    document: document,
-    window: window,
-    vscode: vscode,
-    fontFamily: SYSTEM_SANS,
-    getDocProps: () => docProps,
-    nounForKind: nounForKind,
-    taxonomy: taxonomy,
-    getStructVersion: () => structVersion,
-  });
-  function refreshProperties() {
-    propertiesPanel.refresh();
-  }
-
   // ==================== Selection model (render-only) ====================
   // A document-level, element-granular selection. It NEVER posts to the host and never
   // serializes: it only paints `.is-selected` + a live count chip, and survives host rerenders
@@ -560,26 +527,7 @@
     announceNav: announceNav,
   });
 
-  // ==================== Styles sidebar (right bar; CSS-backed outputclass editor) ====================
-  const canvasStyles = window.DitaEditorCanvasStyles;
-  if (!canvasStyles) throw new Error('DITA Editor styles script did not load before canvas.js');
-  function createSaveRequestSessionId() {
-    const crypto = window.crypto;
-    if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-    if (crypto && typeof crypto.getRandomValues === 'function') {
-      const bytes = new Uint8Array(16);
-      crypto.getRandomValues(bytes);
-      // RFC 4122 version/variant bits make the fallback the same UUID shape as
-      // randomUUID while retaining 122 bits of per-frame randomness.
-      bytes[6] = (bytes[6] & 0x0f) | 0x40;
-      bytes[8] = (bytes[8] & 0x3f) | 0x80;
-      const hex = Array.prototype.map.call(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
-      return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-'
-        + hex.slice(16, 20) + '-' + hex.slice(20);
-    }
-    throw new Error('Secure randomness is unavailable for style save request IDs.');
-  }
-  const saveRequestSessionId = createSaveRequestSessionId();
+  // ==================== Style bridge (canvas side of the native Styles view) ====================
   function idSelector(attrName, id) {
     const value = String(id);
     if (window.CSS && typeof window.CSS.escape === 'function') {
@@ -679,20 +627,19 @@
     }
     return null;
   }
-  const stylesPanel = canvasStyles.installStylesPanel({
+  // The Styles panel itself lives in the native Styles view; the bridge keeps
+  // the canvas-side jobs: painting live author CSS and publishing the
+  // selection/computed-style snapshot the view renders from.
+  const canvasStyleBridge = window.DitaEditorCanvasStyleBridge;
+  if (!canvasStyleBridge) throw new Error('DITA Editor style bridge script did not load before canvas.js');
+  const styleBridge = canvasStyleBridge.installStyleBridge({
     document: document,
     window: window,
     vscode: vscode,
-    fontFamily: SYSTEM_SANS,
-    saveRequestSessionId: saveRequestSessionId,
     getStyleState: () => styleState,
     getCurrentTarget: resolveCurrentStyleTarget,
     getStructVersion: () => structVersion,
-    announceNav: announceNav,
   });
-  function refreshStyles(force) {
-    stylesPanel.refresh(!!force);
-  }
 
   // ==================== Table column resize (render-only handles; DITA colwidth persistence) ====================
   const canvasTableResize = window.DitaEditorCanvasTableResize;
@@ -766,8 +713,22 @@
       return;
     }
     if (msg.type === 'scrollToAnchor') {
-      if (!scrollAnchor.restore(msg.id)) {
+      if (!scrollAnchor.restore(msg.id, msg.highlight ? 'center' : 'start')) {
         vscode.postMessage({ type: 'scrollRestoreFailed', id: msg.id });
+      } else if (msg.highlight && window.DitaEditorCanvasScrollHighlight) {
+        // Topic-search landing: select the exact matched text inside the anchored
+        // element. A miss keeps the element-level scroll — deliberately silent.
+        const anchorEl = document.querySelector(
+          '[data-struct-id="' + msg.id + '"],[data-cell-id="' + msg.id + '"]',
+        );
+        if (anchorEl) {
+          window.DitaEditorCanvasScrollHighlight.highlightMatch({
+            anchor: anchorEl,
+            highlight: msg.highlight,
+            documentObj: document,
+            windowObj: window,
+          });
+        }
       }
       return;
     }
@@ -776,47 +737,30 @@
       if (msg.cmdMap) cmdMap = msg.cmdMap; // P0-2: command availability for the current doc
       if (msg.insertMap) insertMap = msg.insertMap; // #13: cross-kind insert availability (W6 host side)
       if (msg.transformMap) transformMap = msg.transformMap; // #22: block-transform availability (W6 host side)
-      if (msg.docProps !== undefined) docProps = msg.docProps; // file-level Properties source
       if (msg.styleState) styleState = msg.styleState; // CSS-backed author styles
-      if (msg.taxonomy !== undefined) {
-        taxonomy = msg.taxonomy && msg.taxonomy.version === 1 && Array.isArray(msg.taxonomy.fields)
-          ? msg.taxonomy
-          : null;
-        propertiesPanel.setTaxonomy(taxonomy);
-      }
       if (typeof msg.structVersion === 'number') structVersion = msg.structVersion; // adopt the load-cycle token
       nativeContextMenu.refresh();
       endInsert.refresh(); // refresh the trailing paragraph hit area against the host insert map
       refreshCmdBar(); // the command bar gates off these maps — repaint it on the load handshake
-      refreshProperties(); // repaint the file-level Properties panel
-      refreshStyles(); // repaint the CSS-backed author Styles panel
+      styleBridge.applyStyleState(); // repaint live author CSS from the handshake state
+      styleBridge.emitTargetState(); // and publish the initial snapshot to the Styles view
       tableResize.refresh(); // place column resize handles for the initial body
       tableInsertPlus.refresh(); // drop any stale intersection "+" for the initial body
-      return;
-    }
-    if (msg.type === 'styleSaveResult') {
-      stylesPanel.acceptSaveResult(msg);
       return;
     }
     if (msg.type === 'styleState') {
       if (msg.styleState) styleState = msg.styleState;
       nativeContextMenu.refresh();
-      // NOT forced: this fires after every autosave round-trip while the user may still be
-      // typing in the style editor. buildPanel() already repaints the live CSS preview
-      // unconditionally; forcing the DOM rebuild here destroyed the focused input every time,
-      // requiring a reclick per keystroke.
-      refreshStyles();
-      return;
-    }
-    if (msg.type === 'taxonomyState') {
-      taxonomy = msg.taxonomy && msg.taxonomy.version === 1 && Array.isArray(msg.taxonomy.fields)
-        ? msg.taxonomy
-        : null;
-      propertiesPanel.setTaxonomy(taxonomy);
+      styleBridge.applyStyleState(); // repaint live author CSS; the view repaints itself off the hub push
+      styleBridge.emitTargetState(); // inherited "(default)" values may shift with the new CSS
       return;
     }
     if (msg.type === 'announce') {
       announceNav(msg.message || ''); // P1-4: host-driven a11y announcement (e.g. image picker result)
+      return;
+    }
+    if (msg.type === 'requestStyleTargetState') {
+      styleBridge.emitTargetState(); // a Styles view resolved after our last emission
       return;
     }
     if (msg.type === 'rangeAvailability') {
@@ -834,7 +778,6 @@
     if (msg.cmdMap) cmdMap = msg.cmdMap; // P0-2: refresh command availability for the new body
     if (msg.insertMap) insertMap = msg.insertMap; // #13: refresh insert availability for the new body
     if (msg.transformMap) transformMap = msg.transformMap; // #22: refresh block-transform availability
-    if (msg.docProps !== undefined) docProps = msg.docProps; // file-level Properties source for the new body
     if (msg.styleState) styleState = msg.styleState; // CSS-backed author styles
     if (typeof msg.structVersion === 'number') structVersion = msg.structVersion; // adopt the new render cycle's token
     const main = document.querySelector('main');
@@ -874,11 +817,8 @@
       }
     }
     refreshCmdBar(); // new body + fresh maps: rebind the command bar to the restored caret/element
-    refreshProperties(); // repaint the file-level Properties panel from the fresh docProps
-    refreshStyles(true); // FORCE: a rerender is an authoritative document change (e.g. a preset apply/clear),
-                         // so the applied-indicator must recompute from the fresh DOM even if focus sits in the
-                         // panel. The unforced guard exists only to protect a focused CSS input on the styleState
-                         // (typing) path — document rerenders never fire while that input is being typed into.
+    styleBridge.applyStyleState(); // rerender carries fresh styleState; repaint live author CSS
+    styleBridge.noteRerender(); // ids/classes changed: invalidate inherited cache + re-publish the snapshot
     rerendering = false; // swap done + caret restored: genuine user blurs commit again
   });
 

@@ -15,7 +15,7 @@ export interface ReviewExportSnapshot {
   title: string;
   defaultFilename: string;
   bodyHtml: string;
-  /** Neutral → configured workspace → managed author → redline surface. */
+  /** Neutral → deprecated configured workspace → repository author → temporary managed → redline surface. */
   stylesheets: ReviewExportStylesheet[];
   /** One base for single-file exports; one per data-redline-file for multi-file. */
   imageBaseUris: string[];

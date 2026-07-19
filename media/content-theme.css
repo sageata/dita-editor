@@ -1,48 +1,18 @@
-/* Neutral document presentation shared by the editable canvas and review surface. */
-:root {
-  --dc-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --dc-color-text: #1f2937;
-  --dc-color-text-muted: #4b5563;
-  --dc-color-surface: #ffffff;
-  --dc-color-surface-muted: #f3f4f6;
-  --dc-color-border: #d1d5db;
-  --dc-color-accent: #2563eb;
-  --dc-color-accent-strong: #1d4ed8;
-  --dc-radius-md: 8px;
-  --dc-shadow-md: 0 6px 24px rgb(15 23 42 / 12%);
-}
-
+/* Structural rules shared by the editable canvas and review surfaces.
+ * Repository-owned author styles provide all presentation and branding. */
 :where(body.ditaeditor-canvas) {
   margin: 0;
-  background: var(--dc-color-surface-muted);
-  color: var(--dc-color-text);
-  font-family: var(--dc-font-family);
-  font-size: 16px;
-  line-height: 1.55;
 }
 
 :where(body.ditaeditor-canvas main) {
   box-sizing: border-box;
-  width: min(100%, var(--dc-page-content-width, 1100px));
-  min-height: 100vh;
-  margin: 0 auto;
-  padding: 40px 48px;
-  background: var(--dc-color-surface);
-  box-shadow: var(--dc-shadow-md);
+  width: 100%;
+  min-width: 0;
 }
 
-:where(body.ditaeditor-canvas article.nested0) {
-  color: var(--dc-color-text);
-}
-
-:where(body.ditaeditor-canvas article article) {
-  margin-top: 32px;
-}
-
-/* Reserved DITA Editor alignment outputclasses. These rules are shared by the
- * editable canvas and read-only/review surfaces, so they deliberately depend
- * only on the persisted class contract rather than editable-only data attrs.
- * Source order is the malformed-token precedence: justify > right > center > left. */
+/* Reserved DITA Editor alignment outputclasses. These rules depend only on the
+ * persisted class contract, so they work in editable and read-only surfaces.
+ * Source order defines malformed-token precedence: justify > right > center > left. */
 main .ditaeditor-align-left {
   text-align: left !important;
 }
@@ -68,254 +38,39 @@ main .cmd.ditaeditor-align-justify {
   display: block;
 }
 
-:where(body.ditaeditor-canvas h1.title.topictitle1),
-:where(body.ditaeditor-canvas h2.title),
-:where(body.ditaeditor-canvas h3.title),
-:where(body.ditaeditor-canvas section.section > .title) {
-  color: var(--dc-color-text);
-  font-family: var(--dc-font-family);
-  line-height: 1.2;
-}
-
-:where(body.ditaeditor-canvas h1.title.topictitle1) {
-  margin: 0 0 28px;
-  padding-left: 12px;
-  border-left: 4px solid var(--dc-color-accent);
-  font-size: 32px;
-  font-weight: 700;
-}
-
-:where(body.ditaeditor-canvas article article h1.title.topictitle1),
-:where(body.ditaeditor-canvas h2.title),
-:where(body.ditaeditor-canvas section.section > .title) {
-  margin: 24px 0 12px;
-  font-size: 24px;
-  font-weight: 600;
-}
-
-:where(body.ditaeditor-canvas h3.title) {
-  margin: 20px 0 10px;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-:where(body.ditaeditor-canvas .shortdesc) {
-  margin: 0 0 24px;
-  color: var(--dc-color-text-muted);
-  font-size: 18px;
-  font-weight: 500;
-}
-
-:where(body.ditaeditor-canvas p.p) {
-  margin: 0 0 16px;
-}
-
-:where(body.ditaeditor-canvas ul.ul),
-:where(body.ditaeditor-canvas ol.ol) {
-  margin: 0 0 18px;
-  padding-left: 26px;
-}
-
-:where(body.ditaeditor-canvas dl.dl) {
-  margin: 0 0 18px;
-}
-
-:where(body.ditaeditor-canvas li.li + li.li),
-:where(body.ditaeditor-canvas .step + .step) {
-  margin-top: 6px;
-}
-
-:where(body.ditaeditor-canvas .note) {
-  margin: 18px 0;
-  padding: 14px 16px;
-  border: 1px solid var(--dc-color-border);
-  border-left: 4px solid var(--dc-color-accent);
-  border-radius: var(--dc-radius-md);
-  background: var(--dc-color-surface-muted);
-}
-
-:where(body.ditaeditor-canvas figure.fig) {
-  margin: 0 0 20px;
-}
-
-:where(body.ditaeditor-canvas figure.fig figcaption),
-:where(body.ditaeditor-canvas .figdesc) {
-  margin-top: 8px;
-  color: var(--dc-color-text-muted);
-  font-size: 14px;
-}
-
 :where(body.ditaeditor-canvas img.image) {
-  display: block;
   max-width: 100%;
   height: auto;
-  border-radius: var(--dc-radius-md);
-}
-
-:where(body.ditaeditor-canvas code.ph.codeph) {
-  padding: 1px 5px;
-  border: 1px solid var(--dc-color-border);
-  border-radius: calc(var(--dc-radius-md) / 2);
-  background: var(--dc-color-surface-muted);
-  color: var(--dc-color-text);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.9em;
 }
 
 :where(body.ditaeditor-canvas pre.pre),
 :where(body.ditaeditor-canvas pre.codeblock),
 :where(body.ditaeditor-canvas pre.msgblock),
-:where(body.ditaeditor-canvas pre.screen) {
-  margin: 0 0 18px;
-  padding: 14px 16px;
-  overflow-x: auto;
-  border: 1px solid var(--dc-color-border);
-  border-radius: var(--dc-radius-md);
-  background: var(--dc-color-surface-muted);
-  color: var(--dc-color-text);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-}
-
+:where(body.ditaeditor-canvas pre.screen),
 :where(body.ditaeditor-canvas pre.lines),
 :where(body.ditaeditor-canvas .lines) {
-  margin: 0 0 16px;
-  padding: 0;
-  background: transparent;
-  color: inherit;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
+  max-width: 100%;
+  overflow-x: auto;
   overflow-wrap: break-word;
   white-space: pre-wrap;
 }
 
-:where(body.ditaeditor-canvas :is(th, td).entry .lines) {
-  margin: 0;
-}
-
-:where(body.ditaeditor-canvas a) {
-  color: var(--dc-color-accent);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-}
-
-:where(body.ditaeditor-canvas a:hover),
-:where(body.ditaeditor-canvas a:focus-visible) {
-  color: var(--dc-color-accent-strong);
-}
-
 :where(body.ditaeditor-canvas table.table) {
-  width: 100%;
-  margin: 0 0 32px;
-  overflow: hidden;
-  border: 1px solid var(--dc-color-border);
-  border-collapse: collapse;
-  border-radius: var(--dc-radius-md);
-  background: var(--dc-color-surface);
-  box-shadow: var(--dc-shadow-md);
-  font-size: 14px;
-}
-
-:where(body.ditaeditor-canvas table.table caption) {
-  padding: 10px 14px;
-  color: var(--dc-color-text-muted);
-  font-weight: 600;
-  text-align: left;
+  max-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 :where(body.ditaeditor-canvas table.table th.entry),
 :where(body.ditaeditor-canvas table.table td.entry) {
-  border: 0;
-  border-right: 1px solid var(--dc-color-border);
-  border-bottom: 1px solid var(--dc-color-border);
-  vertical-align: top;
+  box-sizing: border-box;
 }
 
-:where(body.ditaeditor-canvas table.table tr > th.entry:last-child),
-:where(body.ditaeditor-canvas table.table tr > td.entry:last-child) {
-  border-right: 0;
+/* These DOM-shape rules are editing mechanics, not author presets. */
+:where(body.ditaeditor-canvas table.table colgroup col:only-child) {
+  width: 100%;
 }
 
-:where(body.ditaeditor-canvas table.table tbody > tr:last-child > th.entry),
-:where(body.ditaeditor-canvas table.table tbody > tr:last-child > td.entry) {
-  border-bottom: 0;
-}
-
-:where(body.ditaeditor-canvas table.table th.entry) {
-  padding: 12px 14px;
-  background: var(--dc-color-accent-strong);
-  color: var(--dc-color-surface);
-  font-weight: 600;
-  text-align: left;
-  vertical-align: middle;
-}
-
-:where(body.ditaeditor-canvas table.table td.entry) {
-  padding: 10px 14px;
-}
-
-:where(body.ditaeditor-canvas table.table td.entry[data-colsep="1"]),
-:where(body.ditaeditor-canvas table.table th.entry[data-colsep="1"]) {
-  border-right: 1px solid var(--dc-color-border);
-}
-
-:where(body.ditaeditor-canvas table.table td.entry[data-colsep="0"]),
-:where(body.ditaeditor-canvas table.table th.entry[data-colsep="0"]) {
-  border-right: 0;
-}
-
-:where(body.ditaeditor-canvas table.table td.entry[data-rowsep="1"]),
-:where(body.ditaeditor-canvas table.table th.entry[data-rowsep="1"]) {
-  border-bottom: 1px solid var(--dc-color-border);
-}
-
-:where(body.ditaeditor-canvas table.table td.entry[data-rowsep="0"]),
-:where(body.ditaeditor-canvas table.table th.entry[data-rowsep="0"]) {
-  border-bottom: 0;
-}
-
-:where(body.ditaeditor-canvas table.table.frame-all) {
-  border-width: 1px;
-}
-
-:where(body.ditaeditor-canvas table.table.frame-topbot) {
-  border-width: 1px 0;
-}
-
-:where(body.ditaeditor-canvas table.table.frame-sides) {
-  border-width: 0 1px;
-}
-
-:where(body.ditaeditor-canvas table.table.frame-top) {
-  border-width: 1px 0 0;
-}
-
-:where(body.ditaeditor-canvas table.table.frame-bottom) {
-  border-width: 0 0 1px;
-}
-
-:where(body.ditaeditor-canvas table.table.frame-none) {
-  border-width: 0;
-}
-
-@media (max-width: 720px) {
-  :where(body.ditaeditor-canvas main) {
-    padding: 24px 20px;
-  }
-}
-
-@media print {
-  :where(body.ditaeditor-canvas),
-  :where(body.ditaeditor-canvas main) {
-    background: var(--dc-color-surface);
-    box-shadow: none;
-  }
-
-  :where(body.ditaeditor-canvas tr),
-  :where(body.ditaeditor-canvas figure.fig) {
-    break-inside: avoid;
-  }
+:where(body.ditaeditor-canvas table.table caption:empty) {
+  display: none;
 }

@@ -31,8 +31,22 @@ import {
 } from './host/scm-intercept';
 import {
   anchorAtSourceOffset,
+  elementRangeForAnchor,
   openingTagOffsetForAnchor,
+  type ScrollAnchor,
 } from './host/scroll-handoff';
+import { TOPIC_SEARCH_VIEW_ID, TopicSearchViewProvider } from './host/topic-search-view';
+import { createInspectorHub } from './host/inspector-hub';
+import {
+  PROPERTIES_VIEW_ID,
+  STYLES_VIEW_ID,
+  createPropertiesViewProvider,
+  createStylesViewProvider,
+} from './host/inspector-views';
+import { extractRenderedText } from './search/rendered-text';
+import { MAX_FILE_BYTES } from './search/search-controller';
+import { planReplaceAll, planReplaceOne, type ReplaceAllPlan } from './search/topic-replace';
+import { occurrenceWithin } from './search/topic-search';
 
 // Resolve the .dita document a command should act on: an explicit arg (passed by
 // the editor-title button), else the active custom/text tab, else the active text
@@ -176,17 +190,27 @@ export function activate(context: vscode.ExtensionContext): void {
     }, 0);
   };
 
+  // Secondary Side Bar inspector views (Styles, Properties): the hub latches
+  // the active visual document and fans its state out to both views. Latched
+  // on activation only — focusing an inspector view blurs the canvas, and
+  // clearing then would blank the view the user just clicked into.
+  const inspectors = createInspectorHub();
   const host: VisualHost = {
     diagnostics,
     debug,
+    inspectors,
     notifyActive(doc, active) {
-      if (active) activeVisualDoc = doc;
-      else if (activeVisualDoc === doc) activeVisualDoc = undefined;
+      if (active) {
+        activeVisualDoc = doc;
+        inspectors.noteActive(doc.uri.toString(true));
+      } else if (activeVisualDoc === doc) activeVisualDoc = undefined;
       updateStatusBar();
     },
     scheduleStatusRefresh,
   };
   const visualProvider = new DitaVisualEditorProvider(context, host);
+  const stylesViewProvider = createStylesViewProvider(context.extensionUri, inspectors);
+  const propertiesViewProvider = createPropertiesViewProvider(context.extensionUri, inspectors);
   const warnScrollHandoff = (detail: string, userMessage: string): void => {
     debug.appendLine(`DITA Editor scroll handoff skipped: ${detail}`);
     void vscode.window.showWarningMessage(userMessage);
@@ -233,6 +257,174 @@ export function activate(context: vscode.ExtensionContext): void {
       );
     }
   };
+  // Search DITA Topics side view: result clicks land in the visual editor at the
+  // match. The anchor is computed against the CURRENT text (open buffer first,
+  // else disk), so a stale search index degrades to nearest-element, never a wrong
+  // file position.
+  const topicSearchProvider: TopicSearchViewProvider = new TopicSearchViewProvider(
+    context.extensionUri,
+    debug,
+    {
+      async openMatch(target, sourceStart, renderedText, matchCase) {
+        try {
+          await vscode.workspace.fs.stat(target);
+        } catch {
+          void vscode.window.showWarningMessage(
+            'DITA Editor: that file no longer exists. Refreshing the search results.',
+          );
+          topicSearchProvider.refresh();
+          return;
+        }
+        const key = target.toString(true);
+        const openDoc = vscode.workspace.textDocuments.find(
+          (candidate) => candidate.uri.toString(true) === key,
+        );
+        const text = openDoc
+          ? openDoc.getText()
+          : new TextDecoder('utf-8').decode(await vscode.workspace.fs.readFile(target));
+        const mapping = anchorAtSourceOffset(text, sourceStart);
+        if (!mapping.ok) {
+          warnScrollHandoff(
+            `${key} (topic search): ${mapping.reason}`,
+            'DITA Editor: opened the topic, but the matched position could not be located.',
+          );
+          await reopenInPlace(target, VIEW_TYPE);
+          return;
+        }
+        // Exact-match payload: the canvas re-finds the nth occurrence of the
+        // rendered text inside the anchored element and selects it. Occurrence
+        // is counted against the CURRENT text; any residual drift falls back
+        // silently to the element-level scroll in the canvas.
+        let anchor: ScrollAnchor = mapping.anchor;
+        if (renderedText !== '') {
+          const range = elementRangeForAnchor(text, mapping.anchor.id);
+          if (range.ok) {
+            try {
+              const occurrence = occurrenceWithin(
+                extractRenderedText(text), renderedText, matchCase, sourceStart, range.range);
+              anchor = {
+                id: mapping.anchor.id,
+                highlight: { text: renderedText, occurrence, matchCase },
+              };
+            } catch {
+              // Unparseable current text cannot happen here (anchor mapping just
+              // parsed it) — but if it does, keep the element-level anchor.
+            }
+          }
+        }
+        // Visible panel: direct post. Hidden panel: queued + revealed (its reload
+        // consumes the queue). No panel: queued — open the editor ourselves.
+        const delivery = visualProvider.scrollVisualEditorTo(target, anchor);
+        if (delivery === 'queued') await reopenInPlace(target, VIEW_TYPE);
+      },
+      // Replace one previously-found match. The plan re-verifies the rendered
+      // text against the CURRENT buffer; a changed file yields 'stale' and no
+      // edit. Applied as a WorkspaceEdit so VS Code owns undo/save.
+      async replaceMatch(target, args) {
+        const stale = { replaced: 0, fileCount: 0, skippedStyled: 0, stale: true };
+        try {
+          await vscode.workspace.fs.stat(target);
+        } catch {
+          return stale;
+        }
+        const doc = await vscode.workspace.openTextDocument(target);
+        let plan: ReturnType<typeof planReplaceOne>;
+        try {
+          plan = planReplaceOne(
+            doc.getText(), args.renderedText, args.sourceStart, args.sourceEnd, args.replacement);
+        } catch {
+          return stale; // the buffer no longer parses — treat as changed-since-search
+        }
+        if (!plan.ok) {
+          return plan.reason === 'styled'
+            ? { replaced: 0, fileCount: 0, skippedStyled: 1, stale: false }
+            : stale;
+        }
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(
+          target,
+          new vscode.Range(doc.positionAt(plan.edit.start), doc.positionAt(plan.edit.end)),
+          plan.edit.text,
+        );
+        if (!(await vscode.workspace.applyEdit(edit))) {
+          throw new Error('the workspace edit was rejected');
+        }
+        return { replaced: 1, fileCount: 1, skippedStyled: 0, stale: false };
+      },
+      // Replace every match in the workspace, after a modal confirmation.
+      // Files that will be edited are opened as TextDocuments first, so the
+      // edit hits the live buffer and the follow-up re-search sees it.
+      async replaceAll(query, matchCase, replacement) {
+        const uris = (await vscode.workspace.findFiles('**/*.dita'))
+          .filter((uri) => uri.scheme === 'file');
+        const files: Array<{ doc: vscode.TextDocument; plan: ReplaceAllPlan }> = [];
+        let skippedStyled = 0;
+        for (const uri of uris) {
+          const key = uri.toString(true);
+          const open = vscode.workspace.textDocuments.find(
+            (candidate) => candidate.uri.toString(true) === key,
+          );
+          let probeText: string;
+          try {
+            if (open) {
+              probeText = open.getText();
+            } else {
+              const stat = await vscode.workspace.fs.stat(uri);
+              if (stat.size > MAX_FILE_BYTES) continue; // search skips these too
+              probeText = new TextDecoder('utf-8').decode(await vscode.workspace.fs.readFile(uri));
+            }
+          } catch {
+            continue; // vanished or unreadable — nothing to replace here
+          }
+          let plan: ReplaceAllPlan;
+          try {
+            plan = planReplaceAll(probeText, query, matchCase, replacement);
+          } catch {
+            continue; // malformed XML is skipped by search, so also by replace
+          }
+          skippedStyled += plan.skippedStyled;
+          if (plan.edits.length === 0) continue;
+          const doc = open ?? (await vscode.workspace.openTextDocument(uri));
+          if (!open && doc.getText() !== probeText) {
+            // The file changed between the disk read and the open — re-plan on
+            // the authoritative buffer.
+            try {
+              plan = planReplaceAll(doc.getText(), query, matchCase, replacement);
+            } catch {
+              continue;
+            }
+            if (plan.edits.length === 0) continue;
+          }
+          files.push({ doc, plan });
+        }
+        const replaced = files.reduce((sum, file) => sum + file.plan.replaced, 0);
+        if (replaced === 0) {
+          return { replaced: 0, fileCount: 0, skippedStyled, stale: false };
+        }
+        const confirmed = await vscode.window.showWarningMessage(
+          `Replace ${replaced} occurrence${replaced === 1 ? '' : 's'} of "${query}" in ` +
+            `${files.length} file${files.length === 1 ? '' : 's'}?`,
+          { modal: true },
+          'Replace',
+        );
+        if (confirmed !== 'Replace') return null;
+        const edit = new vscode.WorkspaceEdit();
+        for (const file of files) {
+          for (const change of file.plan.edits) {
+            edit.replace(
+              file.doc.uri,
+              new vscode.Range(file.doc.positionAt(change.start), file.doc.positionAt(change.end)),
+              change.text,
+            );
+          }
+        }
+        if (!(await vscode.workspace.applyEdit(edit))) {
+          throw new Error('the workspace edit was rejected');
+        }
+        return { replaced, fileCount: files.length, skippedStyled, stale: false };
+      },
+    },
+  );
   const openSourcePreservingScroll = async (target: vscode.Uri): Promise<void> => {
     const anchor = visualProvider.latestVisualAnchor(target);
     let sourceDocument: vscode.TextDocument | null = null;
@@ -359,6 +551,16 @@ export function activate(context: vscode.ExtensionContext): void {
       },
     ),
     ...visualProvider.registerNativeContextCommands(),
+    topicSearchProvider,
+    vscode.window.registerWebviewViewProvider(TOPIC_SEARCH_VIEW_ID, topicSearchProvider),
+    vscode.commands.registerCommand('ditaeditor.searchTopics', () => topicSearchProvider.focus()),
+    vscode.commands.registerCommand('ditaeditor.refreshTopicSearch', () => topicSearchProvider.refresh()),
+    stylesViewProvider,
+    propertiesViewProvider,
+    vscode.window.registerWebviewViewProvider(STYLES_VIEW_ID, stylesViewProvider),
+    vscode.window.registerWebviewViewProvider(PROPERTIES_VIEW_ID, propertiesViewProvider),
+    vscode.commands.registerCommand('ditaeditor.focusStyles', () => stylesViewProvider.focus()),
+    vscode.commands.registerCommand('ditaeditor.focusProperties', () => propertiesViewProvider.focus()),
     vscode.commands.registerCommand('ditaeditor.openVisual', (uri?: vscode.Uri) => {
       const target = uri ?? vscode.window.activeTextEditor?.document.uri;
       if (!target) {

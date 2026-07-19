@@ -44,8 +44,12 @@
       btn.style.opacity = '0.5';
       btn.style.cursor = 'not-allowed';
     }
-    btn.title = ok || title === action ? title : action + '. Unavailable: ' + title;
-    btn.setAttribute('aria-label', btn.title);
+    const label = ok || title === action ? title : action + '. Unavailable: ' + title;
+    // Command-bar buttons (dataset.tooltipOnly) surface this text through the
+    // fast custom tooltip; restoring title there would bring back the slow
+    // native bubble alongside it.
+    if (btn.dataset.tooltipOnly !== '1') btn.title = label;
+    btn.setAttribute('aria-label', label);
   }
 
   function makeSep() {

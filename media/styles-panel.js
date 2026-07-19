@@ -1,27 +1,45 @@
-// CSS-backed author Styles panel for the DITA Editor canvas.
+// CSS-backed author Styles panel engine for the DITA Editor Styles view.
 //
-// Loaded before canvas.js. The panel renders only host-provided style definitions
-// and posts save/apply intents; the host owns CSS file writes and DITA outputclass edits.
+// Runs inside the native Styles webview view. The panel renders only
+// host-provided style definitions and posts save/apply intents; the host owns
+// CSS file writes and DITA outputclass edits. Live-CSS painting and
+// computed-style sampling stay canvas-side (media/canvas-style-bridge.js);
+// the panel reads those snapshots through getInspectorState().
 (function () {
-  const DEFAULT_PANEL_WIDTH = 324;
-  const MIN_PANEL_WIDTH = 260;
-  const MAX_PANEL_WIDTH = 600;
-  const MIN_EDITOR_WIDTH = 360;
-  const BASE_EDITOR_WIDTH = 1040;
-  const TOP_CHROME_FALLBACK = 72;
-  const PANEL_TOP_INSET = 18;
-  const RESIZE_HIT_WIDTH = 8;
-  const COLLAPSED_RAIL_WIDTH = 36;
-  const PANEL_EDITOR_OVERLAP = 16;
   const SAVE_CONTROLLER_STATE_KEY = 'ditaeditorStyleSaveController';
   const SAVE_CONTROLLER_STATE_VERSION = 1;
-  // One small gray scale for the whole panel — it had 8+ near-identical grays that
-  // read as noise. Text/border/chip all map to one of these; the accent applied
-  // state and error red remain distinct.
-  const GRAY_STRONG = '#303030';
-  const GRAY_LABEL = '#5f6b72';
-  const GRAY_MUTED = '#4b5563';
-  const GRAY_HAIRLINE = '#e6e8ea';
+  // VS Code theme tokens (with the panel's historical light-theme values as
+  // fallbacks) so the view follows the editor theme.
+  const C = {
+    text: 'var(--vscode-foreground, #363636)',
+    muted: 'var(--vscode-descriptionForeground, #737373)',
+    faint: 'var(--vscode-disabledForeground, #c4c4c4)',
+    border: 'var(--vscode-panel-border, rgba(128, 128, 128, 0.25))',
+    inputBg: 'var(--vscode-input-background, #fff)',
+    inputText: 'var(--vscode-input-foreground, #3f3f3f)',
+    inputBorder: 'var(--vscode-input-border, #dedede)',
+    badgeBg: 'var(--vscode-badge-background, #ececec)',
+    badgeText: 'var(--vscode-badge-foreground, #767676)',
+    // Group headers use the sidebar's own section-header tokens: badge colors
+    // are a vivid accent in dark themes and turned every header into a blue bar.
+    headerBg: 'var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.12))',
+    headerText: 'var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground, #363636))',
+    iconFg: 'var(--vscode-icon-foreground, #737373)',
+    btnBg: 'var(--vscode-button-background, #0e639c)',
+    btnFg: 'var(--vscode-button-foreground, #ffffff)',
+    btn2Bg: 'var(--vscode-button-secondaryBackground, #e4e4e4)',
+    btn2Fg: 'var(--vscode-button-secondaryForeground, #3f3f3f)',
+    errorFg: 'var(--vscode-errorForeground, #9c2f2f)',
+    warnFg: 'var(--vscode-editorWarning-foreground, #8a6b2b)',
+    mono: 'var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace)',
+  };
+  // One small gray scale for the whole panel — it had 8+ near-identical grays
+  // that read as noise. Now mapped onto the theme tokens above; the accent
+  // applied state and error red remain distinct.
+  const GRAY_STRONG = C.text;
+  const GRAY_LABEL = C.muted;
+  const GRAY_MUTED = C.muted;
+  const GRAY_HAIRLINE = C.border;
 
   // [key, label, DITA tag(s)] — the tag column keeps literal element names
   // (p, ul, li, …) visible so authors scanning for DITA names find every kind.
@@ -59,77 +77,7 @@
   TARGET_LABEL.page = 'Page';
   TARGET_TAG.page = '';
   const DEFAULT_CLASS_PREFIX = 'dc-default-';
-  // Structure-derived base variants per target — extra always-on base rows whose
-  // host-generated selectors carry a :where()-wrapped DOM predicate ([colspan],
-  // nth-child(even), [rowspan], :only-child, :empty). [variant key, label suffix].
-  // These are caret-only (edit-in-place); they are never applied to a selection.
-  const STRUCTURAL_VARIANTS = {
-    table: [['singleCol', 'single column'], ['emptyCaption', 'empty caption']],
-  };
-  // Inspector rows: [style field key, computed CSS property, label]. Field keys
-  // match VALUE_FIELDS so provenance can be resolved from the style model.
-  const INSPECT_FIELDS = [
-    ['fontSize', 'font-size', 'Size'],
-    ['fontWeight', 'font-weight', 'Weight'],
-    ['color', 'color', 'Text'],
-    ['backgroundColor', 'background-color', 'Fill'],
-    ['borderColor', 'border-left-color', 'Accent'],
-    ['textTransform', 'text-transform', 'Case'],
-    ['letterSpacing', 'letter-spacing', 'Tracking'],
-    ['lineHeight', 'line-height', 'Line'],
-    ['spacingBefore', 'margin-top', 'Before'],
-    ['spacingAfter', 'margin-bottom', 'After'],
-  ];
-  // First rendered element of each kind — sampled so the empty choice in the
-  // style editor can show the actual inherited value instead of a bare "Default".
-  const SAMPLE_SELECTORS = {
-    all: 'p.p',
-    page: 'body',
-    title: 'h1.title',
-    heading: 'section.section .title, h2.title, h3.title',
-    body: 'p.p',
-    shortdesc: 'p.shortdesc, .shortdesc',
-    section: 'section.section',
-    list: 'ul.ul, ol.ol, ol.steps',
-    listItem: 'li.li, li.step',
-    table: 'table.table',
-    tableRow: 'tr.row',
-    tableCell: 'td.entry, th.entry',
-    tableHeadCell: 'thead.thead th.entry',
-    tableBodyCell: 'tbody.tbody td.entry',
-    figure: 'figure.fig',
-    image: 'img.image',
-    note: 'div.note, .note',
-    code: 'pre.pre, code.codeph, .codeblock',
-    lines: 'pre.lines',
-  };
-  // Renderer-contract markup ([html, probe target selector]) used to read theme
-  // values when the open topic has no element of a kind (e.g. section headings —
-  // the corpus has almost none). Classes mirror src/render/to-html.ts exactly;
-  // note that EVERY title renders as h1.title.topictitle1, sections included.
-  const TABLE_PROBE = '<table class="table"><tbody><tr class="row"><td class="entry">x</td></tr></tbody></table>';
-  const HEAD_PROBE = '<table class="table"><thead class="thead"><tr class="row"><th class="entry">x</th></tr></thead></table>';
-  const BODY_PROBE = '<table class="table"><tbody class="tbody"><tr class="row"><td class="entry">x</td></tr></tbody></table>';
-  const PROBE_MARKUP = {
-    all: ['<p class="p">x</p>', 'p'],
-    title: ['<h1 class="title topictitle1">x</h1>', 'h1'],
-    heading: ['<section class="section"><h1 class="title topictitle1">x</h1></section>', 'h1'],
-    body: ['<p class="p">x</p>', 'p'],
-    shortdesc: ['<p class="shortdesc">x</p>', 'p'],
-    section: ['<section class="section">x</section>', 'section'],
-    list: ['<ul class="ul"><li class="li">x</li></ul>', 'ul'],
-    listItem: ['<ul class="ul"><li class="li">x</li></ul>', 'li'],
-    table: [TABLE_PROBE, 'table'],
-    tableRow: [TABLE_PROBE, 'tr'],
-    tableCell: [TABLE_PROBE, 'td'],
-    tableHeadCell: [HEAD_PROBE, 'th'],
-    tableBodyCell: [BODY_PROBE, 'td'],
-    figure: ['<figure class="fig">x</figure>', 'figure'],
-    image: ['<figure class="fig"><img class="image" alt=""></figure>', 'img'],
-    note: ['<div class="note">x</div>', 'div'],
-    code: ['<code class="ph codeph">x</code>', 'code'],
-    lines: ['<pre class="lines">x</pre>', 'pre'],
-  };
+  const STRUCTURAL_VARIANTS = {};
   const SPACING_CHOICES = [
     ['', 'Default'],
     ['0', 'None'],
@@ -190,6 +138,64 @@
     { key: 'color', label: 'Text', color: true, choices: COLOR_CHOICES },
     { key: 'backgroundColor', label: 'Fill', color: true, choices: FILL_CHOICES },
     { key: 'borderColor', label: 'Accent', color: true, choices: COLOR_CHOICES },
+    {
+      key: 'borderEdge',
+      label: 'Accent edge',
+      choices: [
+        ['', 'Top + bottom (default)'],
+        ['left', 'Left'],
+        ['top', 'Top'],
+        ['bottom', 'Bottom'],
+        ['right', 'Right'],
+        ['full', 'All sides'],
+      ],
+    },
+    {
+      key: 'borderWidth',
+      label: 'Accent width',
+      choices: [
+        ['', 'Default'],
+        ['1px', '1 px'],
+        ['2px', '2 px'],
+        ['3px', '3 px'],
+        ['4px', '4 px'],
+        ['5px', '5 px'],
+        ['6px', '6 px'],
+      ],
+    },
+    {
+      key: 'borderRadius',
+      label: 'Corner radius',
+      choices: [
+        ['', 'Default'],
+        ['0', 'None'],
+        ['2px', '2 px'],
+        ['4px', '4 px'],
+        ['6px', '6 px'],
+        ['8px', '8 px'],
+        ['12px', '12 px'],
+      ],
+    },
+    {
+      key: 'width',
+      label: 'Width',
+      choices: [
+        ['', 'Default'],
+        ['auto', 'Auto'],
+        ['100%', '100%'],
+      ],
+    },
+    {
+      key: 'overflowX',
+      label: 'Horizontal overflow',
+      choices: [
+        ['', 'Default'],
+        ['visible', 'Visible'],
+        ['auto', 'Auto'],
+        ['hidden', 'Hidden'],
+      ],
+    },
+    { key: 'markerColor', label: 'Marker', color: true, choices: COLOR_CHOICES },
     {
       key: 'textTransform',
       label: 'Case',
@@ -294,55 +300,50 @@
         ['var(--dc-shadow-md, 0 6px 24px rgb(15 23 42 / 12%))', 'Soft'],
       ],
     },
-    // Site chrome (app-shell): masthead banner, TOC sidebar, links. These write
-    // :root --dc-chrome-* custom properties the published/editor shell reads; an
-    // empty value leaves the shell's own default (today's look) in place.
-    { key: 'mastheadTitle', label: 'Masthead title', text: true },
-    { key: 'mastheadBg', label: 'Masthead fill', color: true, choices: FILL_CHOICES },
-    { key: 'mastheadText', label: 'Masthead text', color: true, choices: COLOR_CHOICES },
-    { key: 'mastheadAccent', label: 'Masthead accent', color: true, choices: COLOR_CHOICES },
-    {
-      key: 'sidebarWidth',
-      label: 'Sidebar width',
-      choices: [
-        ['', 'Default'],
-        ['280px', '280 px'],
-        ['324px', '324 px'],
-        ['360px', '360 px'],
-        ['400px', '400 px'],
-      ],
-    },
-    { key: 'sidebarBg', label: 'Sidebar fill', color: true, choices: FILL_CHOICES },
-    { key: 'sidebarLink', label: 'Sidebar text', color: true, choices: COLOR_CHOICES },
-    { key: 'sidebarHover', label: 'Sidebar hover', color: true, choices: FILL_CHOICES },
-    { key: 'sidebarActive', label: 'Sidebar active', color: true, choices: FILL_CHOICES },
-    { key: 'sidebarAccent', label: 'Sidebar accent', color: true, choices: COLOR_CHOICES },
-    { key: 'sidebarCaption', label: 'Sidebar caption', color: true, choices: COLOR_CHOICES },
-    { key: 'linkColor', label: 'Link color', color: true, choices: COLOR_CHOICES },
-    { key: 'linkHover', label: 'Link hover', color: true, choices: COLOR_CHOICES },
   ];
+  const COMMON_VALUE_FIELD_KEYS = [
+    'fontSize', 'fontWeight', 'color', 'backgroundColor', 'borderColor',
+    'textTransform', 'letterSpacing', 'lineHeight', 'padding', 'textAlign',
+    'spacingBefore', 'spacingAfter',
+  ];
+  const TARGET_FIELD_CAPABILITIES = {};
+  for (const target of Object.keys(TARGET_LABEL)) {
+    TARGET_FIELD_CAPABILITIES[target] = new Set(COMMON_VALUE_FIELD_KEYS);
+  }
+  TARGET_FIELD_CAPABILITIES.page = new Set(PAGE_VALUE_FIELDS.map(function (field) { return field.key; }));
+  TARGET_FIELD_CAPABILITIES.table = new Set(COMMON_VALUE_FIELD_KEYS.concat([
+    'borderEdge', 'borderWidth', 'borderRadius', 'width', 'overflowX',
+  ]));
+  TARGET_FIELD_CAPABILITIES.listItem = new Set(COMMON_VALUE_FIELD_KEYS.concat(['markerColor']));
+  TARGET_FIELD_CAPABILITIES.all = new Set(COMMON_VALUE_FIELD_KEYS.concat(['markerColor', 'verticalAlign']));
+  for (const cellTarget of ['tableRow', 'tableCell', 'tableHeadCell', 'tableBodyCell']) {
+    TARGET_FIELD_CAPABILITIES[cellTarget] = new Set(COMMON_VALUE_FIELD_KEYS.concat(['verticalAlign']));
+  }
+  const VARIANT_FIELD_CAPABILITIES = {
+    zebraEven: new Set(['backgroundColor']),
+  };
   const CLASS_NAME_RE = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
   function installStylesPanel(options) {
     const document = options.document;
-    const win = options.window || window;
     const vscode = options.vscode;
     const fontFamily = options.fontFamily;
     const saveRequestSessionId = options.saveRequestSessionId;
     const getStyleState = options.getStyleState;
     const getCurrentTarget = options.getCurrentTarget;
     const getStructVersion = options.getStructVersion || function () { return 0; };
+    // Latest bridge snapshot ({ structVersion, target, computed, inherited,
+    // hasConfiguredStylesheet }) relayed from the canvas, or null before the
+    // first emission — the inspector and "(default)" labels render from it.
+    const getInspectorState = options.getInspectorState || function () { return null; };
     const announceNav = options.announceNav || function () {};
+    // Optional hover-preview popup manager (media/styles-preview-popup.js).
+    // The engine degrades to a plain inert eye when the module is absent.
+    const previewPopup = options.previewPopup || null;
+    const container = options.container || document.body;
     if (typeof saveRequestSessionId !== 'string' || !saveRequestSessionId) {
       throw new Error('A per-webview save request session ID is required.');
     }
-    const main = document.querySelector('main');
-    let topChromeHeight = TOP_CHROME_FALLBACK;
-    let panelWidth = DEFAULT_PANEL_WIDTH;
-    let dragStartX = 0;
-    let dragStartWidth = DEFAULT_PANEL_WIDTH;
-    let dragging = false;
-    let collapsed = false;
     let editClassName = null;
     let expandedGroups = new Set();
     let draftTarget = null;
@@ -367,101 +368,20 @@
     // while a cell is selected). Rebuilt each render by buildPanel.
     let appliedManagedSet = new Set();
 
-    // Finds a representative element of a kind so the style editor can show the
-    // actual inherited value on the empty choice. Overridable for headless tests
-    // (the fake DOM has no compound-selector support).
-    const sampleElement = typeof options.sampleElement === 'function'
-      ? options.sampleElement
-      : function (targetKey) {
-        if (typeof document.querySelector !== 'function') return null;
-        try {
-          return document.querySelector(SAMPLE_SELECTORS[targetKey] || SAMPLE_SELECTORS.all);
-        } catch (err) {
-          return null;
-        }
-      };
-
-    // Resolves a struct id to its canvas element for the effective-styles readout.
-    // Overridable via options so headless tests can stub it alongside getComputedStyle.
-    const resolveElement = typeof options.resolveElement === 'function'
-      ? options.resolveElement
-      : function (id) {
-        if (!id || typeof document.querySelector !== 'function') return null;
-        const esc = win.CSS && typeof win.CSS.escape === 'function'
-          ? win.CSS.escape(id)
-          : String(id).replace(/["\\]/g, '\\$&');
-        try {
-          return document.querySelector('[data-struct-id="' + esc + '"], [data-cell-id="' + esc + '"]');
-        } catch (err) {
-          return null;
-        }
-      };
-
-    const liveStyle = document.getElementById('ditaeditor-author-styles-live');
-    if (!liveStyle) {
-      throw new Error('DITA Editor managed stylesheet slot is missing');
-    }
-    const managedStyleData = document.getElementById('ditaeditor-managed-style-data');
-    if (!managedStyleData) {
-      throw new Error('DITA Editor managed stylesheet data is missing');
-    }
-    const embeddedManagedStyle = JSON.parse(managedStyleData.textContent || '{}');
-    if (embeddedManagedStyle.consumer !== 'canvas' || typeof embeddedManagedStyle.cssText !== 'string') {
-      throw new Error('DITA Editor managed stylesheet data does not target the canvas');
-    }
-    // The inert JSON is the first paint. Subsequent refreshes always use the
-    // host-owned state, including a deliberately empty stylesheet.
-    liveStyle.textContent = embeddedManagedStyle.cssText;
-    let firstPanelBuild = true;
-
     const panel = document.createElement('aside');
     panel.id = 'ditaeditor-styles-panel';
     panel.setAttribute('aria-label', 'Styles');
     panel.className = 'style-panel';
     panel.style.cssText =
-      'position:fixed;right:0;top:0;bottom:0;width:324px;box-sizing:border-box;z-index:74;overflow:auto;' +
-      'background:#fbfbfa;border-left:1px solid #ececec;padding:90px 18px 22px 18px;font-family:' + fontFamily + ';';
-    panel.style.paddingTop = TOP_CHROME_FALLBACK + PANEL_TOP_INSET + 'px';
-    document.body.appendChild(panel);
-
-    const resizeHandle = document.createElement('div');
-    resizeHandle.className = 'style-resize-handle';
-    resizeHandle.setAttribute('role', 'separator');
-    resizeHandle.setAttribute('aria-label', 'Resize styles panel');
-    resizeHandle.setAttribute('aria-orientation', 'vertical');
-    resizeHandle.setAttribute('aria-valuemin', String(MIN_PANEL_WIDTH));
-    resizeHandle.tabIndex = 0;
-    resizeHandle.style.cssText =
-      'position:fixed;top:var(--ditaeditor-toolbar-height,72px);bottom:0;right:320px;width:8px;z-index:76;box-sizing:border-box;' +
-      'cursor:col-resize;background:linear-gradient(to right,transparent 0 3px,#e1e1e1 3px 4px,transparent 4px);';
-    document.body.appendChild(resizeHandle);
-
-    const hideButton = document.createElement('button');
-    hideButton.type = 'button';
-    hideButton.className = 'style-toggle-btn';
-    hideButton.textContent = '›';
-    hideButton.title = 'Hide styles';
-    hideButton.setAttribute('aria-label', 'Hide styles');
-    hideButton.setAttribute('aria-controls', 'ditaeditor-styles-panel');
-    hideButton.setAttribute('aria-expanded', 'true');
-    hideButton.style.cssText = iconButtonCss(fontFamily);
-
-    const showButton = document.createElement('button');
-    showButton.type = 'button';
-    showButton.className = 'style-show-button';
-    showButton.textContent = '‹';
-    showButton.title = 'Show styles';
-    showButton.setAttribute('aria-label', 'Show styles');
-    showButton.setAttribute('aria-controls', 'ditaeditor-styles-panel');
-    showButton.setAttribute('aria-expanded', 'false');
-    showButton.style.cssText =
-      'position:fixed;right:0;top:var(--ditaeditor-toolbar-height,72px);bottom:0;width:36px;box-sizing:border-box;z-index:74;display:none;' +
-      'align-items:flex-start;justify-content:center;padding-top:12px;border:0;border-left:1px solid #ececec;' +
-      'background:#fbfbfa;color:#737373;cursor:pointer;font:600 20px/1 ' + fontFamily + ';';
-    document.body.appendChild(showButton);
+      // The panel IS the scroll container: buildPanel saves/restores its
+      // scrollTop and styles-view.css thins its scrollbar. overflow-y:auto
+      // (not hidden) so content growth — expanded style editors — extends the
+      // scroll range instead of being clipped at the viewport edge.
+      'display:flex;flex-direction:column;box-sizing:border-box;height:100%;min-height:0;overflow-y:auto;overflow-x:hidden;font-family:' + fontFamily + ';';
+    container.appendChild(panel);
 
     function state() {
-      return getStyleState() || { styles: [], cssText: '', writable: false };
+      return getStyleState() || { styles: [], cssText: '', status: 'refused', writable: false };
     }
 
     function showSaveError(reason) {
@@ -806,186 +726,6 @@
       return true;
     }
 
-    function measureTopChromeHeight() {
-      const cmdBar = document.querySelector('.cmd-bar');
-      if (!cmdBar) return TOP_CHROME_FALLBACK;
-      const rect = typeof cmdBar.getBoundingClientRect === 'function' ? cmdBar.getBoundingClientRect() : null;
-      const rectHeight = rect && typeof rect.top === 'number' && typeof rect.bottom === 'number'
-        ? rect.bottom - rect.top
-        : 0;
-      const offsetHeight = typeof cmdBar.offsetHeight === 'number' ? cmdBar.offsetHeight : 0;
-      return Math.max(1, Math.ceil(rectHeight || offsetHeight || TOP_CHROME_FALLBACK));
-    }
-
-    function maxPanelWidth() {
-      const viewportWidth = typeof win.innerWidth === 'number' && win.innerWidth > 0 ? win.innerWidth : 0;
-      if (!viewportWidth) return MAX_PANEL_WIDTH;
-      return Math.max(MIN_PANEL_WIDTH, Math.min(MAX_PANEL_WIDTH, viewportWidth - MIN_EDITOR_WIDTH));
-    }
-
-    function clampPanelWidth(width) {
-      return Math.max(MIN_PANEL_WIDTH, Math.min(maxPanelWidth(), Math.round(width)));
-    }
-
-    function pixelValue(value) {
-      const n = Number.parseFloat(String(value || ''));
-      return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
-    }
-
-    // The page style's Content width control publishes --dc-page-content-width;
-    // the inline width math must honor it or the inline min/max-width written
-    // here would clobber the user's choice. Guarded because headless fake DOMs
-    // stub or omit getComputedStyle — they fall back to the 1040px base.
-    function baseEditorWidth() {
-      try {
-        if (win && typeof win.getComputedStyle === 'function' && document.body) {
-          const computed = win.getComputedStyle(document.body);
-          if (computed && typeof computed.getPropertyValue === 'function') {
-            const w = Number.parseFloat(String(computed.getPropertyValue('--dc-page-content-width') || ''));
-            if (Number.isFinite(w) && w >= 480 && w <= 1600) return Math.round(w);
-          }
-        }
-      } catch (err) {
-        // Fall through to the fixed base width.
-      }
-      return BASE_EDITOR_WIDTH;
-    }
-
-    function reserveEditorInset(side, width) {
-      if (!main) return;
-      if (side === 'left') main.style.paddingLeft = width + 'px';
-      else main.style.paddingRight = width + 'px';
-      const left = pixelValue(main.style.paddingLeft);
-      const right = pixelValue(main.style.paddingRight);
-      const editorWidth = baseEditorWidth() + left + right;
-      main.style.minWidth = editorWidth + 'px';
-      main.style.maxWidth = editorWidth + 'px';
-    }
-
-    // Re-applies the inline width math when a page-style edit (or an external
-    // CSS file change) moves --dc-page-content-width, so a Content width choice
-    // takes effect immediately instead of on the next resize/collapse.
-    let lastBaseEditorWidth = BASE_EDITOR_WIDTH;
-    function syncBaseEditorWidth() {
-      const next = baseEditorWidth();
-      if (next === lastBaseEditorWidth) return;
-      lastBaseEditorWidth = next;
-      reserveEditorInset('right', collapsed ? COLLAPSED_RAIL_WIDTH : expandedEditorInset(panelWidth));
-      notifyLayoutChange();
-    }
-
-    function notifyLayoutChange() {
-      if (typeof win.dispatchEvent === 'function' && typeof win.Event === 'function') {
-        win.dispatchEvent(new win.Event('ditaeditor:layoutchange'));
-      } else if (typeof win.dispatch === 'function') {
-        win.dispatch('ditaeditor:layoutchange', {});
-      }
-    }
-
-    function expandedEditorInset(width) {
-      return Math.max(COLLAPSED_RAIL_WIDTH, width - PANEL_EDITOR_OVERLAP);
-    }
-
-    function applyTopChromeHeight() {
-      topChromeHeight = measureTopChromeHeight();
-      panel.style.paddingTop = topChromeHeight + PANEL_TOP_INSET + 'px';
-      resizeHandle.style.top = topChromeHeight + 'px';
-      showButton.style.top = topChromeHeight + 'px';
-    }
-
-    function applyPanelWidth(width) {
-      panelWidth = clampPanelWidth(width);
-      panel.style.width = panelWidth + 'px';
-      if (!collapsed) reserveEditorInset('right', expandedEditorInset(panelWidth));
-      resizeHandle.style.right = panelWidth - RESIZE_HIT_WIDTH / 2 + 'px';
-      resizeHandle.setAttribute('aria-valuemax', String(maxPanelWidth()));
-      resizeHandle.setAttribute('aria-valuenow', String(panelWidth));
-      notifyLayoutChange();
-    }
-
-    function setCollapsed(nextCollapsed) {
-      collapsed = !!nextCollapsed;
-      if (collapsed) {
-        stopResize();
-        panel.style.display = 'none';
-        panel.setAttribute('aria-hidden', 'true');
-        resizeHandle.style.display = 'none';
-        showButton.style.display = 'inline-flex';
-        showButton.setAttribute('aria-expanded', 'false');
-        hideButton.setAttribute('aria-expanded', 'false');
-        reserveEditorInset('right', COLLAPSED_RAIL_WIDTH);
-        notifyLayoutChange();
-        return;
-      }
-
-      panel.style.display = '';
-      panel.setAttribute('aria-hidden', 'false');
-      resizeHandle.style.display = 'block';
-      showButton.style.display = 'none';
-      showButton.setAttribute('aria-expanded', 'true');
-      hideButton.setAttribute('aria-expanded', 'true');
-      applyPanelWidth(panelWidth);
-    }
-
-    function stopResize() {
-      if (!dragging) return;
-      dragging = false;
-      document.body.classList.remove('style-resizing');
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      win.removeEventListener('pointermove', onResizeMove);
-      win.removeEventListener('pointerup', stopResize);
-      win.removeEventListener('blur', stopResize);
-    }
-
-    function onResizeMove(event) {
-      if (!dragging || typeof event.clientX !== 'number') return;
-      if (event.preventDefault) event.preventDefault();
-      applyPanelWidth(dragStartWidth + dragStartX - event.clientX);
-    }
-
-    resizeHandle.addEventListener('pointerdown', (event) => {
-      if (event.button != null && event.button !== 0) return;
-      if (typeof event.clientX !== 'number') return;
-      if (event.preventDefault) event.preventDefault();
-      if (event.stopPropagation) event.stopPropagation();
-      dragging = true;
-      dragStartX = event.clientX;
-      dragStartWidth = panelWidth;
-      document.body.classList.add('style-resizing');
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-      win.addEventListener('pointermove', onResizeMove);
-      win.addEventListener('pointerup', stopResize);
-      win.addEventListener('blur', stopResize);
-    });
-
-    resizeHandle.addEventListener('keydown', (event) => {
-      let next = null;
-      const step = event.shiftKey ? 48 : 16;
-      if (event.key === 'ArrowLeft') next = panelWidth + step;
-      else if (event.key === 'ArrowRight') next = panelWidth - step;
-      else if (event.key === 'Home') next = MIN_PANEL_WIDTH;
-      else if (event.key === 'End') next = maxPanelWidth();
-      if (next == null) return;
-      if (event.preventDefault) event.preventDefault();
-      applyPanelWidth(next);
-    });
-
-    hideButton.addEventListener('click', (event) => {
-      if (event.preventDefault) event.preventDefault();
-      setCollapsed(true);
-    });
-    showButton.addEventListener('click', (event) => {
-      if (event.preventDefault) event.preventDefault();
-      setCollapsed(false);
-    });
-
-    win.addEventListener('resize', () => {
-      applyTopChromeHeight();
-      applyPanelWidth(panelWidth);
-    });
-
     function targetSummary(target) {
       if (!target || !target.ids || !target.ids.length) return 'No element selected';
       if (target.ids.length > 1) return target.ids.length + ' selected elements';
@@ -1005,13 +745,10 @@
         logicalClassNames.clear();
       }
       const styleState = state();
-      if (firstPanelBuild) {
-        firstPanelBuild = false;
-      } else {
-        liveStyle.textContent = typeof styleState.cssText === 'string' ? styleState.cssText : '';
-      }
-      syncBaseEditorWidth();
       if (!force && panel.contains(document.activeElement)) return;
+      // The rebuild is about to destroy every eye anchor; a popup left open
+      // would dangle over a detached element.
+      if (previewPopup) previewPopup.closeNow();
       // innerHTML teardown resets a scrollable box to the top; the panel rebuilds
       // on every document click/keyup, so the previous scroll must be restored.
       const prevScrollTop = typeof panel.scrollTop === 'number' ? panel.scrollTop : 0;
@@ -1034,11 +771,11 @@
       if (Array.isArray(panel.childNodes)) panel.childNodes.length = 0;
       if (Array.isArray(panel.children)) panel.children.length = 0;
       const head = document.createElement('div');
-      head.style.cssText = 'display:flex;align-items:center;gap:9px;margin-bottom:14px;';
+      head.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 8px;margin-bottom:4px;';
       const title = document.createElement('span');
       title.textContent = 'Styles';
-      title.style.cssText = 'font-weight:650;font-size:13px;color:' + GRAY_STRONG + ';flex:1;';
-      const newBtn = smallButton(document, 'New', fontFamily);
+      title.style.cssText = 'font-weight:600;font-size:13px;color:' + GRAY_STRONG + ';flex:1;';
+      const newBtn = primaryButton(document, 'New', fontFamily);
       newBtn.addEventListener('click', (event) => {
         if (event.preventDefault) event.preventDefault();
         editClassName = '';
@@ -1046,25 +783,55 @@
         revealCreateForm = true;
         buildPanel(true);
       });
-      head.append(title, newBtn, hideButton);
+      const missingStylesheet = styleState.status === 'missing';
+      if (!missingStylesheet) head.append(title, newBtn);
+      else head.appendChild(title);
       panel.appendChild(head);
+
+      if (missingStylesheet) {
+        const card = document.createElement('section');
+        card.className = 'style-setup-card';
+        card.style.cssText = 'margin:4px 8px;padding:12px;border:1px solid ' + C.border + ';border-radius:4px;';
+        const cardTitle = document.createElement('div');
+        cardTitle.textContent = 'Initialize author stylesheet';
+        cardTitle.style.cssText = 'font-weight:600;font-size:13px;color:' + GRAY_STRONG + ';margin-bottom:6px;';
+        const explanation = document.createElement('p');
+        explanation.textContent = 'This repository owns its typography, colors, spacing, borders, tokens, and presets. DITA Editor will create the empty stylesheet contract at ' + (styleState.cssPath || 'css/ditaeditor-author-styles.css') + '.';
+        explanation.style.cssText = 'font-size:12px;line-height:1.45;color:' + GRAY_LABEL + ';margin:0 0 10px;';
+        const initialize = primaryButton(document, 'Initialize author stylesheet', fontFamily);
+        initialize.disabled = !styleState.writable;
+        if (!styleState.writable) {
+          initialize.title = styleState.error || 'A writable local workspace stylesheet destination is required.';
+        }
+        initialize.addEventListener('click', function (event) {
+          if (event.preventDefault) event.preventDefault();
+          if (!styleState.writable) return;
+          vscode.postMessage({
+            type: 'initializeAuthorStylesheet',
+            targetToken: styleState.targetToken || '',
+          });
+        });
+        card.append(cardTitle, explanation, initialize);
+        panel.appendChild(card);
+        if (typeof panel.scrollTop === 'number') panel.scrollTop = prevScrollTop;
+        return;
+      }
 
       const current = document.createElement('div');
       current.className = 'style-current';
       if (current.classList && typeof current.classList.add === 'function') current.classList.add('style-current');
       current.style.cssText =
-        (activeStyle && activeStyle.borderColor ? 'border-left:2px solid ' + activeStyle.borderColor + ';' : '') +
-        'background:#fff;padding:7px 8px 7px ' + (activeStyle && activeStyle.borderColor ? '5px' : '0') + ';' +
-        'margin-bottom:12px;border-top:1px solid ' + GRAY_HAIRLINE + ';border-bottom:1px solid ' + GRAY_HAIRLINE + ';';
+        (activeStyle && activeStyle.borderColor ? 'border-left:3px solid ' + activeStyle.borderColor + ';' : '') +
+        'padding:4px 8px 6px ' + (activeStyle && activeStyle.borderColor ? '5px' : '8px') + ';margin-bottom:8px;';
       const currentEyebrow = document.createElement('div');
-      currentEyebrow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:5px;';
+      currentEyebrow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;';
       const currentEyebrowText = document.createElement('span');
       currentEyebrowText.textContent = 'Selected element';
       currentEyebrowText.style.cssText =
-        'font-weight:700;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:' + GRAY_LABEL + ';';
+        'font-weight:600;font-size:11px;color:' + GRAY_LABEL + ';';
       currentEyebrow.appendChild(currentEyebrowText);
       const currentLabel = document.createElement('div');
-      currentLabel.style.cssText = 'font-size:12.5px;color:' + GRAY_STRONG + ';font-weight:700;margin-bottom:2px;text-transform:capitalize;';
+      currentLabel.style.cssText = 'font-size:13px;color:' + GRAY_STRONG + ';font-weight:600;margin-bottom:2px;text-transform:capitalize;';
       const currentName = document.createElement('span');
       currentName.textContent = targetSummary(target);
       currentLabel.appendChild(currentName);
@@ -1072,7 +839,7 @@
         const currentTag = document.createElement('span');
         currentTag.textContent = '<' + target.kind + '>';
         currentTag.style.cssText =
-          'margin-left:6px;font:600 10.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:' + GRAY_LABEL + ';text-transform:none;';
+          'margin-left:6px;font:11px/1 ' + C.mono + ';color:' + GRAY_LABEL + ';text-transform:none;';
         currentLabel.appendChild(currentTag);
       }
       const clearBtn = smallButton(document, 'Clear', fontFamily);
@@ -1092,15 +859,21 @@
       if (styleState.error) {
         const err = document.createElement('div');
         err.textContent = styleState.error;
-        err.style.cssText = 'font-size:12px;color:#9c2f2f;line-height:1.4;margin:0 0 12px;';
+        err.style.cssText = 'font-size:12px;color:' + C.errorFg + ';line-height:1.4;margin:0 0 8px;padding:0 8px;';
         panel.appendChild(err);
+      }
+      if (styleState.status === 'migration-required') {
+        const migration = document.createElement('div');
+        migration.textContent = 'This stylesheet uses an older managed format. Your next explicit style save will migrate only the managed region; project CSS outside it will remain unchanged.';
+        migration.style.cssText = 'font-size:12px;color:' + C.warnFg + ';line-height:1.4;margin:0 0 8px;padding:0 8px;';
+        panel.appendChild(migration);
       }
       if (!styleState.writable) {
         const locked = document.createElement('div');
         locked.textContent = styleState.error
           ? 'Styles are read-only until the issue above is resolved.'
           : 'Styles are read-only because this file is outside a workspace.';
-        locked.style.cssText = 'font-size:12px;color:#8a6b2b;line-height:1.4;margin:0 0 12px;';
+        locked.style.cssText = 'font-size:12px;color:' + C.warnFg + ';line-height:1.4;margin:0 0 8px;padding:0 8px;';
         panel.appendChild(locked);
       }
 
@@ -1108,7 +881,7 @@
       if (!styles.length) {
         const empty = document.createElement('div');
         empty.textContent = 'No CSS-backed styles are defined yet.';
-        empty.style.cssText = 'font-size:12.5px;color:' + GRAY_MUTED + ';line-height:1.45;margin:8px 0 18px;';
+        empty.style.cssText = 'font-size:13px;color:' + GRAY_MUTED + ';line-height:1.45;margin:4px 0 8px;padding:0 8px;';
         panel.appendChild(empty);
       }
       appendStyleGroups(panel, styles, target, activeManaged, styleState.writable);
@@ -1167,7 +940,7 @@
         group.classList.add('style-page-group');
       }
       group.setAttribute('aria-label', 'Page styles');
-      group.style.cssText = 'margin:0 0 12px;background:#fff;';
+      group.style.cssText = 'margin:0 0 2px;';
 
       const expanded = groupExpanded('page', styles, null);
       const bodyId = 'style-group-body-page';
@@ -1176,25 +949,26 @@
       header.className = 'style-target-heading';
       if (header.classList && typeof header.classList.add === 'function') header.classList.add('style-target-heading');
       header.style.cssText =
-        'display:flex;align-items:center;gap:9px;padding:7px 10px;margin-bottom:6px;border-radius:8px;background:#f0f0f0;';
+        'display:flex;align-items:center;height:22px;padding:0 8px;background:' + C.headerBg + ';';
       const toggle = document.createElement('button');
       toggle.type = 'button';
       toggle.className = 'style-group-toggle';
       if (toggle.classList && typeof toggle.classList.add === 'function') toggle.classList.add('style-group-toggle');
       toggle.style.cssText =
-        'flex:1;min-width:0;display:flex;align-items:center;gap:9px;text-align:left;border:0;background:transparent;padding:0;' +
-        'cursor:pointer;font-family:' + fontFamily + ';';
+        'flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:100%;text-align:left;border:0;background:transparent;padding:0;' +
+        'cursor:pointer;color:' + C.headerText + ';font-family:' + fontFamily + ';';
       toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
       toggle.setAttribute('aria-label', (expanded ? 'Collapse ' : 'Expand ') + 'Page styles');
       toggle.setAttribute('aria-controls', bodyId);
       const chevron = document.createElement('span');
       chevron.setAttribute('aria-hidden', 'true');
       chevron.textContent = expanded ? '▾' : '▸';
-      chevron.style.cssText = 'flex:none;font-size:9px;color:' + GRAY_LABEL + ';';
+      chevron.style.cssText = 'flex:none;font-size:10px;color:' + C.headerText + ';';
       const headerText = document.createElement('span');
       headerText.textContent = 'Page';
       headerText.style.cssText =
-        'min-width:0;font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:' + GRAY_LABEL + ';';
+        'min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
+        'font-weight:700;font-size:11px;text-transform:uppercase;color:' + C.headerText + ';';
       toggle.append(chevron, headerText);
       toggle.addEventListener('click', (event) => {
         if (event.preventDefault) event.preventDefault();
@@ -1220,7 +994,7 @@
       group.className = 'style-target-group';
       if (group.classList && typeof group.classList.add === 'function') group.classList.add('style-target-group');
       group.setAttribute('aria-label', label + ' styles');
-      group.style.cssText = 'margin:0 0 12px;background:#fff;';
+      group.style.cssText = 'margin:0 0 2px;';
 
       const expanded = groupExpanded(targetKey, styles, target);
       const bodyId = 'style-group-body-' + targetKey;
@@ -1229,26 +1003,34 @@
       header.className = 'style-target-heading';
       if (header.classList && typeof header.classList.add === 'function') header.classList.add('style-target-heading');
       header.style.cssText =
-        'display:flex;align-items:center;gap:9px;padding:7px 10px;margin-bottom:6px;border-radius:8px;background:#f0f0f0;';
+        'display:flex;align-items:center;height:22px;padding:0 8px;background:' + C.headerBg + ';';
       const toggle = document.createElement('button');
       toggle.type = 'button';
       toggle.className = 'style-group-toggle';
       if (toggle.classList && typeof toggle.classList.add === 'function') toggle.classList.add('style-group-toggle');
       toggle.style.cssText =
-        'flex:1;min-width:0;display:flex;align-items:center;gap:9px;text-align:left;border:0;background:transparent;padding:0;' +
-        'cursor:pointer;font-family:' + fontFamily + ';';
+        'flex:1;min-width:0;display:flex;align-items:center;gap:6px;height:100%;text-align:left;border:0;background:transparent;padding:0;' +
+        'cursor:pointer;color:' + C.headerText + ';font-family:' + fontFamily + ';';
       toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
       toggle.setAttribute('aria-label', (expanded ? 'Collapse ' : 'Expand ') + label + ' styles');
       toggle.setAttribute('aria-controls', bodyId);
       const chevron = document.createElement('span');
       chevron.setAttribute('aria-hidden', 'true');
       chevron.textContent = expanded ? '▾' : '▸';
-      chevron.style.cssText = 'flex:none;font-size:9px;color:' + GRAY_LABEL + ';';
+      chevron.style.cssText = 'flex:none;font-size:10px;color:' + C.headerText + ';';
       const headerText = document.createElement('span');
-      headerText.textContent = label + ' (' + presets.length + ')';
+      headerText.textContent = label;
       headerText.style.cssText =
-        'min-width:0;font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:' + GRAY_LABEL + ';';
-      toggle.append(chevron, headerText);
+        'min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
+        'font-weight:700;font-size:11px;text-transform:uppercase;color:' + C.headerText + ';';
+      const countBadge = document.createElement('span');
+      countBadge.className = 'style-group-count';
+      if (countBadge.classList && typeof countBadge.classList.add === 'function') countBadge.classList.add('style-group-count');
+      countBadge.textContent = String(presets.length);
+      countBadge.style.cssText =
+        'flex:none;background:' + C.badgeBg + ';color:' + C.badgeText + ';border-radius:11px;' +
+        'font-size:11px;font-weight:400;line-height:16px;padding:1px 6px;text-transform:none;';
+      toggle.append(chevron, headerText, countBadge);
       toggle.addEventListener('click', (event) => {
         if (event.preventDefault) event.preventDefault();
         if (event.stopPropagation) event.stopPropagation();
@@ -1257,11 +1039,14 @@
         buildPanel(true);
       });
       header.append(toggle);
-      const addBtn = smallButton(document, '+', fontFamily);
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.textContent = '+';
+      addBtn.className = 'style-icon-btn';
+      if (addBtn.classList && typeof addBtn.classList.add === 'function') addBtn.classList.add('style-icon-btn');
+      addBtn.style.cssText = iconButtonCss(fontFamily);
       addBtn.title = 'Add ' + label + ' style';
       addBtn.setAttribute('aria-label', 'Add ' + label + ' style');
-      addBtn.style.minWidth = '28px';
-      addBtn.style.padding = '3px 0';
       addBtn.addEventListener('click', (event) => {
         if (event.preventDefault) event.preventDefault();
         if (event.stopPropagation) event.stopPropagation();
@@ -1288,11 +1073,11 @@
       }
 
       if (targetKey !== 'all') {
-        body.appendChild(baseStyleRow(targetKey, label, styles, writable, target));
+        body.appendChild(baseStyleRow(targetKey, label, styles, writable, target, undefined, undefined, activeManaged));
         const variants = STRUCTURAL_VARIANTS[targetKey];
         if (variants) {
           for (const entry of variants) {
-            body.appendChild(baseStyleRow(targetKey, label, styles, writable, target, entry[0], entry[1]));
+            body.appendChild(baseStyleRow(targetKey, label, styles, writable, target, entry[0], entry[1], activeManaged));
           }
         }
       }
@@ -1304,7 +1089,7 @@
         empty.className = 'style-group-empty';
         if (empty.classList && typeof empty.classList.add === 'function') empty.classList.add('style-group-empty');
         empty.textContent = 'No styles yet.';
-        empty.style.cssText = 'font-size:11.5px;color:' + GRAY_MUTED + ';padding:4px 0 7px 10px;';
+        empty.style.cssText = 'font-size:11px;color:' + GRAY_MUTED + ';padding:2px 8px 4px 16px;';
         body.appendChild(empty);
       }
       group.appendChild(body);
@@ -1313,7 +1098,7 @@
 
     // The always-on look of every element of this kind. Clicking edits it in
     // place — it is never "applied" to a selection, so no applyStyle is posted.
-    function baseStyleRow(targetKey, label, styles, writable, target, variant, variantLabel) {
+    function baseStyleRow(targetKey, label, styles, writable, target, variant, variantLabel, activeManaged) {
       const className = DEFAULT_CLASS_PREFIX + targetKey + (variant ? '-' + variant : '');
       const base = styles.find((style) => style.isDefault && style.target === targetKey
         && (variant ? style.structuralVariant === variant : !style.structuralVariant)) || null;
@@ -1321,41 +1106,55 @@
       // not something you apply to or clear from a selection.
       const caretOnly = targetKey === 'page' || !!variant;
       const rowLabel = variantLabel ? label + ' — ' + variantLabel : label;
+      // Radio semantics for the selection's own kind: when the selected element
+      // carries no managed preset of its own, its Default row is the current look.
+      // Ancestor kinds are excluded (the snapshot has ancestor classes, not kinds).
+      const isActive = !caretOnly
+        && !!(target && target.ids && target.ids.length)
+        && targetForKind(target.kind) === targetKey
+        && !activeManaged;
       const wrap = document.createElement('div');
       wrap.className = 'style-base-wrap';
-      if (wrap.classList && typeof wrap.classList.add === 'function') wrap.classList.add('style-base-wrap');
-      wrap.style.cssText = 'border-bottom:1px solid ' + GRAY_HAIRLINE + ';padding:0;';
+      if (wrap.classList && typeof wrap.classList.add === 'function') {
+        wrap.classList.add('style-base-wrap');
+        if (isActive) wrap.classList.add('style-row-applied');
+      }
+      wrap.style.cssText = 'padding:0;';
       const row = document.createElement('div');
+      row.className = 'style-base-row';
+      if (row.classList && typeof row.classList.add === 'function') row.classList.add('style-base-row');
       row.style.cssText =
-        'display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center;padding:5px 10px 5px 10px;background:#fff;';
+        'display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;min-height:22px;padding:1px 8px 1px 16px;' +
+        // Same focus-tinted background the applied preset row uses as its marker.
+        (isActive ? 'background:color-mix(in srgb, var(--vscode-focusBorder, #2563eb) 14%, transparent);' : '');
 
       const meta = document.createElement('button');
       meta.type = 'button';
       meta.className = 'style-base-edit';
       if (meta.classList && typeof meta.classList.add === 'function') meta.classList.add('style-base-edit');
       if (caretOnly) {
-        meta.title = 'Edit base style for ' + rowLabel;
-        meta.setAttribute('aria-label', 'Edit base style for ' + rowLabel);
+        meta.title = 'Edit default style for ' + rowLabel;
+        meta.setAttribute('aria-label', 'Edit default style for ' + rowLabel);
       } else {
-        meta.title = 'Use base style for ' + rowLabel + ' — clears the applied style on the selected element';
-        meta.setAttribute('aria-label', 'Apply base style for ' + rowLabel);
+        meta.title = 'Use default style for ' + rowLabel + ' — clears the applied style on the selected element';
+        meta.setAttribute('aria-label', 'Apply default style for ' + rowLabel);
       }
       meta.style.cssText =
         'display:flex;align-items:center;gap:7px;text-align:left;border:0;background:transparent;padding:0;' +
         'min-width:0;cursor:pointer;color:' + GRAY_STRONG + ';font-family:' + fontFamily + ';';
-      const chip = document.createElement('span');
-      chip.textContent = 'Base';
-      chip.style.cssText =
-        'flex:none;border:1px solid ' + GRAY_HAIRLINE + ';background:#f4f6f7;color:' + GRAY_LABEL + ';border-radius:999px;' +
-        'font:700 8.5px/1 ' + fontFamily + ';letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;';
       const summary = document.createElement('span');
+      // The row shows the ROLE, not the stored name: on-disk stylesheets keep
+      // legacy names like "Base paragraph", and the radio metaphor needs every
+      // kind's first row to read the same. Variant rows stay self-describing;
+      // the authored name remains editable in the form. A kind with no
+      // authored default shows the same label, muted — the caret authors it.
+      summary.textContent = variant ? (base ? base.name : variantLabel) : 'Default';
       if (base) {
-        summary.textContent = base.name;
-        summary.style.cssText = previewCss(base);
+        summary.style.cssText = PLAIN_NAME_CSS;
       } else {
-        summary.textContent = 'DITA Editor surface stylesheet';
         summary.style.cssText =
-          'display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:' + GRAY_MUTED + ';';
+          'display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:' + GRAY_MUTED + ';';
+        summary.title = 'Not customized yet — expand the editor to author this default.';
       }
       // Leading accent rail when the base style defines a border colour, mirroring
       // styleRow so the "border colour ⟺ accent rail" cue holds for base rows too.
@@ -1364,10 +1163,10 @@
         rail.className = 'style-accent-rail';
         if (rail.classList && typeof rail.classList.add === 'function') rail.classList.add('style-accent-rail');
         rail.setAttribute('aria-hidden', 'true');
-        rail.style.cssText = 'width:2px;align-self:stretch;border-radius:999px;background:' + base.borderColor + ';';
-        meta.append(rail, chip, summary);
+        rail.style.cssText = 'flex:none;width:3px;align-self:stretch;background:' + base.borderColor + ';';
+        meta.append(rail, summary);
       } else {
-        meta.append(chip, summary);
+        meta.append(summary);
       }
 
       const expanded = editClassName === className;
@@ -1375,9 +1174,11 @@
       const editBtn = document.createElement('button');
       editBtn.type = 'button';
       editBtn.textContent = expanded ? '▴' : '▾';
-      editBtn.style.cssText = iconButtonCss(fontFamily) + 'width:28px;';
-      editBtn.title = expanded ? 'Collapse base style editor' : 'Expand base style editor';
-      editBtn.setAttribute('aria-label', (expanded ? 'Collapse' : 'Expand') + ' base style editor for ' + rowLabel);
+      editBtn.className = 'style-icon-btn';
+      if (editBtn.classList && typeof editBtn.classList.add === 'function') editBtn.classList.add('style-icon-btn');
+      editBtn.style.cssText = iconButtonCss(fontFamily);
+      editBtn.title = expanded ? 'Collapse default style editor' : 'Expand default style editor';
+      editBtn.setAttribute('aria-label', (expanded ? 'Collapse' : 'Expand') + ' default style editor for ' + rowLabel);
       editBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
       editBtn.setAttribute('aria-controls', editorId);
       const toggle = (event) => {
@@ -1422,11 +1223,17 @@
       const actions = document.createElement('div');
       actions.style.cssText = 'display:flex;gap:5px;align-items:center;';
       actions.appendChild(editBtn);
-      row.append(meta, actions);
+      // Every base row gets the eye: an unauthored kind still previews how
+      // its elements currently look amid the document's other styles.
+      row.append(meta, previewEyeButton(
+        variant ? targetKey + ':' + variant : targetKey,
+        null,
+        variant ? (base ? base.name : variantLabel) : 'Default',
+      ), actions);
       wrap.appendChild(row);
       if (expanded) {
         const draft = base || {
-          name: 'Base ' + rowLabel.toLowerCase(),
+          name: variant ? rowLabel : 'Default',
           className: className,
           target: targetKey,
           isDefault: true,
@@ -1435,11 +1242,41 @@
         const form = styleForm(draft, styles, writable);
         form.setAttribute('id', editorId);
         form.style.margin = '0 0 5px;';
-        form.style.padding = '8px 8px 9px 4px;';
+        form.style.padding = '4px 8px 8px 16px;';
         form.style.boxSizing = 'border-box';
         wrap.appendChild(form);
       }
       return wrap;
+    }
+
+    // Per-row eye: hover/focus anchor for the style preview popup. Clicking it
+    // does nothing — the preview affordance must never apply or clear a style.
+    // It sits in its own grid cell, sibling to the row's apply button.
+    function previewEyeButton(kind, presetClassName, styleName) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'style-icon-btn style-preview-toggle';
+      if (btn.classList && typeof btn.classList.add === 'function') {
+        btn.classList.add('style-icon-btn');
+        btn.classList.add('style-preview-toggle');
+      }
+      btn.style.cssText = iconButtonCss(fontFamily);
+      btn.innerHTML = EYE_SVG;
+      btn.title = 'Preview ' + styleName;
+      btn.setAttribute('aria-label', 'Preview ' + styleName);
+      btn.addEventListener('click', (event) => {
+        if (event.preventDefault) event.preventDefault();
+        if (event.stopPropagation) event.stopPropagation();
+      });
+      if (previewPopup) {
+        const open = () => previewPopup.scheduleOpen(btn, kind, presetClassName, styleName);
+        const close = () => previewPopup.scheduleClose();
+        btn.addEventListener('mouseenter', open);
+        btn.addEventListener('focus', open);
+        btn.addEventListener('mouseleave', close);
+        btn.addEventListener('blur', close);
+      }
+      return btn;
     }
 
     function styleRow(style, styles, target, activeManaged, writable) {
@@ -1451,15 +1288,13 @@
         wrap.classList.add('style-row-wrap');
         if (isApplied) wrap.classList.add('style-row-applied');
       }
-      // Applied styles get an accent ring (replaces the old "Applied" text badge).
-      wrap.style.cssText = isApplied
-        ? 'border:2px solid var(--dc-color-accent, #2563eb);border-radius:7px;padding:0;margin:3px 0;box-sizing:border-box;overflow:hidden;'
-        : 'border-bottom:1px solid ' + GRAY_HAIRLINE + ';padding:0;';
+      wrap.style.cssText = 'padding:0;';
       const row = document.createElement('div');
       row.className = 'style-row';
       row.style.cssText =
-        'display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center;padding:5px 10px 5px 10px;' +
-        'background:' + (isApplied ? '#eff6ff' : '#fff') + ';';
+        'display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;min-height:22px;padding:1px 8px 1px 16px;' +
+        // The applied row keeps its focus-tinted background as the "applied" marker.
+        (isApplied ? 'background:color-mix(in srgb, var(--vscode-focusBorder, #2563eb) 14%, transparent);' : '');
       const meta = document.createElement('button');
       meta.type = 'button';
       meta.className = 'style-apply';
@@ -1474,7 +1309,7 @@
       topLine.style.cssText = 'display:flex;align-items:center;gap:6px;min-width:0;margin-bottom:2px;';
       const name = document.createElement('span');
       name.textContent = style.name;
-      name.style.cssText = previewCss(style);
+      name.style.cssText = PLAIN_NAME_CSS;
       if (style.backgroundColor && (style.target === 'tableCell' || style.target === 'tableRow')) {
         const swatch = document.createElement('span');
         swatch.setAttribute('aria-hidden', 'true');
@@ -1483,13 +1318,17 @@
       }
       topLine.append(name);
       copy.append(topLine);
-      if (style.borderColor) {
+      // Left accent rail cue — only where the accent really is a left border.
+      // Table presets emit their accent HORIZONTALLY (border-top 3px /
+      // border-bottom 1px), so a vertical rail would promise a side line the
+      // applied style never draws; the hover popup shows the true effect.
+      if (style.borderColor && style.target !== 'table') {
         const rail = document.createElement('span');
         rail.className = 'style-accent-rail';
         if (rail.classList && typeof rail.classList.add === 'function') rail.classList.add('style-accent-rail');
         rail.setAttribute('aria-hidden', 'true');
         rail.style.cssText =
-          'width:2px;align-self:stretch;border-radius:999px;background:' + style.borderColor + ';';
+          'flex:none;width:3px;align-self:stretch;background:' + style.borderColor + ';';
         meta.appendChild(rail);
       }
       meta.appendChild(copy);
@@ -1523,7 +1362,9 @@
       const editBtn = document.createElement('button');
       editBtn.type = 'button';
       editBtn.textContent = expanded ? '▴' : '▾';
-      editBtn.style.cssText = iconButtonCss(fontFamily) + 'width:28px;';
+      editBtn.className = 'style-icon-btn';
+      if (editBtn.classList && typeof editBtn.classList.add === 'function') editBtn.classList.add('style-icon-btn');
+      editBtn.style.cssText = iconButtonCss(fontFamily);
       const editorId = 'style-editor-' + style.className;
       editBtn.title = expanded ? 'Collapse style editor' : 'Expand style editor';
       editBtn.setAttribute('aria-label', expanded ? 'Collapse editor for ' + style.name : 'Expand editor for ' + style.name);
@@ -1536,13 +1377,13 @@
         buildPanel(true);
       });
       actions.append(editBtn);
-      row.append(meta, actions);
+      row.append(meta, previewEyeButton(TARGET_LABEL[style.target] ? style.target : 'all', style.className, style.name), actions);
       wrap.appendChild(row);
       if (expanded) {
         const form = styleForm(style, styles, writable);
         form.setAttribute('id', editorId);
         form.style.margin = '0 0 5px;';
-        form.style.padding = '8px 8px 9px 4px;';
+        form.style.padding = '4px 8px 8px 16px;';
         form.style.boxSizing = 'border-box';
         wrap.appendChild(form);
       }
@@ -1597,22 +1438,47 @@
         const hint = document.createElement('div');
         hint.textContent = style.target === 'page'
           ? 'Page style — sets the document canvas (fill, content width, table shadow) for every topic.'
-          : 'Base style — applies to every ' + (TARGET_LABEL[style.target] || style.target).toLowerCase() + ' without marking the document.';
+          : 'Default style — applies to every ' + (TARGET_LABEL[style.target] || style.target).toLowerCase() + ' without marking the document.';
         hint.style.cssText = 'font-size:11px;color:' + GRAY_MUTED + ';line-height:1.4;';
         form.append(labelWrap(document, 'Name', nameInput), hint);
       } else {
         controls.push(nameInput, classInput, targetSelect);
         form.append(labelWrap(document, 'Name', nameInput), labelWrap(document, 'Class', classInput), labelWrap(document, 'Target', targetSelect));
       }
-      const inherited = inheritedFieldValues(TARGET_LABEL[style.target] ? style.target : 'all');
-      const valueFields = style.target === 'page' ? PAGE_VALUE_FIELDS : VALUE_FIELDS;
-      for (const config of valueFields) {
-        const input = choiceField(config, style[config.key] || '', inherited[config.key]);
-        controls.push(input);
-        form.appendChild(labelWrap(document, config.label, input));
+      const valueFieldsHost = document.createElement('div');
+      valueFieldsHost.style.cssText = 'display:flex;flex-direction:column;gap:9px;';
+      form.appendChild(valueFieldsHost);
+
+      function rebuildValueFields(nextTarget, subscribeNow) {
+        const retainedValues = {};
+        for (const input of Array.prototype.slice.call(valueFieldsHost.querySelectorAll('[data-style-field]'))) {
+          const key = input.getAttribute('data-style-field');
+          if (key) retainedValues[key] = String(input.value || '');
+        }
+        valueFieldsHost.textContent = '';
+        if (Array.isArray(valueFieldsHost.childNodes)) valueFieldsHost.childNodes.length = 0;
+        if (Array.isArray(valueFieldsHost.children)) valueFieldsHost.children.length = 0;
+        const fieldStyle = Object.assign({}, style, { target: nextTarget });
+        if (fieldStyle.structuralVariant &&
+            !(fieldStyle.target === 'table' && fieldStyle.structuralVariant === 'zebraEven')) {
+          delete fieldStyle.structuralVariant;
+        }
+        const inherited = inheritedFieldValues(TARGET_LABEL[nextTarget] ? nextTarget : 'all');
+        const valueFields = nextTarget === 'page' ? PAGE_VALUE_FIELDS : VALUE_FIELDS;
+        for (const config of valueFields) {
+          if (!styleFieldVisible(config, fieldStyle)) continue;
+          const value = Object.prototype.hasOwnProperty.call(retainedValues, config.key)
+            ? retainedValues[config.key]
+            : style[config.key] || '';
+          const input = choiceField(config, value, inherited[config.key]);
+          if (subscribeNow) subscribeControl(input);
+          else controls.push(input);
+          valueFieldsHost.appendChild(labelWrap(document, config.label, input));
+        }
       }
+      rebuildValueFields(style.target, false);
       const error = document.createElement('div');
-      error.style.cssText = 'display:none;font-size:12px;color:#9c2f2f;line-height:1.35;';
+      error.style.cssText = 'display:none;font-size:12px;color:' + C.errorFg + ';line-height:1.35;';
       form.append(error);
       form._ditaeditorShowSaveError = function (reason) {
         error.textContent = reason;
@@ -1633,7 +1499,7 @@
         saveDraft(true);
       });
 
-      for (const control of controls) {
+      function subscribeControl(control) {
         if (typeof control._ditaeditorSubscribe === 'function') {
           control._ditaeditorSubscribe(scheduleAutoSave);
         } else {
@@ -1641,6 +1507,13 @@
           control.addEventListener('change', () => scheduleAutoSave());
         }
       }
+
+      if (!isDefaultStyle) {
+        targetSelect.addEventListener('change', function () {
+          rebuildValueFields(String(targetSelect.value || 'all'), true);
+        });
+      }
+      for (const control of controls) subscribeControl(control);
 
       function scheduleAutoSave() {
         if (!writable) return;
@@ -1665,7 +1538,7 @@
           announceNav(saveBlockedReason);
           return false;
         }
-        const next = readDraft(form, nameInput, classInput, targetSelect);
+        const next = readDraft(form, nameInput, classInput, targetSelect, style);
         if (isDefaultStyle) {
           next.className = style.className;
           next.target = style.target;
@@ -1675,7 +1548,7 @@
           // the class onto the plain base and destroy this variant.
           if (style.structuralVariant) next.structuralVariant = style.structuralVariant;
         }
-        const reason = validationError(next, styles, style.className);
+        const reason = validationError(next, styles, style.className, style);
         if (reason) {
           error.textContent = reason;
           error.style.display = 'block';
@@ -1713,33 +1586,50 @@
       return form;
     }
 
-    function readDraft(form, nameInput, classInput, targetSelect) {
-      const next = {
+    function readDraft(form, nameInput, classInput, targetSelect, originalStyle) {
+      const next = Object.assign({}, originalStyle, {
         name: String(nameInput.value || '').trim(),
         className: String(classInput.value || '').trim(),
         target: String(targetSelect.value || 'heading'),
-      };
+      });
+      const targetChanged = next.target !== originalStyle.target;
+      if (targetChanged && next.structuralVariant &&
+          !(next.target === 'table' && next.structuralVariant === 'zebraEven')) {
+        delete next.structuralVariant;
+      }
       const fields = Array.prototype.slice.call(form.querySelectorAll('[data-style-field]'));
       for (const input of fields) {
         const key = input.getAttribute('data-style-field');
+        if (!key) continue;
         const value = String(input.value || '').trim();
-        if (key && value) next[key] = value;
+        if (value) next[key] = value;
+        else delete next[key];
+      }
+      if (targetChanged) {
+        const capabilities = styleFieldCapabilities(next);
+        for (const config of VALUE_FIELDS.concat(PAGE_VALUE_FIELDS)) {
+          if (!capabilities.has(config.key)) delete next[config.key];
+        }
       }
       return next;
     }
 
-    function validationError(style, styles, previousClassName) {
+    function validationError(style, styles, previousClassName, previousStyle) {
       if (!style.name) return 'Style name is required.';
       if (!CLASS_NAME_RE.test(style.className)) return 'Class must use CSS-safe letters, numbers, underscores, or hyphens.';
       if (!style.isDefault && style.className.indexOf(DEFAULT_CLASS_PREFIX) === 0) {
-        return 'Class names starting with "' + DEFAULT_CLASS_PREFIX + '" are reserved for base styles.';
+        return 'Class names starting with "' + DEFAULT_CLASS_PREFIX + '" are reserved for default styles.';
       }
       if (styles.some((item) => item.className === style.className && item.className !== previousClassName)) {
         return 'A style with that class already exists.';
       }
+      const capabilities = styleFieldCapabilities(style);
       const cssValueKeys = new Set(VALUE_FIELDS.concat(PAGE_VALUE_FIELDS).map((field) => field.key));
       for (const key of Object.keys(style)) {
         if (!cssValueKeys.has(key)) continue;
+        if (!capabilities.has(key) && (!previousStyle || style[key] !== previousStyle[key])) {
+          return 'That property does not affect the selected style target.';
+        }
         if (typeof style[key] === 'string' && (/[{};<>]/.test(style[key]) || style[key].indexOf('*/') >= 0)) {
           return 'CSS values cannot contain braces, semicolons, angle brackets, or comment endings.';
         }
@@ -1892,24 +1782,14 @@
       return true;
     }
 
-    document.addEventListener('selectionchange', () => refresh(false));
-    document.addEventListener('keyup', () => refresh(false));
-    document.addEventListener('click', () => refresh(false));
-    applyTopChromeHeight();
-    setCollapsed(true);
+    // No self-listeners: the view re-renders when the host pushes fresh
+    // style/target state, and callers force-refresh on navigation.
     restoreSaveController();
     refresh(true);
     return {
       refresh: refresh,
       acceptSaveResult: acceptSaveResult,
       panel: panel,
-      resizeHandle: resizeHandle,
-      hideButton: hideButton,
-      showButton: showButton,
-      applyLiveCss: function () {
-        liveStyle.textContent = state().cssText || '';
-        syncBaseEditorWidth();
-      },
     };
 
     function emptyDraft(styles, target) {
@@ -1922,72 +1802,16 @@
       return { name: 'New style', className: className, target: draftKind };
     }
 
-    // Reads the actual effective value of every style field from a sample element
-    // of the kind, so the style editor's empty choices can say "16px (default)"
-    // instead of a bare "Default". Empty map when nothing can be computed.
+    // Effective inherited values per style-target kind, sampled canvas-side by
+    // the bridge, so the style editor's empty choices can say "16px (default)"
+    // instead of a bare "Default". Empty map (plain "Default" labels) when the
+    // bridge has not computed anything — the same degradation as before.
     function inheritedFieldValues(targetKey) {
-      const out = {};
-      if (!win || typeof win.getComputedStyle !== 'function') return out;
-      let element = sampleElement(targetKey);
-      let dispose = null;
-      if (!element) {
-        const probe = mountProbe(targetKey);
-        if (probe) {
-          element = probe.element;
-          dispose = probe.dispose;
-        }
-      }
-      if (!element) return out;
-      try {
-        const computed = win.getComputedStyle(element);
-        if (computed && typeof computed.getPropertyValue === 'function') {
-          for (const [fieldKey, cssProp] of INSPECT_FIELDS) {
-            const value = formatCssValue(String(computed.getPropertyValue(cssProp) || '').trim());
-            if (value) out[fieldKey] = value;
-          }
-        }
-      } catch (err) {
-        // Fall through to dispose; the caller falls back to plain "Default" labels.
-      }
-      if (dispose) dispose();
-      return out;
-    }
-
-    // Mounts a hidden, out-of-flow element built from the renderer's markup
-    // contract inside the real cascade (.body), so theme values are readable
-    // even when the topic contains no element of the kind. Removed synchronously.
-    function mountProbe(targetKey) {
-      const spec = PROBE_MARKUP[targetKey];
-      if (!spec || typeof document.createElement !== 'function' || typeof document.querySelector !== 'function') return null;
-      const host = document.querySelector('.body') || main || document.body;
-      if (!host || typeof host.appendChild !== 'function') return null;
-      const wrap = document.createElement('div');
-      wrap.setAttribute('aria-hidden', 'true');
-      wrap.style.cssText = 'position:absolute;left:-9999px;top:0;width:640px;visibility:hidden;pointer-events:none;';
-      wrap.innerHTML = spec[0];
-      const dispose = function () {
-        try {
-          if (typeof host.removeChild === 'function') host.removeChild(wrap);
-        } catch (err) {
-          // Already detached (e.g. a rerender swapped the body mid-read); nothing to clean.
-        }
-      };
-      host.appendChild(wrap);
-      const element = typeof wrap.querySelector === 'function' ? wrap.querySelector(spec[1]) : null;
-      if (!element) {
-        dispose();
-        return null;
-      }
-      return { element: element, dispose: dispose };
-    }
-
-    function hasConfiguredWorkspaceStylesheet() {
-      if (!document || typeof document.querySelectorAll !== 'function') return false;
-      // Task 6 must mark configured links explicitly when it wires the final
-      // cascade. Basenames are not origin metadata and may legitimately collide.
-      return document.querySelectorAll(
-        'link[rel="stylesheet"][data-ditaeditor-style-origin="configured"]',
-      ).length > 0;
+      const snapshot = getInspectorState();
+      const inherited = snapshot && snapshot.inherited && typeof snapshot.inherited === 'object'
+        ? snapshot.inherited[targetKey]
+        : null;
+      return inherited && typeof inherited === 'object' ? inherited : {};
     }
 
     // Model-based provenance: only values owned by the author style model get a
@@ -2001,16 +1825,12 @@
 
     function buildInspector(target, activeStyle, styles) {
       if (!target || !target.ids || target.ids.length !== 1) return null;
-      if (!win || typeof win.getComputedStyle !== 'function') return null;
-      const element = resolveElement(target.ids[0]);
-      if (!element) return null;
-      let computed = null;
-      try {
-        computed = win.getComputedStyle(element);
-      } catch (err) {
-        return null;
-      }
-      if (!computed || typeof computed.getPropertyValue !== 'function') return null;
+      // The bridge publishes computed entries only for a single resolvable
+      // element; a null computed snapshot renders no inspector, matching the
+      // old in-canvas degradation when getComputedStyle was unavailable.
+      const snapshot = getInspectorState();
+      const computed = snapshot && Array.isArray(snapshot.computed) ? snapshot.computed : null;
+      if (!computed) return null;
       const styleTarget = targetForKind(target.kind);
       const baseStyle = styles.find((style) => style.isDefault && style.target === styleTarget) || null;
 
@@ -2018,7 +1838,7 @@
       box.className = 'style-inspector';
       if (box.classList && typeof box.classList.add === 'function') box.classList.add('style-inspector');
       box.style.cssText = 'margin-top:9px;';
-      const hasConfiguredStylesheet = hasConfiguredWorkspaceStylesheet();
+      const hasConfiguredStylesheet = snapshot.hasConfiguredStylesheet === true;
       const sourceDescription = hasConfiguredStylesheet
         ? 'configured workspace stylesheet'
         : 'DITA Editor surface stylesheet';
@@ -2030,23 +1850,24 @@
       sourceSummary.textContent = sourceDescription;
       sourceSummary.title = sourceDescription;
       sourceSummary.style.cssText =
-        'margin:0 0 6px;color:' + GRAY_MUTED + ';font:600 10px/1.4 ' + fontFamily + ';text-transform:uppercase;';
+        'margin:0 0 4px;color:' + GRAY_MUTED + ';font:11px/1.4 ' + fontFamily + ';';
       box.appendChild(sourceSummary);
-      for (const [fieldKey, cssProp, label] of INSPECT_FIELDS) {
-        const value = String(computed.getPropertyValue(cssProp) || '').trim();
+      for (const entry of computed) {
+        const fieldKey = entry.key;
+        const value = String(entry.value || '').trim();
         if (!value) continue;
         const row = document.createElement('div');
         row.className = 'style-inspect-row';
         if (row.classList && typeof row.classList.add === 'function') row.classList.add('style-inspect-row');
         row.style.cssText = 'display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:6px;align-items:center;padding:2px 0;';
         const labEl = document.createElement('span');
-        labEl.textContent = label;
-        labEl.style.cssText = 'font-size:10.5px;color:' + GRAY_LABEL + ';';
+        labEl.textContent = entry.label;
+        labEl.style.cssText = 'font-size:11px;color:' + GRAY_LABEL + ';';
         const valEl = document.createElement('span');
         valEl.textContent = value;
         valEl.style.cssText =
           'min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
-          'font:10.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:' + GRAY_STRONG + ';';
+          'font:11px/1.4 ' + C.mono + ';color:' + GRAY_STRONG + ';';
         const provenance = provenanceForField(fieldKey, activeStyle, baseStyle);
         row.append(labEl, valEl);
         if (provenance) {
@@ -2056,9 +1877,8 @@
           provEl.textContent = provenance;
           provEl.title = provenance;
           provEl.style.cssText =
-            'flex:none;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:999px;padding:1px 6px;' +
-            'font:600 8.5px/1.5 ' + fontFamily + ';letter-spacing:.04em;text-transform:uppercase;' +
-            'border:1px solid #cbd9df;background:#f0f7fa;color:#31586a;';
+            'flex:none;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
+            'font:11px/1.4 ' + fontFamily + ';color:' + GRAY_MUTED + ';';
           row.appendChild(provEl);
         }
         box.appendChild(row);
@@ -2130,7 +1950,7 @@
       picker.value = pickerHex(value || inheritedValue);
       picker.setAttribute('aria-label', 'Pick ' + config.label.toLowerCase() + ' color');
       picker.className = 'style-color-picker';
-      picker.style.cssText = 'width:36px;height:32px;padding:2px;border:1px solid ' + GRAY_HAIRLINE + ';border-radius:6px;background:#fff;cursor:pointer;';
+      picker.style.cssText = 'width:36px;height:26px;padding:2px;border:1px solid ' + C.inputBorder + ';border-radius:2px;background:' + C.inputBg + ';cursor:pointer;';
 
       const raw = document.createElement('input');
       raw.type = 'text';
@@ -2211,21 +2031,23 @@
       return wrap;
     }
 
+    // Per-target capability matrix shared by field rendering and draft cleanup.
+    // Structural variants get their own deliberately narrow capability set.
+    function styleFieldCapabilities(style) {
+      if (style.structuralVariant && VARIANT_FIELD_CAPABILITIES[style.structuralVariant]) {
+        return VARIANT_FIELD_CAPABILITIES[style.structuralVariant];
+      }
+      return TARGET_FIELD_CAPABILITIES[style.target] || TARGET_FIELD_CAPABILITIES.all;
+    }
+
+    function styleFieldVisible(config, style) {
+      if (!styleFieldCapabilities(style).has(config.key)) return false;
+      if (config.key === 'borderEdge' && style.isDefault === true) return false;
+      return true;
+    }
+
     function choiceField(config, value, inheritedValue) {
       if (config.color) return colorChoiceField(config, value, inheritedValue);
-      if (config.text) {
-        // Free-text value field (e.g. the masthead title). Carries data-style-field so
-        // readDraft collects it exactly like a choice select.
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.setAttribute('aria-label', config.label);
-        input.setAttribute('data-style-field', config.key);
-        input.className = 'style-field';
-        input.style.cssText = fieldCss(fontFamily);
-        input.placeholder = inheritedValue || 'Default';
-        input.value = value || '';
-        return input;
-      }
       const select = document.createElement('select');
       select.setAttribute('aria-label', config.label);
       select.setAttribute('data-style-field', config.key);
@@ -2254,13 +2076,29 @@
     }
   }
 
+  // Secondary action button — VS Code secondary button tokens.
   function smallButton(document, label, fontFamily) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = label;
+    btn.className = 'style-btn-secondary';
+    if (btn.classList && typeof btn.classList.add === 'function') btn.classList.add('style-btn-secondary');
     btn.style.cssText =
-      'border:1px solid ' + GRAY_HAIRLINE + ';border-radius:6px;background:#fff;color:' + GRAY_STRONG + ';cursor:pointer;' +
-      'font:600 11.5px/1 ' + fontFamily + ';padding:6px 8px;white-space:nowrap;';
+      'border:0;border-radius:2px;background:' + C.btn2Bg + ';color:' + C.btn2Fg + ';cursor:pointer;' +
+      'font:13px/1.4 ' + fontFamily + ';padding:2px 11px;white-space:nowrap;';
+    return btn;
+  }
+
+  // Primary action button — VS Code primary button tokens.
+  function primaryButton(document, label, fontFamily) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = label;
+    btn.className = 'style-btn-primary';
+    if (btn.classList && typeof btn.classList.add === 'function') btn.classList.add('style-btn-primary');
+    btn.style.cssText =
+      'border:0;border-radius:2px;background:' + C.btnBg + ';color:' + C.btnFg + ';cursor:pointer;' +
+      'font:13px/1.4 ' + fontFamily + ';padding:2px 11px;white-space:nowrap;';
     return btn;
   }
 
@@ -2269,63 +2107,46 @@
     wrap.style.cssText = 'display:grid;grid-template-columns:72px minmax(0,1fr);gap:8px;align-items:center;';
     const text = document.createElement('span');
     text.textContent = label;
-    text.style.cssText = 'font-size:11.5px;color:' + GRAY_LABEL + ';';
+    text.style.cssText = 'font-size:13px;color:' + GRAY_LABEL + ';';
     if (control && control._ditaeditorCompound) text.setAttribute('aria-hidden', 'true');
     wrap.append(text, control);
     return wrap;
   }
 
+  // Non-collapsible section header — same native strip as the group headers.
   function sectionLabel(document, text) {
     const label = document.createElement('div');
     label.textContent = text;
     label.style.cssText =
-      'font-weight:650;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:' + GRAY_LABEL + ';margin:17px 0 8px;';
+      'display:flex;align-items:center;min-height:22px;padding:0 8px;margin:8px 0 2px;background:' + C.headerBg + ';' +
+      'font-weight:700;font-size:11px;text-transform:uppercase;color:' + C.headerText + ';';
     return label;
   }
 
   function fieldCss(fontFamily) {
-    return 'width:100%;box-sizing:border-box;border:1px solid ' + GRAY_HAIRLINE + ';border-radius:6px;background:#fff;' +
-      'color:' + GRAY_STRONG + ';font:12px ' + fontFamily + ';padding:5px 7px;min-width:0;';
+    return 'width:100%;box-sizing:border-box;border:1px solid ' + C.inputBorder + ';border-radius:2px;background:' + C.inputBg + ';' +
+      'color:' + C.inputText + ';font:13px ' + fontFamily + ';padding:2px 6px;min-height:26px;min-width:0;';
   }
 
   function iconButtonCss(fontFamily) {
-    return 'width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex:none;' +
-      'border:1px solid transparent;border-radius:6px;background:transparent;color:' + GRAY_LABEL + ';cursor:pointer;' +
-      'font:600 18px/1 ' + fontFamily + ';padding:0;';
+    return 'width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:none;' +
+      'border:0;border-radius:3px;background:transparent;color:' + C.iconFg + ';cursor:pointer;' +
+      'font:14px/1 ' + fontFamily + ';padding:0;';
   }
 
-  function previewCss(style) {
-    const size = previewFontSize(style.fontSize);
-    const weight = style.fontWeight || '600';
-    const color = style.color || GRAY_STRONG;
-    const bg = style.backgroundColor ? 'background:' + style.backgroundColor + ';padding:2px 6px;border-radius:5px;' : '';
-    const letter = style.letterSpacing ? 'letter-spacing:' + style.letterSpacing + ';' : '';
-    const transform = style.textTransform ? 'text-transform:' + style.textTransform + ';' : '';
-    return 'display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
-      'font-size:' + size + ';font-weight:' + weight + ';color:' + color + ';line-height:1.2;' + bg + letter + transform;
-  }
+  // Row-name rendering: native list-item look. The authored look lives in the
+  // hover preview popup, never inline in the row.
+  const PLAIN_NAME_CSS =
+    'display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
+    'font-size:13px;font-weight:400;color:var(--vscode-foreground);line-height:1.2;';
 
-  function previewFontSize(value) {
-    const px = /^(\d+(?:\.\d+)?)px$/.exec(String(value || ''));
-    if (!px) return '13px';
-    const n = Number(px[1]);
-    if (!Number.isFinite(n)) return '13px';
-    return Math.max(12, Math.min(18, n)) + 'px';
-  }
+  // Static inline eye icon for the preview anchor (~14px, currentColor so it
+  // follows the icon-foreground token from iconButtonCss).
+  const EYE_SVG =
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.2" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M8 3.5C4.7 3.5 2.1 6.6 1.3 8c.8 1.4 3.4 4.5 6.7 4.5s5.9-3.1 6.7-4.5C13.9 6.6 11.3 3.5 8 3.5Z"/>' +
+    '<circle cx="8" cy="8" r="2.2"/></svg>';
 
-  // Computed colors come back as rgb()/rgba(); show them as compact hex, and a
-  // fully transparent fill as the word it means. Non-color values pass through.
-  function formatCssValue(value) {
-    if (!value) return '';
-    const rgba = /^rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,\s/]+([\d.]+))?\)$/.exec(value);
-    if (!rgba) return value;
-    if (rgba[4] != null && Number(rgba[4]) === 0) return 'transparent';
-    const hex = function (part) {
-      const h = Number(part).toString(16);
-      return h.length === 1 ? '0' + h : h;
-    };
-    return '#' + hex(rgba[1]) + hex(rgba[2]) + hex(rgba[3]);
-  }
-
-  window.DitaEditorCanvasStyles = { installStylesPanel: installStylesPanel };
+  window.DitaEditorStylesPanel = { installStylesPanel: installStylesPanel };
 })();

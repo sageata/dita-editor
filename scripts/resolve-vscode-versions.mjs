@@ -184,18 +184,27 @@ export async function checkPinnedFile(path) {
 
 function parseArgs(argv) {
   let mode;
+  let minimumVersion;
   let writePath;
   let checkPath;
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--current-stable') mode = 'current-stable';
-    else if (arg === '--write') writePath = argv[++index];
+    else if (arg === '--minimum') {
+      mode = 'minimum';
+      minimumVersion = argv[++index];
+    } else if (arg === '--write') writePath = argv[++index];
     else if (arg === '--check-pinned') checkPath = argv[++index];
     else throw new Error(`unknown argument: ${arg}`);
   }
   if (checkPath) return { mode: 'check', path: resolve(checkPath) };
   if (mode === 'current-stable' && writePath) return { mode, path: resolve(writePath) };
-  throw new Error('use --current-stable --write <path> or --check-pinned <path>');
+  if (mode === 'minimum' && minimumVersion && writePath) {
+    return { mode, version: minimumVersion, path: resolve(writePath) };
+  }
+  throw new Error(
+    'use --current-stable --write <path>, --minimum <version> --write <path>, or --check-pinned <path>',
+  );
 }
 
 export async function main(argv = process.argv.slice(2)) {
@@ -205,12 +214,15 @@ export async function main(argv = process.argv.slice(2)) {
     console.log(`Verified exact official VS Code pins in ${options.path}.`);
     return;
   }
-  const current = await resolveCurrentStable();
-  const frozen = await freezeVersion(current.version);
+  const key = options.mode === 'minimum' ? 'minimum' : 'currentStable';
+  const version = options.mode === 'minimum'
+    ? options.version
+    : (await resolveCurrentStable()).version;
+  const frozen = await freezeVersion(version);
   const existing = existsSync(options.path) ? JSON.parse(await readFile(options.path, 'utf8')) : {};
-  const output = { schemaVersion: 1, ...existing, currentStable: frozen };
+  const output = { schemaVersion: 1, ...existing, [key]: frozen };
   await writeFile(options.path, `${JSON.stringify(output, null, 2)}\n`);
-  console.log(`Pinned VS Code ${frozen.version} (${frozen.commit}) in ${options.path}.`);
+  console.log(`Pinned VS Code ${frozen.version} (${frozen.commit}) as ${key} in ${options.path}.`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {

@@ -1,18 +1,102 @@
 {
   "schemaVersion": 1,
   "minimum": {
-    "checkedAt": "2026-07-11T06:23:13.215Z",
+    "checkedAt": "2026-07-18T10:57:40.404Z",
     "channel": "stable",
-    "version": "1.90.0",
-    "commit": "89de5a8d4d6205e5b11647eb6a74844ca23d2573",
+    "version": "1.106.0",
+    "commit": "ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57",
     "platforms": [
-      { "os": "darwin", "architecture": "x64", "downloadPlatform": "darwin", "updateTarget": "darwin", "exactVersionUrl": "https://update.code.visualstudio.com/1.90.0/darwin/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/89de5a8d4d6205e5b11647eb6a74844ca23d2573/VSCode-darwin.zip", "version": "1.90.0", "commit": "89de5a8d4d6205e5b11647eb6a74844ca23d2573", "providerSha256": "83fab50f75bde7cd37c098ca855ccd88f39ffc073a8045e37a8ae25f8b39a35a", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" },
-      { "os": "darwin", "architecture": "arm64", "downloadPlatform": "darwin-arm64", "updateTarget": "darwin-arm64", "exactVersionUrl": "https://update.code.visualstudio.com/1.90.0/darwin-arm64/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/89de5a8d4d6205e5b11647eb6a74844ca23d2573/VSCode-darwin-arm64.zip", "version": "1.90.0", "commit": "89de5a8d4d6205e5b11647eb6a74844ca23d2573", "providerSha256": "466b6de68aa3e71771153b0ede1063c718da39bd952a81f7e91ea2c565a3ecc0", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" },
-      { "os": "win32", "architecture": "x64", "downloadPlatform": "win32-x64-archive", "updateTarget": "win32-x64-archive", "exactVersionUrl": "https://update.code.visualstudio.com/1.90.0/win32-x64-archive/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/89de5a8d4d6205e5b11647eb6a74844ca23d2573/VSCode-win32-x64-1.90.0.zip", "version": "1.90.0", "commit": "89de5a8d4d6205e5b11647eb6a74844ca23d2573", "providerSha256": "0eea91a0014018264745ce7ae940f9516b557095a3fec65184602a9c4d76bb95", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" },
-      { "os": "win32", "architecture": "arm64", "downloadPlatform": "win32-arm64-archive", "updateTarget": "win32-arm64-archive", "exactVersionUrl": "https://update.code.visualstudio.com/1.90.0/win32-arm64-archive/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/89de5a8d4d6205e5b11647eb6a74844ca23d2573/VSCode-win32-arm64-1.90.0.zip", "version": "1.90.0", "commit": "89de5a8d4d6205e5b11647eb6a74844ca23d2573", "providerSha256": "d7d68ebb19c87cbc8fd7572be8b8542904a58a34d71fb914ea651a223c41a9bf", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" },
-      { "os": "linux", "architecture": "x64", "downloadPlatform": "linux-x64", "updateTarget": "linux-x64", "exactVersionUrl": "https://update.code.visualstudio.com/1.90.0/linux-x64/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/89de5a8d4d6205e5b11647eb6a74844ca23d2573/code-stable-x64-1717530197.tar.gz", "version": "1.90.0", "commit": "89de5a8d4d6205e5b11647eb6a74844ca23d2573", "providerSha256": "6d1607e770eb638e653510d927e9b6350a14f9826ca140d2339ba970c7fcfdfa", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" },
-      { "os": "linux", "architecture": "arm64", "downloadPlatform": "linux-arm64", "updateTarget": "linux-arm64", "exactVersionUrl": "https://update.code.visualstudio.com/1.90.0/linux-arm64/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/89de5a8d4d6205e5b11647eb6a74844ca23d2573/code-stable-arm64-1717529915.tar.gz", "version": "1.90.0", "commit": "89de5a8d4d6205e5b11647eb6a74844ca23d2573", "providerSha256": "e5f9c950129a4b66491ea28e1c17f5d17f88066230245d8499ec6e1e61e40c38", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" },
-      { "os": "linux", "architecture": "armhf", "downloadPlatform": "linux-armhf", "updateTarget": "linux-armhf", "exactVersionUrl": "https://update.code.visualstudio.com/1.90.0/linux-armhf/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/89de5a8d4d6205e5b11647eb6a74844ca23d2573/code-stable-armhf-1717530178.tar.gz", "version": "1.90.0", "commit": "89de5a8d4d6205e5b11647eb6a74844ca23d2573", "providerSha256": "3ba84e9f623323a73e03557049c5f9cfd6218772b5f621620e924b9c40f01128", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" }
+      {
+        "os": "darwin",
+        "architecture": "x64",
+        "downloadPlatform": "darwin",
+        "updateTarget": "darwin",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.106.0/darwin/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57/VSCode-darwin.zip",
+        "version": "1.106.0",
+        "commit": "ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57",
+        "providerSha256": "0e90534c8aca65d22da41803a77480f5f2fd795befa7f3b5143b152bdde74cfc",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      },
+      {
+        "os": "darwin",
+        "architecture": "arm64",
+        "downloadPlatform": "darwin-arm64",
+        "updateTarget": "darwin-arm64",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.106.0/darwin-arm64/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57/VSCode-darwin-arm64.zip",
+        "version": "1.106.0",
+        "commit": "ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57",
+        "providerSha256": "ed73be63c4fce44786394cbcb6b696b7e30e161b4298f429d1b7a763a649092e",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      },
+      {
+        "os": "win32",
+        "architecture": "x64",
+        "downloadPlatform": "win32-x64-archive",
+        "updateTarget": "win32-x64-archive",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.106.0/win32-x64-archive/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57/VSCode-win32-x64-1.106.0.zip",
+        "version": "1.106.0",
+        "commit": "ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57",
+        "providerSha256": "2835e6268fb440f3b0ee7dfacf4d95fa1a29704f567861c256614f7d0fa7380e",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      },
+      {
+        "os": "win32",
+        "architecture": "arm64",
+        "downloadPlatform": "win32-arm64-archive",
+        "updateTarget": "win32-arm64-archive",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.106.0/win32-arm64-archive/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57/VSCode-win32-arm64-1.106.0.zip",
+        "version": "1.106.0",
+        "commit": "ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57",
+        "providerSha256": "8225ddfaa10687812b04121b2dd570b35753a8b4ca58649487ea55b27c216d24",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      },
+      {
+        "os": "linux",
+        "architecture": "x64",
+        "downloadPlatform": "linux-x64",
+        "updateTarget": "linux-x64",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.106.0/linux-x64/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57/code-stable-x64-1762878274.tar.gz",
+        "version": "1.106.0",
+        "commit": "ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57",
+        "providerSha256": "0be540bb22b6ff8ba7c909ba87494926700c169199602deff2a3da78790bf201",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      },
+      {
+        "os": "linux",
+        "architecture": "arm64",
+        "downloadPlatform": "linux-arm64",
+        "updateTarget": "linux-arm64",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.106.0/linux-arm64/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57/code-stable-arm64-1762878272.tar.gz",
+        "version": "1.106.0",
+        "commit": "ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57",
+        "providerSha256": "a3563205e43fc9d71dd3abf17fcb277629380d3aa6720a8148302e3ac32bdd63",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      },
+      {
+        "os": "linux",
+        "architecture": "armhf",
+        "downloadPlatform": "linux-armhf",
+        "updateTarget": "linux-armhf",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.106.0/linux-armhf/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57/code-stable-armhf-1762878265.tar.gz",
+        "version": "1.106.0",
+        "commit": "ac4cbdf48759c7d8c3eb91ffe6bb04316e263c57",
+        "providerSha256": "1408de63e0f8b11a6de3fed4fa4e5cf8964c44c4fabef9187544da86242dfe63",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      }
     ]
   },
   "currentStable": {
@@ -21,13 +105,97 @@
     "version": "1.128.0",
     "commit": "fc3def6774c76082adf699d366f31a557ce5573f",
     "platforms": [
-      { "os": "darwin", "architecture": "x64", "downloadPlatform": "darwin", "updateTarget": "darwin", "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/darwin/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/VSCode-darwin.zip", "version": "1.128.0", "commit": "fc3def6774c76082adf699d366f31a557ce5573f", "providerSha256": "8ea0f577f08213fd766c187a6fb016fbd512b241598c864027c797f7f839ea44", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" },
-      { "os": "darwin", "architecture": "arm64", "downloadPlatform": "darwin-arm64", "updateTarget": "darwin-arm64", "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/darwin-arm64/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/VSCode-darwin-arm64.zip", "version": "1.128.0", "commit": "fc3def6774c76082adf699d366f31a557ce5573f", "providerSha256": "a642af59b61849a60c5a657f48748747bcd1e49536f70a5fdf802b42cb9cdf23", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" },
-      { "os": "win32", "architecture": "x64", "downloadPlatform": "win32-x64-archive", "updateTarget": "win32-x64-archive", "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/win32-x64-archive/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/VSCode-win32-x64-1.128.0.zip", "version": "1.128.0", "commit": "fc3def6774c76082adf699d366f31a557ce5573f", "providerSha256": "1b3a27d323b64cdcbcb6260e6f35a84979e0333f01a85c21386a6140b9e0fdf0", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" },
-      { "os": "win32", "architecture": "arm64", "downloadPlatform": "win32-arm64-archive", "updateTarget": "win32-arm64-archive", "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/win32-arm64-archive/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/VSCode-win32-arm64-1.128.0.zip", "version": "1.128.0", "commit": "fc3def6774c76082adf699d366f31a557ce5573f", "providerSha256": "be1debe651bb35382d48ca6e20d97001a427edb74296eb11d7a99a8efcb320d5", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" },
-      { "os": "linux", "architecture": "x64", "downloadPlatform": "linux-x64", "updateTarget": "linux-x64", "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/linux-x64/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/code-stable-x64-1783465271.tar.gz", "version": "1.128.0", "commit": "fc3def6774c76082adf699d366f31a557ce5573f", "providerSha256": "a9b4ce974ecc10c7456da9879763bf0a7a432710bd26c95a89a8a168f2aff57b", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" },
-      { "os": "linux", "architecture": "arm64", "downloadPlatform": "linux-arm64", "updateTarget": "linux-arm64", "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/linux-arm64/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/code-stable-arm64-1783465268.tar.gz", "version": "1.128.0", "commit": "fc3def6774c76082adf699d366f31a557ce5573f", "providerSha256": "6fd05e1fe7b6f6540fc7a5aee555b49b3f761ef099186b4e2fd0c22d297ef27f", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" },
-      { "os": "linux", "architecture": "armhf", "downloadPlatform": "linux-armhf", "updateTarget": "linux-armhf", "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/linux-armhf/stable", "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/code-stable-armhf-1783465276.tar.gz", "version": "1.128.0", "commit": "fc3def6774c76082adf699d366f31a557ce5573f", "providerSha256": "b6244a29b26fbafbb53e0c3b64d54fa98b950e4f8cd641c1725427625f4b17bf", "localArchiveSha256": null, "checksumSource": "provider-x-sha256" }
+      {
+        "os": "darwin",
+        "architecture": "x64",
+        "downloadPlatform": "darwin",
+        "updateTarget": "darwin",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/darwin/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/VSCode-darwin.zip",
+        "version": "1.128.0",
+        "commit": "fc3def6774c76082adf699d366f31a557ce5573f",
+        "providerSha256": "8ea0f577f08213fd766c187a6fb016fbd512b241598c864027c797f7f839ea44",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      },
+      {
+        "os": "darwin",
+        "architecture": "arm64",
+        "downloadPlatform": "darwin-arm64",
+        "updateTarget": "darwin-arm64",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/darwin-arm64/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/VSCode-darwin-arm64.zip",
+        "version": "1.128.0",
+        "commit": "fc3def6774c76082adf699d366f31a557ce5573f",
+        "providerSha256": "a642af59b61849a60c5a657f48748747bcd1e49536f70a5fdf802b42cb9cdf23",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      },
+      {
+        "os": "win32",
+        "architecture": "x64",
+        "downloadPlatform": "win32-x64-archive",
+        "updateTarget": "win32-x64-archive",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/win32-x64-archive/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/VSCode-win32-x64-1.128.0.zip",
+        "version": "1.128.0",
+        "commit": "fc3def6774c76082adf699d366f31a557ce5573f",
+        "providerSha256": "1b3a27d323b64cdcbcb6260e6f35a84979e0333f01a85c21386a6140b9e0fdf0",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      },
+      {
+        "os": "win32",
+        "architecture": "arm64",
+        "downloadPlatform": "win32-arm64-archive",
+        "updateTarget": "win32-arm64-archive",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/win32-arm64-archive/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/VSCode-win32-arm64-1.128.0.zip",
+        "version": "1.128.0",
+        "commit": "fc3def6774c76082adf699d366f31a557ce5573f",
+        "providerSha256": "be1debe651bb35382d48ca6e20d97001a427edb74296eb11d7a99a8efcb320d5",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      },
+      {
+        "os": "linux",
+        "architecture": "x64",
+        "downloadPlatform": "linux-x64",
+        "updateTarget": "linux-x64",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/linux-x64/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/code-stable-x64-1783465271.tar.gz",
+        "version": "1.128.0",
+        "commit": "fc3def6774c76082adf699d366f31a557ce5573f",
+        "providerSha256": "a9b4ce974ecc10c7456da9879763bf0a7a432710bd26c95a89a8a168f2aff57b",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      },
+      {
+        "os": "linux",
+        "architecture": "arm64",
+        "downloadPlatform": "linux-arm64",
+        "updateTarget": "linux-arm64",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/linux-arm64/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/code-stable-arm64-1783465268.tar.gz",
+        "version": "1.128.0",
+        "commit": "fc3def6774c76082adf699d366f31a557ce5573f",
+        "providerSha256": "6fd05e1fe7b6f6540fc7a5aee555b49b3f761ef099186b4e2fd0c22d297ef27f",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      },
+      {
+        "os": "linux",
+        "architecture": "armhf",
+        "downloadPlatform": "linux-armhf",
+        "updateTarget": "linux-armhf",
+        "exactVersionUrl": "https://update.code.visualstudio.com/1.128.0/linux-armhf/stable",
+        "resolvedArchiveUrl": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/fc3def6774c76082adf699d366f31a557ce5573f/code-stable-armhf-1783465276.tar.gz",
+        "version": "1.128.0",
+        "commit": "fc3def6774c76082adf699d366f31a557ce5573f",
+        "providerSha256": "b6244a29b26fbafbb53e0c3b64d54fa98b950e4f8cd641c1725427625f4b17bf",
+        "localArchiveSha256": null,
+        "checksumSource": "provider-x-sha256"
+      }
     ]
   }
 }

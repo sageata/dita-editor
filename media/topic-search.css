@@ -1,0 +1,282 @@
+/* Search DITA Topics view — native VS Code look only: every color comes from a
+   --vscode-* theme variable (no hardcoded palette), layout mirrors the built-in
+   Search view (input row, twisties, indented match rows, muted counts). */
+
+body.ditaeditor-topic-search {
+  margin: 0;
+  padding: 0;
+  color: var(--vscode-foreground);
+  background: transparent;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+}
+
+/* The input stack is pinned while the results scroll under it, like the
+   native Search view. Needs an opaque background or rows shine through. */
+.search-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 4px 8px 2px;
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+}
+
+.search-header-inner {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.toggle-replace {
+  flex: none;
+  width: 16px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vscode-foreground);
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.toggle-replace:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.search-inputs {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.search-row,
+.replace-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#topic-search-input,
+#topic-search-replace-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+}
+
+#topic-search-input:focus,
+#topic-search-replace-input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+#topic-search-input::placeholder,
+#topic-search-replace-input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+/* Icon-only toolbar buttons (Replace All, per-row replace). The glyphs are
+   data-URI SVG masks painted with the theme's icon color — same deliberate
+   approximation as the file icon, CSP already allows data: images. */
+.icon-button {
+  flex: none;
+  padding: 2px 3px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--vscode-icon-foreground, var(--vscode-foreground));
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.icon-mask {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-color: var(--vscode-icon-foreground, currentColor);
+  -webkit-mask: center / contain no-repeat;
+  mask: center / contain no-repeat;
+}
+
+.icon-replace {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1.5' y='8.5' width='6.5' height='6.5' rx='1'/%3E%3Cpath d='M5 6.5V5a3 3 0 0 1 3-3h2' fill='none' stroke='black' stroke-width='1.5'/%3E%3Cpath d='M9.2.2 13.4 2 9.2 3.8z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1.5' y='8.5' width='6.5' height='6.5' rx='1'/%3E%3Cpath d='M5 6.5V5a3 3 0 0 1 3-3h2' fill='none' stroke='black' stroke-width='1.5'/%3E%3Cpath d='M9.2.2 13.4 2 9.2 3.8z'/%3E%3C/svg%3E");
+}
+
+.icon-replace-all {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='7.5' width='5.5' height='5.5' rx='1'/%3E%3Crect x='8' y='10' width='5.5' height='5.5' rx='1'/%3E%3Cpath d='M4.2 5.5V4.6a2.6 2.6 0 0 1 2.6-2.6h1.7' fill='none' stroke='black' stroke-width='1.4'/%3E%3Cpath d='M8 .2 12 2 8 3.8z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='7.5' width='5.5' height='5.5' rx='1'/%3E%3Crect x='8' y='10' width='5.5' height='5.5' rx='1'/%3E%3Cpath d='M4.2 5.5V4.6a2.6 2.6 0 0 1 2.6-2.6h1.7' fill='none' stroke='black' stroke-width='1.4'/%3E%3Cpath d='M8 .2 12 2 8 3.8z'/%3E%3C/svg%3E");
+}
+
+#topic-search-case {
+  flex: none;
+  padding: 2px 5px;
+  color: var(--vscode-foreground);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+#topic-search-case:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+#topic-search-case.active {
+  background: var(--vscode-inputOption-activeBackground);
+  border-color: var(--vscode-inputOption-activeBorder);
+  color: var(--vscode-inputOption-activeForeground);
+}
+
+.status {
+  padding: 4px 2px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.results {
+  margin-top: 2px;
+  padding: 0 8px 8px;
+}
+
+.group {
+  margin-bottom: 6px;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  line-height: 22px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* File icon on each result group, native-search style. Inline data-URI SVG
+   (CSP allows img-src data: only): a green document with a fold and <>
+   marks — file-type icons are intrinsically colored in every icon theme,
+   so this green is deliberate, matching common XML/DITA file icons. */
+.file-icon {
+  flex: none;
+  width: 16px;
+  height: 22px;
+  background: center / 16px 16px no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%238BC34A' d='M4 1h5.5L13 4.5V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z'/%3E%3Cpath fill='%23689F38' d='M9.5 1L13 4.5H9.5z'/%3E%3Cpath fill='none' stroke='%23FFFFFF' stroke-width='1.1' d='M7 8.2 5.6 9.9 7 11.6M9 8.2l1.4 1.7L9 11.6'/%3E%3C/svg%3E");
+}
+
+.group-header:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.group-header:focus,
+.match-row:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.twisty {
+  flex: none;
+  width: 12px;
+  color: var(--vscode-foreground);
+}
+
+.group-label {
+  flex: none;
+}
+
+.group-path {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.group-count {
+  margin-left: auto;
+  flex: none;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  font-size: 0.9em;
+}
+
+.group.collapsed .group-matches {
+  display: none;
+}
+
+.match-row {
+  position: relative;
+  padding: 3px 6px 3px 43px;
+  line-height: 22px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.match-row:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+/* Per-row replace action: only while replace is toggled open, only on
+   hover/focus — native Search view behavior. */
+.row-action {
+  display: none;
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px;
+  align-items: center;
+  border: none;
+  border-radius: 3px;
+  background: var(--vscode-list-hoverBackground, transparent);
+  cursor: pointer;
+}
+
+body.replace-open .match-row:hover .row-action,
+body.replace-open .match-row:focus .row-action,
+body.replace-open .row-action:focus {
+  display: inline-flex;
+}
+
+.row-action:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.match-row .ctx {
+  color: var(--vscode-descriptionForeground);
+}
+
+.match-row .match {
+  background: var(--vscode-editor-findMatchHighlightBackground);
+  color: inherit;
+}
+
+.more-note {
+  display: block;
+  padding: 3px 6px 3px 43px;
+  line-height: 22px;
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}

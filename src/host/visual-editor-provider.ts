@@ -86,6 +86,7 @@ import {
   type WorkspaceVisualSettings,
 } from './workspace-files';
 import {
+  serializeAuthorStyles,
   shadeClassNameForColor,
   type AuthorStyleDefinition,
   type AuthorStyleState,
@@ -104,8 +105,12 @@ import {
 } from './native-context-routing';
 import {
   createScrollHandoffStore,
+  deliverScrollAnchor,
   type ScrollAnchor,
+  type ScrollAnchorDelivery,
 } from './scroll-handoff';
+import type { InspectorHub } from './inspector-hub';
+import type { StyleTargetState } from '../webview/inspector-view-messages';
 
 export const VIEW_TYPE = 'ditaeditor.visual';
 export { NATIVE_CONTEXT_COMMAND_PREFIX } from './native-context-routing';
@@ -127,16 +132,32 @@ export interface VisualHost {
    *  dirty flag AFTER onDidChangeTextDocument fires, so a synchronous isDirty read
    *  inside the change handler is stale. Reading next-tick sees the settled flag. */
   scheduleStatusRefresh(): void;
+  /** State fan-out for the Secondary Side Bar Styles/Properties views. */
+  inspectors: InspectorHub;
 }
 
 export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider {
   private readonly nativeContextWebviews = new Map<string, vscode.Webview>();
   private readonly scrollHandoffs = createScrollHandoffStore();
+  /** Live visual-editor panels by uri.toString(true) — one per document
+   *  (supportsMultipleEditorsPerDocument is false). */
+  private readonly visualPanels = new Map<string, vscode.WebviewPanel>();
 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly host: VisualHost,
   ) {}
+
+  /** Keybinding gate: the inspector shortcuts (Ctrl/Cmd+Alt+S / +P) apply only
+   *  while a DITA visual editor is open, so they never shadow defaults (macOS
+   *  Save All is Cmd+Alt+S) in unrelated workspaces. */
+  private syncVisualEditorContext(): void {
+    void vscode.commands.executeCommand(
+      'setContext',
+      'ditaeditor.hasVisualEditor',
+      this.visualPanels.size > 0,
+    );
+  }
 
   latestVisualAnchor(uri: vscode.Uri): ScrollAnchor | null {
     return this.scrollHandoffs.latestVisualAnchor(uri.toString(true));
@@ -144,6 +165,31 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
 
   queueVisualRestore(uri: vscode.Uri, anchor: ScrollAnchor): void {
     this.scrollHandoffs.queueVisualRestore(uri.toString(true), anchor);
+  }
+
+  /** Deliver a scroll anchor to this document's visual editor: direct post when
+   *  its panel is visible, queue-then-reveal when hidden (the reload's navready
+   *  consumes it), queue-only when no panel exists — the caller opens the editor. */
+  scrollVisualEditorTo(uri: vscode.Uri, anchor: ScrollAnchor): ScrollAnchorDelivery {
+    const key = uri.toString(true);
+    const panel = this.visualPanels.get(key) ?? null;
+    return deliverScrollAnchor(
+      panel === null
+        ? null
+        : {
+            visible: panel.visible,
+            postScrollToAnchor: (delivered) => {
+              void panel.webview.postMessage({
+                type: 'scrollToAnchor',
+                id: delivered.id,
+                highlight: delivered.highlight ?? null,
+              });
+            },
+            reveal: () => panel.reveal(panel.viewColumn, false),
+          },
+      anchor,
+      (queued) => this.scrollHandoffs.queueVisualRestore(key, queued),
+    );
   }
 
   registerNativeContextCommands(): vscode.Disposable[] {
@@ -158,6 +204,9 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
     const { webview } = webviewPanel;
     const nativeContextSession = makeNonce();
     this.nativeContextWebviews.set(nativeContextSession, webview);
+    const visualPanelKey = document.uri.toString(true);
+    this.visualPanels.set(visualPanelKey, webviewPanel);
+    this.syncVisualEditorContext();
     let folder = vscode.workspace.getWorkspaceFolder(document.uri);
     let disposed = false;
     let disposeEditorResources = (): void => {};
@@ -165,6 +214,8 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
     const earlyDispose = webviewPanel.onDidDispose(() => {
       disposed = true;
       if (this.nativeContextWebviews.get(nativeContextSession) === webview) this.nativeContextWebviews.delete(nativeContextSession);
+      if (this.visualPanels.get(visualPanelKey) === webviewPanel) this.visualPanels.delete(visualPanelKey);
+      this.syncVisualEditorContext();
       disposeEarlyTaxonomy();
       disposeEditorResources();
     });
@@ -247,9 +298,12 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
     for (const message of initialResolutionLogs) styleLog(message);
     let currentTaxonomy: TaxonomyConfig | null = null;
     const taxonomyState = createTaxonomyStateCoordinator({
+      // The canvas no longer consumes taxonomy (the Properties view does, via
+      // the inspector hub); authorization still reads currentTaxonomy directly.
       publish: (taxonomy) => {
         currentTaxonomy = taxonomy;
-        if (!disposed) void webview.postMessage({ type: 'taxonomyState', taxonomy });
+        if (disposed) return;
+        this.host.inspectors.update(visualPanelKey, { taxonomy });
       },
       log: styleLog,
     });
@@ -329,11 +383,28 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
       earlyDispose.dispose();
       return;
     }
+    const authorStyleStatus = (): AuthorStyleState['status'] => {
+      if (authorStyleInspection.kind === 'missing') return 'missing';
+      if (authorStyleInspection.kind === 'legacy-marked' || authorStyleInspection.kind === 'legacy-canonical') {
+        return 'migration-required';
+      }
+      return authorStyleInspection.kind === 'refused' ? 'refused' : 'ready';
+    };
+    const authorStylesheetHref = (): string | undefined => {
+      if (!authorStyleTarget || authorStyleInspection.kind === 'missing') return undefined;
+      return `${webview.asWebviewUri(vscode.Uri.parse(authorStyleTarget.uri)).toString()}?v=${authorStyleInspection.sourceHash}`;
+    };
+    const managedDeclarations = (): string =>
+      authorStyleInspection.kind === 'refused' || authorStyleInspection.styles.length === 0
+        ? ''
+        : serializeAuthorStyles(authorStyleInspection.styles);
     const authorStyleState = (): AuthorStyleState => ({
       styles: authorStyleInspection.styles,
-      cssText: authorStyleInspection.renderCssText,
+      cssText: managedDeclarations(),
+      status: authorStyleStatus(),
       writable: authorStyleTarget !== null && authorStyleInspection.writable,
-      cssPath: authorStyleTarget?.lexicalPath,
+      cssPath: authorStyleTarget?.configuredPath,
+      stylesheetHref: authorStylesheetHref(),
       error: authorStyleInspection.error,
       sourceHash: authorStyleInspection.sourceHash,
       targetToken: managedStyleTargetToken(authorStyleTarget),
@@ -355,7 +426,9 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         )) return;
         authorStyleTarget = target;
         authorStyleInspection = inspection;
-        void webview.postMessage({ type: 'styleState', styleState: authorStyleState() });
+        const styleState = authorStyleState();
+        void webview.postMessage({ type: 'styleState', styleState });
+        this.host.inspectors.update(visualPanelKey, { styleState });
       },
       log: styleLog,
     });
@@ -543,14 +616,14 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
       webview.html = buildCanvasHtml({
         bodyHtml: renderState.renderBody(focusId),
         contentStyleUris,
-        managedStyleCss: authorStyleInspection.renderCssText,
+        authorStyleUri: authorStylesheetHref(),
+        managedStyleCss: '',
         managedStyleConsumer: 'canvas',
         surfaceStyleUri,
         baseHref,
         cspSource: webview.cspSource,
         scriptUris,
         nonce: makeNonce(),
-        taxonomy: currentTaxonomy,
         nativeContextSession,
       });
     };
@@ -645,6 +718,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
       this.scrollHandoffs.forgetVisualAnchor(document.uri.toString(true));
       const body = renderState.renderBody(focusId);
       const renderSnapshot = renderState.snapshot();
+      const styleState = authorStyleState();
       void webview.postMessage({
         type: 'rerender',
         body,
@@ -654,16 +728,30 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         cmdMap: renderSnapshot.cmdMap,
         transformMap: renderSnapshot.transformMap,
         insertMap: renderSnapshot.insertMap,
-        docProps: renderSnapshot.docProps,
-        styleState: authorStyleState(),
+        styleState,
         structVersion, // the render cycle these ids belong to (optimistic-concurrency token)
+      });
+      this.host.inspectors.update(visualPanelKey, {
+        docProps: renderSnapshot.docProps,
+        styleState,
+        structVersion,
       });
       pushLint();
     };
 
     // Surface a concise error in the webview (a dismissible banner) so failures are
     // never silent. Details still go to the console / a native toast where apt.
-    const postError = (message: string) => void webview.postMessage({ type: 'error', message });
+    // Also echoed to the inspector views: ops originating there must fail visibly
+    // where the user is looking.
+    const postError = (message: string) => {
+      void webview.postMessage({ type: 'error', message });
+      this.host.inspectors.routeError(visualPanelKey, message);
+    };
+    // The style save controller lives in the native Styles view; its results
+    // route through the hub (requestId/session checks make strays inert).
+    const postStyleSaveResult = (message: unknown): void => {
+      this.host.inspectors.routeStyleSaveResult(message as Record<string, unknown>);
+    };
 
     // UX-7 inline lint surfacing: recompute the dita-quality findings for the
     // current text and push them keyed by element id, so the canvas can paint
@@ -936,6 +1024,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
       });
     const refuseAttributeMessage = (type: string, reason: string): void => {
       styleLog(`${type} refused: ${reason}`);
+      postError(reason);
       announce(reason);
     };
     const applyAuthorizedShade = async (
@@ -962,6 +1051,13 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         }
         className = derivedClass;
         if (!authorStyleInspection.styles.some((style) => style.className === derivedClass)) {
+          if (authorStyleInspection.kind === 'missing') {
+            const reason = 'Initialize the repository author stylesheet in the Styles view before adding shading.';
+            styleLog(reason);
+            postError(reason);
+            announce(reason);
+            return;
+          }
           if (!authorStyleTarget) {
             const reason = 'Shading needs the style CSS file, which is unavailable outside a workspace.';
             styleLog(reason);
@@ -1035,7 +1131,9 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         postError(reason);
       }
     };
-    const onMessage = webview.onDidReceiveMessage((msg: CanvasMessage) => {
+    // Named so the inspector hub can inject view-originated ops through the
+    // exact same authorized path a canvas-originated message takes.
+    const handleCanvasMessage = (msg: CanvasMessage): void => {
       const refuseStaleNativeContext = (): void => {
         this.host.debug.appendLine('native context command refused: stale or foreign render context');
         announce('That context menu action was stale. The editor has been refreshed.');
@@ -1048,6 +1146,30 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         refuseStaleNativeContext,
       );
       const runWhenNativeContextFresh = nativeContextGate.run;
+      // The canvas style bridge publishes the live selection/computed-style
+      // snapshot for the native Styles view. Cache + fan out via the hub; the
+      // real gate for any op built from it stays attribute authorization.
+      if (msg && msg.type === 'authorStylesheetLoadError') {
+        const message = `The repository author stylesheet could not be loaded in the visual editor: ${authorStyleTarget?.configuredPath ?? 'unknown path'}.`;
+        styleLog(message);
+        postError(message);
+        return;
+      }
+      if (msg && msg.type === 'styleTargetState') {
+        const snapshot = msg as unknown as Record<string, unknown>;
+        const target = snapshot.target as { ids?: unknown } | null | undefined;
+        const validTarget = target == null
+          || (typeof target === 'object' && Array.isArray(target.ids)
+            && target.ids.every((id) => typeof id === 'string'));
+        if (typeof snapshot.structVersion === 'number' && validTarget) {
+          this.host.inspectors.update(visualPanelKey, {
+            targetState: snapshot as unknown as StyleTargetState,
+          });
+        } else {
+          this.host.debug.appendLine('styleTargetState ignored: malformed snapshot');
+        }
+        return;
+      }
       if (msg && msg.type === 'scrollAnchor') {
         if (
           typeof msg.id === 'string' &&
@@ -1076,7 +1198,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
         }
         const state = styleSaveResults.state(msg.requestId);
         if (state === 'replayable') styleSaveResults.replay(msg.requestId, (message) => {
-          void webview.postMessage(message);
+          postStyleSaveResult(message);
         });
         else if (state !== 'pending') {
           const message = styleSaveResultMessage(msg.requestId, {
@@ -1087,7 +1209,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
           // delayed save message arrives afterward, begin() replays this refusal
           // instead of executing a request the restored client already abandoned.
           styleSaveResults.remember(message);
-          void webview.postMessage(message);
+          postStyleSaveResult(message);
         }
         return;
       }
@@ -1108,22 +1230,56 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
       // before the id guard since 'navready' carries no id. Not a per-keystroke message.
       if (msg && msg.type === 'navready') {
         const renderSnapshot = renderState.snapshot();
+        const styleState = authorStyleState();
         void webview.postMessage({
           type: 'navmap',
           navMap: renderSnapshot.navMap,
           cmdMap: renderSnapshot.cmdMap,
           transformMap: renderSnapshot.transformMap,
           insertMap: renderSnapshot.insertMap,
-          docProps: renderSnapshot.docProps,
-          styleState: authorStyleState(),
-          taxonomy: currentTaxonomy,
+          styleState,
           structVersion, // sync the load-cycle token so the first structural op isn't seen as stale
+        });
+        this.host.inspectors.update(visualPanelKey, {
+          docProps: renderSnapshot.docProps,
+          styleState,
+          taxonomy: currentTaxonomy,
+          structVersion,
         });
         const pendingScrollAnchor = this.scrollHandoffs.consumeVisualRestore(document.uri.toString(true));
         if (pendingScrollAnchor) {
-          void webview.postMessage({ type: 'scrollToAnchor', id: pendingScrollAnchor.id });
+          void webview.postMessage({
+            type: 'scrollToAnchor',
+            id: pendingScrollAnchor.id,
+            highlight: pendingScrollAnchor.highlight ?? null,
+          });
         }
         pushLint();
+        return;
+      }
+      if (msg && msg.type === 'initializeAuthorStylesheet') {
+        const requestedTargetToken = typeof msg.targetToken === 'string' ? msg.targetToken : '';
+        if (authorStyleInspection.kind !== 'missing') {
+          const error = 'The author stylesheet already exists or is unavailable, so it was not initialized.';
+          styleLog(error);
+          postError(error);
+          return;
+        }
+        const missingSourceHash = authorStyleInspection.sourceHash;
+        queue = queue.then(async () => {
+          if (authorStyleInspection.kind !== 'missing' || authorStyleInspection.sourceHash !== missingSourceHash) {
+            const error = 'The author stylesheet changed before initialization, so it was not overwritten.';
+            styleLog(error);
+            postError(error);
+            return;
+          }
+          const outcome = await saveManagedStyles([], missingSourceHash, requestedTargetToken);
+          if (outcome.ok) announce(`Initialized repository author stylesheet at ${authorStyleTarget?.configuredPath ?? 'the configured path'}.`);
+        }).catch((error) => {
+          const message = `The author stylesheet could not be initialized: ${String(error)}`;
+          styleLog(message);
+          postError(message);
+        });
         return;
       }
       if (msg && msg.type === 'saveStyles') {
@@ -1134,13 +1290,13 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
           styleLog(error);
           postError(error);
           if (typeof msg.requestId === 'string') {
-            void webview.postMessage(styleSaveResultMessage(msg.requestId, { ok: false, error }));
+            postStyleSaveResult(styleSaveResultMessage(msg.requestId, { ok: false, error }));
           }
           return;
         }
         const requestId = msg.requestId;
         const registration = styleSaveResults.begin(requestId, (message) => {
-          void webview.postMessage(message);
+          postStyleSaveResult(message);
         });
         if (registration !== 'started') {
           if (registration === 'duplicate' || registration === 'full') {
@@ -1149,7 +1305,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
               : 'This style save request was already completed and will not be executed again.';
             const message = styleSaveResultMessage(requestId, { ok: false, error });
             if (registration === 'full') styleSaveResults.remember(message);
-            void webview.postMessage(message);
+            postStyleSaveResult(message);
             styleLog(error);
           }
           return;
@@ -1171,7 +1327,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
               },
               post: (message) => {
                 styleSaveResults.remember(message);
-                void webview.postMessage(message);
+                postStyleSaveResult(message);
               },
             });
             if (outcome.ok && !silent) announce('Styles saved.');
@@ -1620,7 +1776,16 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
             postError('The image could not be resized. See the developer console for details.');
           });
       }
-    });
+    };
+    const onMessage = webview.onDidReceiveMessage(handleCanvasMessage);
+    const disposeInspectorRegistration = this.host.inspectors.registerDocument(
+      visualPanelKey,
+      document.uri.path.split('/').pop() ?? document.uri.path,
+      {
+        postToCanvas: (message) => void webview.postMessage(message),
+        applyViewMessage: (message) => handleCanvasMessage(message as CanvasMessage),
+      },
+    );
 
     const onChange = vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.uri.toString() !== document.uri.toString()) return;
@@ -1670,6 +1835,7 @@ export class DitaVisualEditorProvider implements vscode.CustomTextEditorProvider
       disposeTaxonomyWatcher();
       for (const subscription of styleRefreshSubscriptions) subscription.dispose();
       for (const subscription of taxonomyRefreshSubscriptions) subscription.dispose();
+      disposeInspectorRegistration();
       this.host.notifyActive(document, false);
       this.host.diagnostics.delete(document.uri);
       earlyDispose.dispose();

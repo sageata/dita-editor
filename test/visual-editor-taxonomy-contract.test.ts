@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs';
 
 const provider = readFileSync(new URL('../src/host/visual-editor-provider.ts', import.meta.url), 'utf8');
 const canvas = readFileSync(new URL('../media/canvas.js', import.meta.url), 'utf8');
-const properties = readFileSync(new URL('../media/canvas-properties.js', import.meta.url), 'utf8');
+const properties = readFileSync(new URL('../media/properties-panel.js', import.meta.url), 'utf8');
 const contextMenu = readFileSync(new URL('../media/canvas-native-context-menu.js', import.meta.url), 'utf8');
-const styles = readFileSync(new URL('../media/canvas-styles.js', import.meta.url), 'utf8');
+const styles = readFileSync(new URL('../media/styles-panel.js', import.meta.url), 'utf8');
 
 describe('visual editor taxonomy integration contract', () => {
   test('re-resolves every taxonomy event and revalidates canonical identity after reading bytes', () => {
@@ -30,13 +30,15 @@ describe('visual editor taxonomy integration contract', () => {
     expect(folders).toContain('requestWorkspaceConfigurationReload()');
   });
 
-  test('awaits taxonomy on full reload and replays current state in the ready handshake', () => {
+  test('awaits taxonomy on full reload and feeds the inspector hub for the Properties view', () => {
     const refresh = provider.indexOf('await refreshResolvedTaxonomy(resolvedTaxonomyFile);');
     expect(refresh).toBeGreaterThan(-1);
     expect(refresh).toBeLessThan(provider.indexOf('render();', refresh));
+    // The canvas no longer consumes taxonomy: the hub relays it to the native
+    // Properties view, and the ready handshake re-feeds it.
+    expect(provider).toContain('this.host.inspectors.update(visualPanelKey, { taxonomy })');
     expect(provider).toContain('taxonomy: currentTaxonomy,');
-    expect(canvas).toContain('if (msg.taxonomy !== undefined)');
-    expect(canvas).toContain('propertiesPanel.setTaxonomy(taxonomy)');
+    expect(canvas).not.toContain('taxonomy');
   });
 
   test('every browser attribute family carries the current render generation', () => {
